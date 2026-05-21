@@ -559,8 +559,9 @@ function ProjectExcelImportModal({
                             <div className="space-y-2 text-sm text-slate-700">
                                 <p className="text-[11px] font-black uppercase tracking-widest text-emerald-700">Plantilla oficial</p>
                                 <p>
-                                    La plantilla incluye la columna <strong>PROYECTO</strong> (mismo nombre en todas las filas),{' '}
-                                    <strong>TELEFONO</strong> del cliente y el resto de campos de lotes.
+                                    La columna <strong>PROYECTO</strong> va al <strong>final</strong> de la hoja (mismo nombre en todas las filas).
+                                    Los clientes se registran con <strong>NOMBRE CLIENTE</strong>, <strong>DNI CLIENTE</strong> y <strong>TELEFONO</strong>;
+                                    si el DNI ya existe en el sistema, solo se actualizan nombre y teléfono.
                                 </p>
                                 <p className="font-semibold text-slate-800">Campos obligatorios del modal</p>
                                 <p>Ubicacion y tipo de proyecto deben completarse antes de validar el Excel.</p>

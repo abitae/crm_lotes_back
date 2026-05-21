@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Inmopro;
 
+use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\Client;
+use App\Models\Inmopro\ClientType;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\ProjectType;
 use App\Models\User;
@@ -53,7 +55,6 @@ class InmoproProjectsExcelTest extends TestCase
 
         $file = $this->makeProjectsExcelFile([
             [
-                'PROYECTO',
                 'ITEM',
                 'NOMBRE CLIENTE',
                 'TELEFONO',
@@ -70,9 +71,9 @@ class InmoproProjectsExcelTest extends TestCase
                 'N° DE OPERACIÓN S.',
                 'FECHA DE CONTRATO',
                 'NRO DE CONTRATO',
+                'PROYECTO',
             ],
             [
-                'Proyecto Excel Test',
                 1,
                 'Juan Perez',
                 '999888777',
@@ -89,6 +90,7 @@ class InmoproProjectsExcelTest extends TestCase
                 '',
                 '',
                 '',
+                'Proyecto Excel Test',
             ],
         ]);
 
@@ -128,6 +130,88 @@ class InmoproProjectsExcelTest extends TestCase
         $client = Client::query()->where('dni', '11223344')->first();
         $this->assertNotNull($client);
         $this->assertSame('999888777', $client->phone);
+        $this->assertSame('PROPIO', $client->type()->value('code'));
+    }
+
+    public function test_projects_import_updates_existing_client_by_dni(): void
+    {
+        $user = User::factory()->create();
+        $projectType = ProjectType::query()->firstOrFail();
+        $this->actingAs($user);
+
+        $existingClient = Client::create([
+            'name' => 'Nombre Antiguo',
+            'dni' => '99887766',
+            'phone' => '111111111',
+            'client_type_id' => ClientType::query()->firstOrFail()->id,
+            'advisor_id' => Advisor::query()->firstOrFail()->id,
+        ]);
+
+        $file = $this->makeProjectsExcelFile([
+            [
+                'ITEM',
+                'NOMBRE CLIENTE',
+                'TELEFONO',
+                'MZ',
+                'LOTE',
+                'AREA',
+                'MONTO',
+                'ADELANTO - SEPARACION',
+                'MONTO RESTANTE',
+                'FACTURACIÓN',
+                'DNI CLIENTE',
+                'FECHA LIMITE DE PAGO',
+                'ESTADO DE LOTE',
+                'N° DE OPERACIÓN S.',
+                'FECHA DE CONTRATO',
+                'NRO DE CONTRATO',
+                'PROYECTO',
+            ],
+            [
+                1,
+                'Nombre Nuevo',
+                '222222222',
+                'B',
+                1,
+                100,
+                25000,
+                '',
+                25000,
+                '',
+                '99887766',
+                '',
+                'LIBRE',
+                '',
+                '',
+                '',
+                'Proyecto Update Cliente',
+            ],
+        ]);
+
+        $previewResponse = $this->post(route('inmopro.projects.import-preview'), [
+            'file' => $file,
+            'project_type_id' => $projectType->id,
+            'location' => 'Lima',
+        ]);
+
+        $previewResponse->assertOk()->assertJsonPath('can_import', true);
+
+        $token = $previewResponse->json('token');
+        $this->assertIsString($token);
+
+        $this->post(route('inmopro.projects.import-confirm'), [
+            'token' => $token,
+        ]);
+
+        $this->assertSame(1, Client::query()->where('dni', '99887766')->count());
+
+        $propioTypeId = ClientType::query()->where('code', 'PROPIO')->value('id');
+
+        $existingClient->refresh();
+        $this->assertSame('Nombre Nuevo', $existingClient->name);
+        $this->assertSame('222222222', $existingClient->phone);
+        $this->assertSame('99887766', $existingClient->dni);
+        $this->assertSame($propioTypeId, $existingClient->client_type_id);
     }
 
     public function test_projects_import_preview_requires_proyecto_column(): void

@@ -714,29 +714,36 @@ class ProjectsExcelImportService
             ];
         }
 
-        $client = null;
-        if ($clientDni !== null && $clientDni !== '') {
-            $client = Client::query()->where('dni', $clientDni)->first();
-        }
-        if ($client === null) {
-            $client = Client::query()->where('name', $clientName)->first();
-        }
+        $defaultClientTypeId = ClientType::query()->where('code', 'PROPIO')->value('id')
+            ?? ClientType::query()->orderBy('sort_order')->value('id');
+        $defaultAdvisorId = Advisor::query()->value('id');
 
-        if ($client) {
-            $client->update([
-                'name' => $clientName,
-                'dni' => $clientDni ?? $client->dni,
-                'phone' => $clientPhone ?? $client->phone,
-            ]);
+        if ($clientDni !== null && $clientDni !== '') {
+            $existing = Client::query()->where('dni', $clientDni)->first();
+
+            if ($existing) {
+                $existing->update([
+                    'name' => $clientName,
+                    'phone' => $clientPhone ?? $existing->phone,
+                    'client_type_id' => $defaultClientTypeId,
+                ]);
+                $client = $existing;
+            } else {
+                $client = Client::create([
+                    'name' => $clientName,
+                    'dni' => $clientDni,
+                    'phone' => $clientPhone ?: null,
+                    'client_type_id' => $defaultClientTypeId,
+                    'advisor_id' => $defaultAdvisorId,
+                ]);
+            }
         } else {
-            $defaultClientTypeId = ClientType::query()->where('code', 'PROSPECTO')->value('id')
-                ?? ClientType::query()->orderBy('sort_order')->value('id');
             $client = Client::create([
                 'name' => $clientName,
-                'dni' => $clientDni ?: null,
+                'dni' => null,
                 'phone' => $clientPhone ?: null,
                 'client_type_id' => $defaultClientTypeId,
-                'advisor_id' => Advisor::query()->value('id'),
+                'advisor_id' => $defaultAdvisorId,
             ]);
         }
 
