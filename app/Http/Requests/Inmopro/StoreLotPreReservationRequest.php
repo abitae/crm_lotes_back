@@ -17,7 +17,7 @@ class StoreLotPreReservationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'project_id' => ['required', 'exists:projects,id'],
+            'project_id' => ['required', 'exists:projects,id,is_active,1'],
             'lot_id' => ['required', 'exists:lots,id'],
             'advisor_id' => ['required', 'exists:advisors,id'],
             'client_id' => ['required', 'exists:clients,id'],

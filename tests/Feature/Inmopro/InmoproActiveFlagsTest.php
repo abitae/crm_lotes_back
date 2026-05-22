@@ -3,6 +3,8 @@
 namespace Tests\Feature\Inmopro;
 
 use App\Models\Inmopro\Advisor;
+use App\Models\Inmopro\Lot;
+use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\ProjectType;
 use App\Models\User;
@@ -128,6 +130,103 @@ class InmoproActiveFlagsTest extends TestCase
             ->assertSessionHas('success', 'Proyecto activado correctamente.');
 
         $this->assertTrue($project->fresh()->is_active);
+    }
+
+    public function test_advisor_toggle_active_flips_status(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $advisor = Advisor::query()->firstOrFail();
+        $advisor->update(['is_active' => true]);
+
+        $this->from(route('inmopro.advisors.index'))
+            ->patch(route('inmopro.advisors.toggle-active', $advisor))
+            ->assertRedirect(route('inmopro.advisors.index'))
+            ->assertSessionHas('success', 'Vendedor desactivado correctamente.');
+
+        $this->assertFalse($advisor->fresh()->is_active);
+
+        $this->from(route('inmopro.advisors.index'))
+            ->patch(route('inmopro.advisors.toggle-active', $advisor))
+            ->assertRedirect(route('inmopro.advisors.index'))
+            ->assertSessionHas('success', 'Vendedor activado correctamente.');
+
+        $this->assertTrue($advisor->fresh()->is_active);
+    }
+
+    public function test_inactive_projects_are_hidden_from_lots_financial_and_receivables(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $typeId = ProjectType::query()->value('id');
+        $reservedStatusId = LotStatus::query()->where('code', 'RESERVADO')->value('id')
+            ?? LotStatus::query()->value('id');
+
+        $activeProject = Project::query()->create([
+            'name' => 'Proyecto Activo Lotes',
+            'project_type_id' => $typeId,
+            'location' => 'Lima',
+            'total_lots' => 1,
+            'blocks' => ['A'],
+            'is_active' => true,
+        ]);
+
+        $inactiveProject = Project::query()->create([
+            'name' => 'Proyecto Inactivo Lotes',
+            'project_type_id' => $typeId,
+            'location' => 'Lima',
+            'total_lots' => 1,
+            'blocks' => ['B'],
+            'is_active' => false,
+        ]);
+
+        Lot::query()->create([
+            'project_id' => $activeProject->id,
+            'block' => 'A',
+            'number' => 1,
+            'area' => 100,
+            'price' => 100000,
+            'lot_status_id' => $reservedStatusId,
+            'contract_date' => now()->toDateString(),
+        ]);
+
+        Lot::query()->create([
+            'project_id' => $inactiveProject->id,
+            'block' => 'B',
+            'number' => 1,
+            'area' => 100,
+            'price' => 200000,
+            'lot_status_id' => $reservedStatusId,
+            'contract_date' => now()->toDateString(),
+        ]);
+
+        $assertOnlyActiveProject = fn ($page) => $page
+            ->has('projects', 1)
+            ->where('projects.0.id', $activeProject->id)
+            ->where('projects.0.name', 'Proyecto Activo Lotes');
+
+        $this->get(route('inmopro.lots.index', ['project_id' => $inactiveProject->id]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $assertOnlyActiveProject($page)
+                ->where('project.id', $activeProject->id));
+
+        $this->get(route('inmopro.financial.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $assertOnlyActiveProject($page)
+                ->has('lots.data', 1)
+                ->where('lots.data.0.project.id', $activeProject->id));
+
+        $this->get(route('inmopro.accounts-receivable.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $assertOnlyActiveProject($page)
+                ->has('lots.data', 1)
+                ->where('lots.data.0.project.id', $activeProject->id));
+
+        $this->get(route('inmopro.lot-pre-reservations.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $assertOnlyActiveProject($page));
     }
 
     public function test_advisors_index_can_filter_inactive_only(): void

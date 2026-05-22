@@ -89,6 +89,7 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::get('advisors/export-excel', [AdvisorController::class, 'exportExcel'])->name('advisors.export-excel');
         Route::post('advisors/import-preview', [AdvisorController::class, 'importPreview'])->name('advisors.import-preview');
         Route::post('advisors/import-confirm', [AdvisorController::class, 'importConfirm'])->name('advisors.import-confirm');
+        Route::patch('advisors/{advisor}/toggle-active', [AdvisorController::class, 'toggleActive'])->name('advisors.toggle-active');
         Route::put('advisors/{advisor}/cazador-access', [AdvisorController::class, 'updateCazadorAccess'])->name('advisors.cazador-access.update');
         Route::put('advisors/{advisor}/material-items', [AdvisorController::class, 'updateMaterialItems'])->name('advisors.material-items.update');
         Route::post('advisors/{advisor}/material-items', [AdvisorController::class, 'storeMaterialItem'])->name('advisors.material-items.store');

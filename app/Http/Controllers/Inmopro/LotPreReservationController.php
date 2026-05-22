@@ -24,9 +24,12 @@ class LotPreReservationController extends Controller
     {
         $preReservations = LotPreReservation::query()
             ->with(['lot.project', 'lot.status', 'client.city', 'advisor.team', 'reviewer'])
+            ->whereHas('lot.project', fn ($projectQuery) => $projectQuery->active())
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->toString()))
             ->when($request->filled('project_id'), function ($query) use ($request) {
-                $query->whereHas('lot', fn ($lotQuery) => $lotQuery->where('project_id', $request->integer('project_id')));
+                $query->whereHas('lot', fn ($lotQuery) => $lotQuery
+                    ->where('project_id', $request->integer('project_id'))
+                    ->whereHas('project', fn ($projectQuery) => $projectQuery->active()));
             })
             ->when($request->filled('advisor_id'), fn ($query) => $query->where('advisor_id', $request->integer('advisor_id')))
             ->latest()
@@ -36,10 +39,11 @@ class LotPreReservationController extends Controller
         return Inertia::render('inmopro/lot-pre-reservations/index', [
             'preReservations' => $preReservations,
             'filters' => $request->only('status', 'project_id', 'advisor_id'),
-            'projects' => Project::query()->orderBy('name')->get(['id', 'name']),
+            'projects' => Project::query()->active()->orderBy('name')->get(['id', 'name']),
             'advisors' => Advisor::query()->with('team')->orderBy('name')->get(['id', 'name', 'team_id']),
             'availableLots' => Lot::query()
                 ->with(['project', 'status'])
+                ->whereHas('project', fn ($projectQuery) => $projectQuery->active())
                 ->whereHas('status', fn ($query) => $query->where('code', LotStatus::CODE_LIBRE))
                 ->orderBy('project_id')
                 ->orderBy('block')
@@ -66,6 +70,12 @@ class LotPreReservationController extends Controller
         if ((int) $lot->project_id !== $request->integer('project_id')) {
             return back()->withErrors([
                 'lot_id' => 'El lote no pertenece al proyecto seleccionado.',
+            ]);
+        }
+
+        if (! $lot->project?->is_active) {
+            return back()->withErrors([
+                'project_id' => 'El proyecto seleccionado no está activo.',
             ]);
         }
 

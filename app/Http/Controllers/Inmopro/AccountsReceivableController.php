@@ -33,6 +33,7 @@ class AccountsReceivableController extends Controller
             'installments',
             'payments.cashAccount',
         ])
+            ->whereHas('project', fn ($projectQuery) => $projectQuery->active())
             ->when($statusLibre, fn ($builder) => $builder->where('lot_status_id', '!=', $statusLibre->id))
             ->when($statusPreReserva, fn ($builder) => $builder->where('lot_status_id', '!=', $statusPreReserva->id));
 
@@ -94,7 +95,7 @@ class AccountsReceivableController extends Controller
 
         return Inertia::render('inmopro/accounts-receivable', [
             'lots' => $lots,
-            'projects' => Project::orderBy('name')->get(),
+            'projects' => Project::query()->active()->orderBy('name')->get(),
             'cashAccounts' => CashAccount::where('is_active', true)->orderBy('name')->get(),
             'summary' => [
                 'portfolio' => (float) $lotsCollection->sum('price'),

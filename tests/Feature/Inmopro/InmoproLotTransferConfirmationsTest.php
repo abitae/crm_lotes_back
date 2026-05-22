@@ -19,6 +19,7 @@ use Database\Seeders\Inmopro\ProjectSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -57,7 +58,122 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         $this->actingAs($user)
             ->get(route('inmopro.lot-transfer-confirmations.index'))
             ->assertOk()
-            ->assertInertia(fn ($page) => $page->component('inmopro/lot-transfer-confirmations/index')->has('lots'));
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('inmopro/lot-transfer-confirmations/index')
+                ->has('lots')
+                ->has('lotStatuses', 2)
+                ->where('filters.project_id', null)
+                ->where('filters.lot_status_id', null)
+                ->where('filters.search', null)
+                ->where('filters.advisor_search', null)
+                ->where('filters.pending_review', null)
+            );
+    }
+
+    public function test_index_can_filter_by_lot_status(): void
+    {
+        $user = $this->createTransferManager();
+        $reservedLot = $this->makeReservedLot();
+        $transferredLot = $this->makeTransferredLot(exceptId: $reservedLot->id);
+        $transferredLot->update(['block' => 'STATUSFILTER']);
+
+        $this->actingAs($user)
+            ->get(route('inmopro.lot-transfer-confirmations.index', [
+                'lot_status_id' => $this->statusIds['TRANSFERIDO'],
+                'search' => 'STATUSFILTER',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('inmopro/lot-transfer-confirmations/index')
+                ->where('filters.lot_status_id', (string) $this->statusIds['TRANSFERIDO'])
+                ->where('filters.search', 'STATUSFILTER')
+                ->where('lots.total', 1)
+                ->where('lots.data.0.id', $transferredLot->id)
+            );
+
+        $this->assertNotSame($reservedLot->id, $transferredLot->id);
+    }
+
+    public function test_index_can_filter_only_pending_reviews(): void
+    {
+        $user = $this->createTransferManager();
+        $pendingLot = $this->makeTransferredLot();
+        $approvedLot = $this->makeTransferredLot(exceptId: $pendingLot->id);
+
+        $this->createTransferConfirmation($pendingLot, LotTransferConfirmation::STATUS_PENDING, $user);
+        $this->createTransferConfirmation($approvedLot, LotTransferConfirmation::STATUS_APPROVED, $user);
+
+        $this->actingAs($user)
+            ->get(route('inmopro.lot-transfer-confirmations.index', [
+                'pending_review' => '1',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('inmopro/lot-transfer-confirmations/index')
+                ->where('filters.pending_review', '1')
+                ->where('lots.total', 1)
+                ->where('lots.data.0.id', $pendingLot->id)
+                ->where('lots.data.0.latest_transfer_confirmation.status', LotTransferConfirmation::STATUS_PENDING)
+            );
+    }
+
+    public function test_index_can_search_by_advisor_name(): void
+    {
+        $user = $this->createTransferManager();
+        $advisorMatch = Advisor::query()->firstOrFail();
+        $advisorOther = Advisor::query()->whereKeyNot($advisorMatch->id)->firstOrFail();
+        $advisorMatch->update(['first_name' => 'Asesor Alpha', 'last_name' => null]);
+        $advisorOther->update(['first_name' => 'Asesor Beta', 'last_name' => null]);
+
+        $matchingLot = $this->makeReservedLot(advisor: $advisorMatch);
+        $matchingLot->update(['block' => 'ALPHAONLY']);
+        $this->makeReservedLot(exceptId: $matchingLot->id, advisor: $advisorOther);
+
+        $this->actingAs($user)
+            ->get(route('inmopro.lot-transfer-confirmations.index', [
+                'search' => 'ALPHAONLY',
+                'advisor_search' => 'Alpha',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('inmopro/lot-transfer-confirmations/index')
+                ->where('filters.search', 'ALPHAONLY')
+                ->where('filters.advisor_search', 'Alpha')
+                ->where('lots.total', 1)
+                ->where('lots.data.0.id', $matchingLot->id)
+                ->where('lots.data.0.advisor.name', 'Asesor Alpha')
+            );
+    }
+
+    public function test_index_preserves_filter_values_in_inertia_props(): void
+    {
+        $user = $this->createTransferManager();
+        $advisor = Advisor::query()->firstOrFail();
+        $advisor->update(['first_name' => 'Asesor Gamma', 'last_name' => null]);
+        $lot = $this->makeTransferredLot(advisor: $advisor);
+        $lot->update(['block' => 'GAMMAONLY']);
+        $this->createTransferConfirmation($lot, LotTransferConfirmation::STATUS_PENDING, $user);
+
+        $this->actingAs($user)
+            ->get(route('inmopro.lot-transfer-confirmations.index', [
+                'project_id' => $lot->project_id,
+                'lot_status_id' => $this->statusIds['TRANSFERIDO'],
+                'search' => 'GAMMAONLY',
+                'advisor_search' => 'Gamma',
+                'pending_review' => '1',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('inmopro/lot-transfer-confirmations/index')
+                ->has('lotStatuses', 2)
+                ->where('filters.project_id', (string) $lot->project_id)
+                ->where('filters.lot_status_id', (string) $this->statusIds['TRANSFERIDO'])
+                ->where('filters.search', 'GAMMAONLY')
+                ->where('filters.advisor_search', 'Gamma')
+                ->where('filters.pending_review', '1')
+                ->where('lots.total', 1)
+                ->where('lots.data.0.id', $lot->id)
+            );
     }
 
     public function test_authorized_user_can_register_transfer_for_reserved_lot(): void
@@ -179,11 +295,13 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         return $user;
     }
 
-    private function makeReservedLot(): Lot
+    private function makeReservedLot(?int $exceptId = null, ?Advisor $advisor = null): Lot
     {
-        $lot = Lot::query()->firstOrFail();
+        $lot = Lot::query()
+            ->when($exceptId !== null, fn ($query) => $query->whereKeyNot($exceptId))
+            ->firstOrFail();
         $client = Client::query()->firstOrFail();
-        $advisor = Advisor::query()->firstOrFail();
+        $advisor ??= Advisor::query()->firstOrFail();
 
         $lot->update([
             'lot_status_id' => $this->statusIds['RESERVADO'],
@@ -196,5 +314,30 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         ]);
 
         return $lot->fresh();
+    }
+
+    private function makeTransferredLot(?int $exceptId = null, ?Advisor $advisor = null): Lot
+    {
+        $lot = $this->makeReservedLot($exceptId, $advisor);
+
+        $lot->update([
+            'lot_status_id' => $this->statusIds['TRANSFERIDO'],
+        ]);
+
+        return $lot->fresh();
+    }
+
+    private function createTransferConfirmation(Lot $lot, string $status, User $user): LotTransferConfirmation
+    {
+        return LotTransferConfirmation::create([
+            'lot_id' => $lot->id,
+            'status' => $status,
+            'evidence_path' => 'inmopro/lot-transfer-confirmations/test.png',
+            'requested_by' => $user->id,
+            'reviewed_by' => $status === LotTransferConfirmation::STATUS_PENDING ? null : $user->id,
+            'reviewed_at' => $status === LotTransferConfirmation::STATUS_PENDING ? null : now(),
+            'review_notes' => $status === LotTransferConfirmation::STATUS_APPROVED ? 'Validado' : null,
+            'rejection_reason' => $status === LotTransferConfirmation::STATUS_REJECTED ? 'Observado' : null,
+        ]);
     }
 }

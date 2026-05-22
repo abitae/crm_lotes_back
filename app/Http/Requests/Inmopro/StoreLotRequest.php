@@ -20,7 +20,7 @@ class StoreLotRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'project_id' => ['required', 'exists:projects,id'],
+            'project_id' => ['required', 'exists:projects,id,is_active,1'],
             'block' => ['required', 'string', 'max:10'],
             'number' => ['required', 'integer', 'min:1'],
             'area' => ['nullable', 'numeric', 'min:0'],

@@ -24,6 +24,29 @@ export async function confirmToggleProjectActive(projectName: string, activating
 }
 
 /**
+ * Confirma activar o desactivar un vendedor desde el listado.
+ */
+export async function confirmToggleAdvisorActive(advisorName: string, activating: boolean): Promise<boolean> {
+    const result = await Swal.fire({
+        title: activating ? '¿Activar vendedor?' : '¿Desactivar vendedor?',
+        html: `<p style="margin:0;text-align:left;font-size:0.95rem;line-height:1.5;color:#475569">
+            ${activating
+                ? `El vendedor <strong>${escapeHtml(advisorName)}</strong> volverá a aparecer en listados y podrá iniciar sesión en la app Cazador (si tiene acceso configurado).`
+                : `El vendedor <strong>${escapeHtml(advisorName)}</strong> dejará de aparecer en listados activos y no podrá iniciar sesión en Cazador. Sus lotes y membresías se conservan.`}
+        </p>`,
+        icon: 'question',
+        showCancelButton: true,
+        focusCancel: true,
+        confirmButtonColor: activating ? '#059669' : '#d97706',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: activating ? 'Sí, activar' : 'Sí, desactivar',
+        cancelButtonText: 'Cancelar',
+    });
+
+    return result.isConfirmed;
+}
+
+/**
  * Muestra un cuadro de confirmación para eliminar. Retorna true si el usuario confirma.
  */
 export async function confirmDelete(title: string, text?: string): Promise<boolean> {

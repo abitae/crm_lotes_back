@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Check, Eye, ImagePlus, Search, Upload, X } from 'lucide-react';
-import type { ChangeEvent, FormEvent } from 'react';
+import type { ChangeEvent, CSSProperties, FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import InputError from '@/components/input-error';
 import Pagination, { type PaginationLink } from '@/components/pagination';
@@ -20,6 +20,7 @@ import { showSuccessToast } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
 
 type Project = { id: number; name: string };
+type LotStatusOption = { id: number; name: string; code: string; color?: string | null };
 type TransferConfirmation = {
     id: number;
     status: string;
@@ -35,21 +36,34 @@ type LotRow = {
     id: number;
     block: string;
     number: number;
-    status?: { name: string; code: string } | null;
+    status?: { name: string; code: string; color?: string | null } | null;
     project?: { name: string } | null;
     client?: { name: string; dni?: string | null; phone?: string | null } | null;
     advisor?: { name: string } | null;
     latest_transfer_confirmation?: TransferConfirmation;
 };
 
+function lotStatusBadgeStyle(color?: string | null): CSSProperties | undefined {
+    if (!color) {
+        return undefined;
+    }
+
+    return {
+        backgroundColor: color,
+        color: '#ffffff',
+    };
+}
+
 export default function LotTransferConfirmationsIndex({
     lots,
     filters,
     projects,
+    lotStatuses,
 }: {
-    lots: { data: LotRow[]; links: PaginationLink[] };
-    filters: { project_id?: string; search?: string };
+    lots: { data: LotRow[]; links: PaginationLink[]; total: number };
+    filters: { project_id?: string; lot_status_id?: string; search?: string; advisor_search?: string; pending_review?: string };
     projects: Project[];
+    lotStatuses: LotStatusOption[];
 }) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
@@ -79,7 +93,10 @@ export default function LotTransferConfirmationsIndex({
 
         router.get('/inmopro/lot-transfer-confirmations', {
             project_id: (formData.get('project_id') as string) || undefined,
+            lot_status_id: (formData.get('lot_status_id') as string) || undefined,
             search: (formData.get('search') as string) || undefined,
+            advisor_search: (formData.get('advisor_search') as string) || undefined,
+            pending_review: formData.get('pending_review') ? '1' : undefined,
         }, { preserveState: true });
     };
 
@@ -192,8 +209,8 @@ export default function LotTransferConfirmationsIndex({
 
                 <div className="grid gap-4 md:grid-cols-3">
                     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Lotes visibles</p>
-                        <p className="mt-3 text-3xl font-black text-slate-900">{lots.data.length}</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Lotes totales</p>
+                        <p className="mt-3 text-3xl font-black text-slate-900">{lots.total}</p>
                     </div>
                     <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
                         <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">Pendientes de revision</p>
@@ -209,7 +226,7 @@ export default function LotTransferConfirmationsIndex({
                     </div>
                 </div>
 
-                <form onSubmit={submitFilters} className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-[240px_1fr_160px]">
+                <form onSubmit={submitFilters} className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-2 xl:grid-cols-[220px_220px_1fr_1fr_180px_160px]">
                     <select
                         name="project_id"
                         defaultValue={filters.project_id}
@@ -222,6 +239,18 @@ export default function LotTransferConfirmationsIndex({
                             </option>
                         ))}
                     </select>
+                    <select
+                        name="lot_status_id"
+                        defaultValue={filters.lot_status_id}
+                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none"
+                    >
+                        <option value="">Todos los estados</option>
+                        {lotStatuses.map((status) => (
+                            <option key={status.id} value={status.id}>
+                                {status.name}
+                            </option>
+                        ))}
+                    </select>
                     <div className="relative">
                         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                         <Input
@@ -231,6 +260,22 @@ export default function LotTransferConfirmationsIndex({
                             className="bg-slate-50 pl-10"
                         />
                     </div>
+                    <Input
+                        name="advisor_search"
+                        defaultValue={filters.advisor_search}
+                        placeholder="Buscar por asesor"
+                        className="bg-slate-50"
+                    />
+                    <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700">
+                        <input
+                            type="checkbox"
+                            name="pending_review"
+                            value="1"
+                            defaultChecked={filters.pending_review === '1'}
+                            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        Solo pendientes de revision
+                    </label>
                     <Button type="submit">Filtrar</Button>
                 </form>
 
@@ -281,7 +326,10 @@ export default function LotTransferConfirmationsIndex({
                                                     {lot.advisor?.name ?? '—'}
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                                                    <span
+                                                        className={`rounded-full px-2.5 py-1 text-xs font-bold ${lot.status?.color ? '' : 'bg-slate-100 text-slate-700'}`}
+                                                        style={lotStatusBadgeStyle(lot.status?.color)}
+                                                    >
                                                         {lot.status?.name ?? '—'}
                                                     </span>
                                                 </td>

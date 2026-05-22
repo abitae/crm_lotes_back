@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { CalendarDays, Cake, Download, FileSpreadsheet, KeyRound, Package, Pencil, Receipt, Search, TimerReset, Upload, UserPlus } from 'lucide-react';
+import { CalendarDays, Cake, Download, FileSpreadsheet, KeyRound, Package, Pencil, Power, PowerOff, Receipt, Search, TimerReset, Upload, UserPlus } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import InputError from '@/components/input-error';
@@ -26,7 +26,7 @@ import {
     toIsoDate,
 } from '@/lib/date';
 import { advisorsListingQuerySuffix } from '@/lib/inmopro-listing-query';
-import { confirmDelete } from '@/lib/swal';
+import { confirmDelete, confirmToggleAdvisorActive } from '@/lib/swal';
 import { cn } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
@@ -359,6 +359,14 @@ export default function AdvisorsIndex({
 
     const navigateAdvisorsWithPatch = (patch: Record<string, string | null>) => {
         router.get('/inmopro/advisors', mergeWindowSearchWithPatch(patch), { preserveState: true });
+    };
+
+    const handleToggleActive = async (adv: Advisor) => {
+        const activating = !adv.is_active;
+        if (!(await confirmToggleAdvisorActive(adv.name, activating))) {
+            return;
+        }
+        router.patch(`/inmopro/advisors/${adv.id}/toggle-active`, {}, { preserveState: true, preserveScroll: true });
     };
 
     const advisorCriteriaFiltersFormKey = useMemo(
@@ -844,6 +852,20 @@ export default function AdvisorsIndex({
                                                 title="Material corporativo"
                                             >
                                                 <Package className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className={cn(
+                                                    'h-8 w-8',
+                                                    adv.is_active
+                                                        ? 'text-amber-600 hover:bg-amber-50 hover:text-amber-700'
+                                                        : 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700',
+                                                )}
+                                                onClick={() => handleToggleActive(adv)}
+                                                title={adv.is_active ? 'Desactivar' : 'Activar'}
+                                            >
+                                                {adv.is_active ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
                                             </Button>
                                             <Button
                                                 variant="ghost"

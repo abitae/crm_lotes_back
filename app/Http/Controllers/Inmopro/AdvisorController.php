@@ -426,6 +426,18 @@ class AdvisorController extends Controller
         ]));
     }
 
+    public function toggleActive(Advisor $advisor): RedirectResponse
+    {
+        $activating = ! $advisor->is_active;
+        $advisor->update(['is_active' => $activating]);
+
+        $message = $activating
+            ? 'Vendedor activado correctamente.'
+            : 'Vendedor desactivado correctamente.';
+
+        return back()->with('success', $message);
+    }
+
     public function update(UpdateAdvisorRequest $request, Advisor $advisor, AdvisorProfileService $profileService): RedirectResponse
     {
         $validated = $request->validated();

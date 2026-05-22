@@ -26,11 +26,11 @@ class LotController extends Controller
     public function index(Request $request): Response
     {
         $projectId = $request->query('project_id');
-        $project = $projectId ? Project::find($projectId) : Project::orderBy('name')->first();
+        $project = $this->resolveActiveProject($projectId ? (int) $projectId : null);
 
         if (! $project) {
             return Inertia::render('inmopro/inventory', [
-                'projects' => Project::orderBy('name')->get(),
+                'projects' => $this->activeProjects()->get(),
                 'project' => null,
                 'lots' => [],
                 'lotStatuses' => LotStatus::orderBy('sort_order')->get(),
@@ -45,7 +45,7 @@ class LotController extends Controller
             ->orderBy('number')
             ->get();
 
-        $projects = Project::orderBy('name')->get();
+        $projects = $this->activeProjects()->get();
         $lotStatuses = LotStatus::orderBy('sort_order')->get();
         $clients = Client::orderBy('name')->get(['id', 'name', 'dni', 'phone', 'email']);
         $advisors = Advisor::with('level')->orderBy('name')->get();
@@ -118,11 +118,11 @@ class LotController extends Controller
     public function create(Request $request): Response
     {
         $projectId = $request->query('project_id');
-        $project = $projectId ? Project::find($projectId) : null;
+        $project = $projectId ? $this->resolveActiveProject((int) $projectId) : null;
         $lotStatuses = LotStatus::orderBy('sort_order')->get();
         $clients = Client::orderBy('name')->get(['id', 'name', 'dni', 'phone', 'email']);
         $advisors = Advisor::with('level')->orderBy('name')->get();
-        $projects = Project::orderBy('name')->get();
+        $projects = $this->activeProjects()->get();
 
         return Inertia::render('inmopro/lots/create', [
             'projects' => $projects,
@@ -145,7 +145,7 @@ class LotController extends Controller
     public function exportPdf(Request $request): HttpResponse
     {
         $projectId = $request->query('project_id');
-        $project = $projectId ? Project::find($projectId) : Project::orderBy('name')->first();
+        $project = $this->resolveActiveProject($projectId ? (int) $projectId : null);
         if (! $project) {
             abort(404, 'Proyecto no encontrado');
         }
@@ -206,7 +206,7 @@ class LotController extends Controller
         $lotStatuses = LotStatus::orderBy('sort_order')->get();
         $clients = Client::orderBy('name')->get(['id', 'name', 'dni', 'phone', 'email']);
         $advisors = Advisor::with('level')->orderBy('name')->get();
-        $projects = Project::orderBy('name')->get();
+        $projects = $this->activeProjects()->get();
 
         return Inertia::render('inmopro/lots/edit', [
             'lot' => $lot,
@@ -223,6 +223,26 @@ class LotController extends Controller
         $lot->delete();
 
         return redirect()->route('inmopro.lots.index', ['project_id' => $projectId]);
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Builder<Project>
+     */
+    private function activeProjects()
+    {
+        return Project::query()->active()->orderBy('name');
+    }
+
+    private function resolveActiveProject(?int $projectId): ?Project
+    {
+        if ($projectId) {
+            $project = $this->activeProjects()->whereKey($projectId)->first();
+            if ($project) {
+                return $project;
+            }
+        }
+
+        return $this->activeProjects()->first();
     }
 
     /**

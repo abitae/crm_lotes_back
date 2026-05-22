@@ -17,6 +17,7 @@ class FinancialController extends Controller
         $statusLibre = LotStatus::where('code', 'LIBRE')->first();
         $statusPreReserva = LotStatus::where('code', 'PRERESERVA')->first();
         $query = Lot::with(['project', 'client', 'status'])
+            ->whereHas('project', fn ($projectQuery) => $projectQuery->active())
             ->when($statusLibre, fn ($q) => $q->where('lot_status_id', '!=', $statusLibre->id))
             ->when($statusPreReserva, fn ($q) => $q->where('lot_status_id', '!=', $statusPreReserva->id));
 
@@ -47,7 +48,7 @@ class FinancialController extends Controller
             ->orderByDesc('updated_at')
             ->paginate(20)
             ->withQueryString();
-        $projects = Project::orderBy('name')->get();
+        $projects = Project::query()->active()->orderBy('name')->get();
 
         return Inertia::render('inmopro/financial', [
             'lots' => $lots,
