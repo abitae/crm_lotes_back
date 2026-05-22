@@ -32,6 +32,11 @@ type Payment = {
     payment_method: string;
     cash_account?: { name: string } | null;
 };
+type LotStatus = {
+    name: string;
+    code: string;
+    color?: string | null;
+} | null;
 type LotItem = {
     id: number;
     block: string;
@@ -42,6 +47,7 @@ type LotItem = {
     overdue_installments: number;
     project?: { name: string } | null;
     client?: { name: string } | null;
+    status?: LotStatus;
     installments: Installment[];
     payments: Payment[];
 };
@@ -139,6 +145,7 @@ export default function AccountsReceivable({
                                     <th className="px-6 py-3 font-bold text-slate-500">Lote</th>
                                     <th className="px-6 py-3 font-bold text-slate-500">Proyecto</th>
                                     <th className="px-6 py-3 font-bold text-slate-500">Cliente</th>
+                                    <th className="px-6 py-3 font-bold text-slate-500">Estado lote</th>
                                     <th className="px-6 py-3 font-bold text-slate-500">Precio</th>
                                     <th className="px-6 py-3 font-bold text-slate-500">Cobrado</th>
                                     <th className="px-6 py-3 font-bold text-slate-500">Saldo</th>
@@ -158,6 +165,14 @@ export default function AccountsReceivable({
                                         </td>
                                         <td className="px-6 py-4 text-slate-600">
                                             {lot.client?.name ?? 'Sin cliente'}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span
+                                                className={`rounded-full px-2.5 py-1 text-xs font-bold ${lot.status?.color ? 'text-white' : 'bg-slate-100 text-slate-700'}`}
+                                                style={lot.status?.color ? { backgroundColor: lot.status.color } : undefined}
+                                            >
+                                                {lot.status?.name ?? 'Sin estado'}
+                                            </span>
                                         </td>
                                         <td className="px-6 py-4 font-semibold text-slate-800">
                                             S/ {Number(lot.price).toLocaleString()}

@@ -145,7 +145,7 @@ function NavSectionGroup({
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <CollapsibleTrigger asChild>
-                            <SidebarMenuButton tooltip={{ children: section.label }} className="font-semibold text-slate-700">
+                            <SidebarMenuButton tooltip={{ children: section.label }} className="font-semibold text-sidebar-foreground">
                                 <section.icon />
                                 <span>{section.label}</span>
                                 <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
