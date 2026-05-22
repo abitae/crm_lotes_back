@@ -46,6 +46,42 @@ class ProjectsExcelImportService
     ];
 
     /**
+     * @var array<string, string>
+     */
+    private const FIELD_LABELS = [
+        'header' => 'Encabezados de la plantilla',
+        'project_name' => 'PROYECTO',
+        'item' => 'ITEM',
+        'client_name' => 'NOMBRE CLIENTE',
+        'client_phone' => 'TELEFONO',
+        'client_dni' => 'DNI CLIENTE',
+        'block' => 'MZ',
+        'number' => 'LOTE',
+        'area' => 'AREA',
+        'price' => 'MONTO',
+        'advance' => 'ADELANTO - SEPARACION',
+        'remaining_balance' => 'MONTO RESTANTE',
+        'billing' => 'FACTURACION',
+        'payment_limit_date' => 'FECHA LIMITE DE PAGO',
+        'lot_status' => 'ESTADO DE LOTE',
+        'operation_number' => 'N DE OPERACION S.',
+        'contract_date' => 'FECHA DE CONTRATO',
+        'contract_number' => 'NRO DE CONTRATO',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    private const REQUIRED_HEADER_LABELS = [
+        'project_name' => 'PROYECTO',
+        'block' => 'MZ',
+        'number' => 'LOTE',
+        'area' => 'AREA',
+        'price' => 'MONTO',
+        'lot_status' => 'ESTADO DE LOTE',
+    ];
+
+    /**
      * @return array{
      *     project: array{
      *         sheet_name: string,
@@ -58,7 +94,10 @@ class ProjectsExcelImportService
      *     },
      *     summary: array{rows_read: int, valid: int, invalid: int},
      *     rows: list<array<string, mixed>>,
-     *     errors: list<array{excel_row: int, field: string, message: string}>,
+     *     errors: list<array{excel_row: int, field: string, field_label: string, message: string, received_value: string|null}>,
+     *     error_summary: array{total: int, by_field: array<string, int>, affected_rows: int},
+     *     validation: array{required_columns: list<string>, missing_columns: list<string>, recognized_columns: list<string>, valid_lot_statuses: list<string>},
+     *     import_blocked_reason: string|null,
      *     token: string|null,
      *     can_import: bool
      * }
@@ -71,7 +110,17 @@ class ProjectsExcelImportService
 
         $missingHeaders = $this->missingRequiredHeaders($headerMap);
         if ($missingHeaders !== []) {
-            return [
+            $headerErrors = array_map(
+                fn (string $header): array => $this->makeRowError(
+                    1,
+                    'header',
+                    'Falta la columna obligatoria en la fila 1 (encabezados). Descargue la plantilla oficial y verifique el nombre exacto de la columna.',
+                    $header
+                ),
+                $missingHeaders
+            );
+
+            return $this->finalizePreviewResponse([
                 'project' => [
                     'sheet_name' => $sheetName,
                     'name' => trim((string) $nameOverride) !== '' ? trim((string) $nameOverride) : '',
@@ -87,17 +136,10 @@ class ProjectsExcelImportService
                     'invalid' => 0,
                 ],
                 'rows' => [],
-                'errors' => array_map(
-                    fn (string $header): array => [
-                        'excel_row' => 1,
-                        'field' => 'header',
-                        'message' => 'Falta la columna obligatoria: '.$header,
-                    ],
-                    $missingHeaders
-                ),
+                'errors' => $headerErrors,
                 'token' => null,
                 'can_import' => false,
-            ];
+            ], $headerMap, $missingHeaders);
         }
 
         $rows = [];
@@ -123,7 +165,16 @@ class ProjectsExcelImportService
                 if ($detectedProjectName === null) {
                     $detectedProjectName = $projectNameInRow;
                 } elseif ($detectedProjectName !== $projectNameInRow) {
-                    $rowErrors[] = ['field' => 'project_name', 'message' => 'La columna PROYECTO debe tener el mismo nombre en todas las filas.'];
+                    $rowErrors[] = $this->makeRowError(
+                        $excelRow,
+                        'project_name',
+                        sprintf(
+                            'La columna PROYECTO debe repetir el mismo nombre en todas las filas. Se detecto "%s" pero el proyecto ya definido es "%s".',
+                            $projectNameInRow,
+                            $detectedProjectName
+                        ),
+                        $projectNameInRow
+                    );
                 }
             }
 
@@ -141,30 +192,77 @@ class ProjectsExcelImportService
             $operationNumber = $this->cellStringByField($cells, $headerMap, 'operation_number');
             $contractNumber = $this->cellStringByField($cells, $headerMap, 'contract_number');
             $item = $this->cellStringByField($cells, $headerMap, 'item');
-            $statusCode = $this->normalizeStatusCode($this->cellStringByField($cells, $headerMap, 'lot_status'));
+            $statusRaw = $this->cellStringByField($cells, $headerMap, 'lot_status');
+            $statusCode = $this->normalizeStatusCode($statusRaw);
 
             if ($block === null) {
-                $rowErrors[] = ['field' => 'block', 'message' => 'La manzana (MZ) es obligatoria.'];
+                $rowErrors[] = $this->makeRowError(
+                    $excelRow,
+                    'block',
+                    $this->fieldHasValue($cells, $headerMap, 'block')
+                        ? 'La manzana (MZ) no es valida.'
+                        : 'La manzana (MZ) es obligatoria.',
+                    $this->cellRawByField($cells, $headerMap, 'block')
+                );
             }
             if ($number === null) {
-                $rowErrors[] = ['field' => 'number', 'message' => 'El numero de lote es obligatorio.'];
+                $rowErrors[] = $this->makeRowError(
+                    $excelRow,
+                    'number',
+                    $this->fieldHasValue($cells, $headerMap, 'number')
+                        ? 'El numero de lote debe ser un valor numerico entero.'
+                        : 'El numero de lote es obligatorio.',
+                    $this->cellRawByField($cells, $headerMap, 'number')
+                );
             }
             if ($area === null) {
-                $rowErrors[] = ['field' => 'area', 'message' => 'El area debe ser numerica.'];
+                $rowErrors[] = $this->makeRowError(
+                    $excelRow,
+                    'area',
+                    $this->fieldHasValue($cells, $headerMap, 'area')
+                        ? 'El area debe ser un numero (use punto como separador decimal).'
+                        : 'El area es obligatoria.',
+                    $this->cellRawByField($cells, $headerMap, 'area')
+                );
             }
             if ($price === null) {
-                $rowErrors[] = ['field' => 'price', 'message' => 'El monto debe ser numerico.'];
+                $rowErrors[] = $this->makeRowError(
+                    $excelRow,
+                    'price',
+                    $this->fieldHasValue($cells, $headerMap, 'price')
+                        ? 'El monto debe ser un numero (use punto como separador decimal).'
+                        : 'El monto es obligatorio.',
+                    $this->cellRawByField($cells, $headerMap, 'price')
+                );
             }
             if ($this->fieldHasValue($cells, $headerMap, 'payment_limit_date') && $paymentLimitDate === null) {
-                $rowErrors[] = ['field' => 'payment_limit_date', 'message' => 'La fecha limite de pago no es valida.'];
+                $rowErrors[] = $this->makeRowError(
+                    $excelRow,
+                    'payment_limit_date',
+                    'La fecha limite de pago no es valida. Use formato dd/mm/aaaa.',
+                    $this->cellRawByField($cells, $headerMap, 'payment_limit_date')
+                );
             }
             if ($this->fieldHasValue($cells, $headerMap, 'contract_date') && $contractDate === null) {
-                $rowErrors[] = ['field' => 'contract_date', 'message' => 'La fecha de contrato no es valida.'];
+                $rowErrors[] = $this->makeRowError(
+                    $excelRow,
+                    'contract_date',
+                    'La fecha de contrato no es valida. Use formato dd/mm/aaaa.',
+                    $this->cellRawByField($cells, $headerMap, 'contract_date')
+                );
             }
 
             $lotStatusId = $this->resolveLotStatusId($statusCode);
             if ($lotStatusId === null) {
-                $rowErrors[] = ['field' => 'lot_status', 'message' => 'El estado de lote no es reconocido.'];
+                $rowErrors[] = $this->makeRowError(
+                    $excelRow,
+                    'lot_status',
+                    sprintf(
+                        'Estado de lote no reconocido. Valores permitidos: %s.',
+                        implode(', ', $this->validLotStatusCodes())
+                    ),
+                    $statusRaw
+                );
             }
 
             if ($statusCode === LotStatus::CODE_TRANSFERIDO) {
@@ -174,9 +272,18 @@ class ProjectsExcelImportService
             if ($block !== null && $number !== null) {
                 $lotKey = mb_strtoupper(trim($block)).'-'.$number;
                 if (isset($seenLots[$lotKey])) {
-                    $rowErrors[] = ['field' => 'number', 'message' => 'El lote esta duplicado dentro del archivo.'];
+                    $rowErrors[] = $this->makeRowError(
+                        $excelRow,
+                        'number',
+                        sprintf(
+                            'El lote %s esta duplicado en el archivo (primera aparicion en la fila %d).',
+                            $lotKey,
+                            $seenLots[$lotKey]
+                        ),
+                        (string) $number
+                    );
                 } else {
-                    $seenLots[$lotKey] = true;
+                    $seenLots[$lotKey] = $excelRow;
                 }
             }
 
@@ -185,11 +292,7 @@ class ProjectsExcelImportService
             }
 
             foreach ($rowErrors as $rowError) {
-                $errors[] = [
-                    'excel_row' => $excelRow,
-                    'field' => $rowError['field'],
-                    'message' => $rowError['message'],
-                ];
+                $errors[] = $rowError;
             }
 
             $rows[] = [
@@ -203,7 +306,8 @@ class ProjectsExcelImportService
                 'client_phone' => $clientPhone,
                 'client_dni' => $clientDni,
                 'status' => $statusCode,
-                'errors' => array_map(fn (array $error): string => $error['message'], $rowErrors),
+                'errors' => array_map(fn (array $error): string => $this->formatRowErrorForDisplay($error), $rowErrors),
+                'field_errors' => $rowErrors,
             ];
 
             if ($rowErrors === []) {
@@ -231,11 +335,21 @@ class ProjectsExcelImportService
             : ($detectedProjectName ?? '');
 
         if ($projectName === '') {
-            $errors[] = [
-                'excel_row' => 1,
-                'field' => 'project_name',
-                'message' => 'No se pudo detectar el nombre del proyecto desde la columna PROYECTO.',
-            ];
+            $errors[] = $this->makeRowError(
+                1,
+                'project_name',
+                'No se detecto el nombre del proyecto. Complete la columna PROYECTO en al menos una fila de datos o indique el nombre en el formulario.',
+                null
+            );
+        }
+
+        if ($rowsRead === 0) {
+            $errors[] = $this->makeRowError(
+                1,
+                'header',
+                'El archivo no contiene filas de datos. Agregue al menos un lote debajo de la fila de encabezados.',
+                null
+            );
         }
 
         $validCount = count($validLots);
@@ -277,7 +391,7 @@ class ProjectsExcelImportService
             );
         }
 
-        return [
+        return $this->finalizePreviewResponse([
             'project' => [
                 'sheet_name' => $sheetName,
                 'name' => $projectName,
@@ -296,7 +410,7 @@ class ProjectsExcelImportService
             'errors' => $errors,
             'token' => $token,
             'can_import' => $canImport,
-        ];
+        ], $headerMap);
     }
 
     public function confirm(string $token, User $user): Project
@@ -401,23 +515,189 @@ class ProjectsExcelImportService
      */
     private function missingRequiredHeaders(array $headerMap): array
     {
-        $required = [
-            'project_name' => 'PROYECTO',
-            'block' => 'MZ',
-            'number' => 'LOTE',
-            'area' => 'AREA',
-            'price' => 'MONTO',
-            'lot_status' => 'ESTADO DE LOTE',
-        ];
-
         $missing = [];
-        foreach ($required as $field => $label) {
+        foreach (self::REQUIRED_HEADER_LABELS as $field => $label) {
             if (! array_key_exists($field, $headerMap)) {
                 $missing[] = $label;
             }
         }
 
         return $missing;
+    }
+
+    /**
+     * @return array{excel_row: int, field: string, field_label: string, message: string, received_value: string|null}
+     */
+    private function makeRowError(int $excelRow, string $field, string $message, ?string $receivedValue = null): array
+    {
+        return [
+            'excel_row' => $excelRow,
+            'field' => $field,
+            'field_label' => self::FIELD_LABELS[$field] ?? $field,
+            'message' => $message,
+            'received_value' => $receivedValue !== null && trim($receivedValue) !== '' ? trim($receivedValue) : null,
+        ];
+    }
+
+    /**
+     * @param  array{excel_row: int, field: string, field_label: string, message: string, received_value: string|null}  $error
+     */
+    private function formatRowErrorForDisplay(array $error): string
+    {
+        $label = $error['field_label'];
+        $message = $error['message'];
+
+        if ($error['received_value'] !== null) {
+            return "[{$label}] {$message} Valor en celda: \"{$error['received_value']}\".";
+        }
+
+        return "[{$label}] {$message}";
+    }
+
+    /**
+     * @param  array<string, int>  $headerMap
+     * @return list<string>
+     */
+    private function recognizedColumnLabels(array $headerMap): array
+    {
+        $labels = [];
+        foreach ($headerMap as $field => $index) {
+            unset($index);
+            $labels[] = self::FIELD_LABELS[$field] ?? $field;
+        }
+
+        sort($labels);
+
+        return array_values(array_unique($labels));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function validLotStatusCodes(): array
+    {
+        return LotStatus::query()
+            ->orderBy('sort_order')
+            ->pluck('code')
+            ->map(fn (mixed $code): string => mb_strtoupper((string) $code))
+            ->all();
+    }
+
+    /**
+     * @param  array<int, mixed>  $cells
+     * @param  array<string, int>  $headerMap
+     */
+    private function cellRawByField(array $cells, array $headerMap, string $field): ?string
+    {
+        if (! isset($headerMap[$field])) {
+            return null;
+        }
+
+        $index = $headerMap[$field];
+        if (! array_key_exists($index, $cells)) {
+            return null;
+        }
+
+        $value = $cells[$index];
+        if ($value === null) {
+            return null;
+        }
+
+        $text = trim((string) $value);
+
+        return $text === '' ? null : $text;
+    }
+
+    /**
+     * @param  list<array{excel_row: int, field: string, field_label: string, message: string, received_value: string|null}>  $errors
+     * @return array{total: int, by_field: array<string, int>, affected_rows: int}
+     */
+    private function buildErrorSummary(array $errors): array
+    {
+        $byField = [];
+        $rows = [];
+
+        foreach ($errors as $error) {
+            $label = $error['field_label'];
+            $byField[$label] = ($byField[$label] ?? 0) + 1;
+            $rows[$error['excel_row']] = true;
+        }
+
+        arsort($byField);
+
+        return [
+            'total' => count($errors),
+            'by_field' => $byField,
+            'affected_rows' => count($rows),
+        ];
+    }
+
+    /**
+     * @param  array<string, int>  $headerMap
+     * @param  list<string>  $missingColumns
+     * @return array{required_columns: list<string>, missing_columns: list<string>, recognized_columns: list<string>, valid_lot_statuses: list<string>}
+     */
+    private function buildValidationMeta(array $headerMap, array $missingColumns = []): array
+    {
+        return [
+            'required_columns' => array_values(self::REQUIRED_HEADER_LABELS),
+            'missing_columns' => $missingColumns,
+            'recognized_columns' => $this->recognizedColumnLabels($headerMap),
+            'valid_lot_statuses' => $this->validLotStatusCodes(),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, int>  $headerMap
+     * @param  list<string>  $missingColumns
+     * @return array<string, mixed>
+     */
+    private function finalizePreviewResponse(array $payload, array $headerMap, array $missingColumns = []): array
+    {
+        /** @var list<array{excel_row: int, field: string, field_label: string, message: string, received_value: string|null}> $errors */
+        $errors = $payload['errors'] ?? [];
+
+        $payload['validation'] = $this->buildValidationMeta($headerMap, $missingColumns);
+        $payload['error_summary'] = $this->buildErrorSummary($errors);
+        $payload['import_blocked_reason'] = $this->buildImportBlockedReason($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function buildImportBlockedReason(array $payload): ?string
+    {
+        if (($payload['can_import'] ?? false) === true) {
+            return null;
+        }
+
+        $missing = $payload['validation']['missing_columns'] ?? [];
+        if (is_array($missing) && $missing !== []) {
+            return 'Faltan columnas obligatorias en la plantilla: '.implode(', ', $missing).'.';
+        }
+
+        /** @var array{total?: int, affected_rows?: int} $summary */
+        $summary = $payload['error_summary'] ?? [];
+        $totalErrors = (int) ($summary['total'] ?? 0);
+        $affectedRows = (int) ($summary['affected_rows'] ?? 0);
+
+        if ($totalErrors > 0) {
+            return sprintf(
+                'Se encontraron %d error(es) en %d fila(s). Corrija la plantilla y vuelva a validar.',
+                $totalErrors,
+                $affectedRows
+            );
+        }
+
+        $valid = (int) ($payload['summary']['valid'] ?? 0);
+        if ($valid === 0) {
+            return 'No hay filas validas para importar. Revise que el archivo tenga lotes con datos completos.';
+        }
+
+        return 'La importacion no puede confirmarse hasta corregir los errores de validacion.';
     }
 
     /**

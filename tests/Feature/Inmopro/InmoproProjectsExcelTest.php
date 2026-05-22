@@ -214,6 +214,76 @@ class InmoproProjectsExcelTest extends TestCase
         $this->assertSame($propioTypeId, $existingClient->client_type_id);
     }
 
+    public function test_projects_import_preview_returns_detailed_validation_errors(): void
+    {
+        $user = User::factory()->create();
+        $projectType = ProjectType::query()->firstOrFail();
+        $this->actingAs($user);
+
+        $file = $this->makeProjectsExcelFile([
+            [
+                'ITEM',
+                'NOMBRE CLIENTE',
+                'TELEFONO',
+                'MZ',
+                'LOTE',
+                'AREA',
+                'MONTO',
+                'ADELANTO - SEPARACION',
+                'MONTO RESTANTE',
+                'FACTURACIÓN',
+                'DNI CLIENTE',
+                'FECHA LIMITE DE PAGO',
+                'ESTADO DE LOTE',
+                'N° DE OPERACIÓN S.',
+                'FECHA DE CONTRATO',
+                'NRO DE CONTRATO',
+                'PROYECTO',
+            ],
+            [
+                1,
+                '',
+                '',
+                'A',
+                1,
+                'no-numero',
+                25000,
+                '',
+                25000,
+                '',
+                '',
+                '',
+                'INVALIDO',
+                '',
+                '',
+                '',
+                'Proyecto Errores',
+            ],
+        ]);
+
+        $this->post(route('inmopro.projects.import-preview'), [
+            'file' => $file,
+            'project_type_id' => $projectType->id,
+            'location' => 'Lima',
+        ])
+            ->assertOk()
+            ->assertJsonPath('can_import', false)
+            ->assertJsonPath('error_summary.total', 2)
+            ->assertJsonPath('errors.0.field_label', 'AREA')
+            ->assertJsonPath('errors.0.received_value', 'no-numero')
+            ->assertJsonPath('errors.1.field_label', 'ESTADO DE LOTE')
+            ->assertJsonPath('errors.1.received_value', 'INVALIDO')
+            ->assertJsonStructure([
+                'import_blocked_reason',
+                'validation' => [
+                    'required_columns',
+                    'missing_columns',
+                    'recognized_columns',
+                    'valid_lot_statuses',
+                ],
+            ]);
+    }
+
     public function test_projects_import_preview_requires_proyecto_column(): void
     {
         $user = User::factory()->create();

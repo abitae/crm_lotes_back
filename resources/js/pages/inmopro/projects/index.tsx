@@ -34,6 +34,14 @@ type Project = {
 
 type ProjectTypeOption = { id: number; name: string; code: string };
 
+type ImportFieldError = {
+    excel_row: number;
+    field: string;
+    field_label: string;
+    message: string;
+    received_value: string | null;
+};
+
 type ImportPreviewRow = {
     excel_row: number;
     item: string | null;
@@ -46,6 +54,7 @@ type ImportPreviewRow = {
     client_dni: string | null;
     status: string;
     errors: string[];
+    field_errors?: ImportFieldError[];
 };
 
 type ImportPreviewResponse = {
@@ -64,7 +73,19 @@ type ImportPreviewResponse = {
         invalid: number;
     };
     rows: ImportPreviewRow[];
-    errors: Array<{ excel_row: number; field: string; message: string }>;
+    errors: ImportFieldError[];
+    error_summary: {
+        total: number;
+        by_field: Record<string, number>;
+        affected_rows: number;
+    };
+    validation: {
+        required_columns: string[];
+        missing_columns: string[];
+        recognized_columns: string[];
+        valid_lot_statuses: string[];
+    };
+    import_blocked_reason: string | null;
     token: string | null;
     can_import: boolean;
 };
@@ -377,6 +398,7 @@ function ProjectExcelImportModal({
     const [confirming, setConfirming] = useState(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [preview, setPreview] = useState<ImportPreviewResponse | null>(null);
+    const [showOnlyErrors, setShowOnlyErrors] = useState(false);
     const [form, setForm] = useState({
         name: '',
         location: '',
@@ -390,6 +412,7 @@ function ProjectExcelImportModal({
         setConfirming(false);
         setFetchError(null);
         setPreview(null);
+        setShowOnlyErrors(false);
         setForm({
             name: '',
             location: '',
@@ -530,6 +553,7 @@ function ProjectExcelImportModal({
 
     const rows = preview?.rows ?? [];
     const errors = preview?.errors ?? [];
+    const displayedRows = showOnlyErrors ? rows.filter((row) => row.errors.length > 0) : rows;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -679,19 +703,41 @@ function ProjectExcelImportModal({
                                 </div>
                             </div>
 
-                            {errors.length > 0 ? (
-                                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
-                                    <p className="text-sm font-semibold text-rose-800">Errores detectados</p>
-                                    <div className="mt-2 space-y-1 text-sm text-rose-700">
-                                        {errors.slice(0, 12).map((error, index) => (
-                                            <p key={`${error.excel_row}-${index}`}>
-                                                Fila {error.excel_row}: {error.message}
-                                            </p>
-                                        ))}
-                                        {errors.length > 12 ? <p>...y {errors.length - 12} error(es) mas.</p> : null}
-                                    </div>
+                            {preview.import_blocked_reason && !preview.can_import ? (
+                                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                    <p className="font-semibold">Importacion bloqueada</p>
+                                    <p className="mt-1">{preview.import_blocked_reason}</p>
                                 </div>
                             ) : null}
+
+                            {errors.length > 0 ? (
+                                <ProjectImportValidationErrors
+                                    errors={errors}
+                                    errorSummary={preview.error_summary}
+                                    validation={preview.validation}
+                                />
+                            ) : null}
+
+                            {preview.can_import ? (
+                                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                                    Validacion correcta: puede confirmar la importacion de {preview.summary.valid} lote(s).
+                                </div>
+                            ) : null}
+
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-sm font-semibold text-slate-800">Detalle por fila</p>
+                                {preview.summary.invalid > 0 ? (
+                                    <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                                        <input
+                                            type="checkbox"
+                                            checked={showOnlyErrors}
+                                            onChange={(e) => setShowOnlyErrors(e.target.checked)}
+                                            className="rounded border-slate-300"
+                                        />
+                                        Solo filas con error ({preview.summary.invalid})
+                                    </label>
+                                ) : null}
+                            </div>
 
                             <div className="overflow-x-auto rounded-2xl border border-slate-200">
                                 <table className="w-full text-sm">
@@ -709,8 +755,11 @@ function ProjectExcelImportModal({
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {rows.map((row) => (
-                                            <tr key={row.excel_row} className="align-top">
+                                        {displayedRows.map((row) => (
+                                            <tr
+                                                key={row.excel_row}
+                                                className={cn('align-top', row.errors.length > 0 && 'bg-rose-50/60')}
+                                            >
                                                 <td className="px-4 py-3 font-medium text-slate-900">{row.excel_row}</td>
                                                 <td className="px-4 py-3 text-slate-700">{row.block ?? '-'}</td>
                                                 <td className="px-4 py-3 text-slate-700">{row.number ?? '-'}</td>
@@ -752,6 +801,118 @@ function ProjectExcelImportModal({
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+    );
+}
+
+function ProjectImportValidationErrors({
+    errors,
+    errorSummary,
+    validation,
+}: {
+    errors: ImportFieldError[];
+    errorSummary: ImportPreviewResponse['error_summary'];
+    validation: ImportPreviewResponse['validation'];
+}) {
+    const groupedByRow = errors.reduce<Record<number, ImportFieldError[]>>((acc, error) => {
+        if (!acc[error.excel_row]) {
+            acc[error.excel_row] = [];
+        }
+        acc[error.excel_row].push(error);
+
+        return acc;
+    }, {});
+
+    const sortedRows = Object.keys(groupedByRow)
+        .map(Number)
+        .sort((a, b) => a - b);
+
+    return (
+        <div className="space-y-4 rounded-2xl border border-rose-200 bg-rose-50 p-4">
+            <div>
+                <p className="text-sm font-semibold text-rose-900">
+                    {errorSummary.total} error(es) en {errorSummary.affected_rows} fila(s)
+                </p>
+                <p className="mt-1 text-sm text-rose-700">
+                    Revise columna, mensaje y valor recibido. Corrija el Excel y pulse Validar archivo de nuevo.
+                </p>
+            </div>
+
+            {validation.missing_columns.length > 0 ? (
+                <div className="rounded-xl border border-rose-300/60 bg-white/80 p-3 text-sm text-rose-800">
+                    <p className="font-semibold">Columnas obligatorias faltantes</p>
+                    <p className="mt-1">{validation.missing_columns.join(' · ')}</p>
+                    <p className="mt-2 text-xs text-rose-600">
+                        Requeridas: {validation.required_columns.join(', ')}
+                    </p>
+                </div>
+            ) : null}
+
+            {Object.keys(errorSummary.by_field).length > 0 ? (
+                <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-rose-700">Errores por columna</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {Object.entries(errorSummary.by_field).map(([column, count]) => (
+                            <span
+                                key={column}
+                                className="inline-flex rounded-full border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-800"
+                            >
+                                {column}: {count}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
+            <div className="max-h-64 overflow-y-auto rounded-xl border border-rose-200 bg-white">
+                <table className="w-full text-left text-sm">
+                    <thead className="sticky top-0 bg-rose-100/90 text-xs uppercase tracking-wide text-rose-800">
+                        <tr>
+                            <th className="px-3 py-2">Fila</th>
+                            <th className="px-3 py-2">Columna</th>
+                            <th className="px-3 py-2">Detalle</th>
+                            <th className="px-3 py-2">Valor en celda</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-rose-100">
+                        {errors.map((error, index) => (
+                            <tr key={`${error.excel_row}-${error.field}-${index}`} className="text-rose-900">
+                                <td className="px-3 py-2 font-semibold">{error.excel_row}</td>
+                                <td className="px-3 py-2 whitespace-nowrap">{error.field_label}</td>
+                                <td className="px-3 py-2">{error.message}</td>
+                                <td className="px-3 py-2 text-rose-600">{error.received_value ?? '—'}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {validation.valid_lot_statuses.length > 0 ? (
+                <p className="text-xs text-rose-700">
+                    <span className="font-semibold">Estados de lote validos:</span> {validation.valid_lot_statuses.join(', ')}
+                </p>
+            ) : null}
+
+            {sortedRows.length > 0 && sortedRows.length <= 8 ? (
+                <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-rose-700">Resumen por fila</p>
+                    {sortedRows.map((rowNumber) => (
+                        <div key={rowNumber} className="rounded-lg border border-rose-200 bg-white/90 px-3 py-2 text-sm text-rose-800">
+                            <p className="font-semibold">Fila {rowNumber}</p>
+                            <ul className="mt-1 list-inside list-disc space-y-0.5">
+                                {groupedByRow[rowNumber].map((error, index) => (
+                                    <li key={`${error.field}-${index}`}>
+                                        <span className="font-medium">{error.field_label}:</span> {error.message}
+                                        {error.received_value ? (
+                                            <span className="text-rose-600"> (valor: &quot;{error.received_value}&quot;)</span>
+                                        ) : null}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
+                </div>
+            ) : null}
+        </div>
     );
 }
 
