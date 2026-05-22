@@ -14,21 +14,24 @@ class FinancialController extends Controller
 {
     public function index(Request $request): Response
     {
+        $startDate = $request->filled('start_date')
+            ? $request->string('start_date')->toString()
+            : now()->startOfMonth()->toDateString();
+        $endDate = $request->filled('end_date')
+            ? $request->string('end_date')->toString()
+            : now()->toDateString();
+
         $statusLibre = LotStatus::where('code', 'LIBRE')->first();
         $statusPreReserva = LotStatus::where('code', 'PRERESERVA')->first();
         $query = Lot::with(['project', 'client', 'status'])
             ->whereHas('project', fn ($projectQuery) => $projectQuery->active())
             ->when($statusLibre, fn ($q) => $q->where('lot_status_id', '!=', $statusLibre->id))
-            ->when($statusPreReserva, fn ($q) => $q->where('lot_status_id', '!=', $statusPreReserva->id));
+            ->when($statusPreReserva, fn ($q) => $q->where('lot_status_id', '!=', $statusPreReserva->id))
+            ->whereDate('contract_date', '>=', $startDate)
+            ->whereDate('contract_date', '<=', $endDate);
 
         if ($request->filled('project_id')) {
             $query->where('project_id', $request->input('project_id'));
-        }
-        if ($request->filled('start_date')) {
-            $query->where('contract_date', '>=', $request->input('start_date'));
-        }
-        if ($request->filled('end_date')) {
-            $query->where('contract_date', '<=', $request->input('end_date'));
         }
         if ($request->filled('search')) {
             $term = $request->input('search');
@@ -42,12 +45,18 @@ class FinancialController extends Controller
         $totalValue = (clone $query)->sum('price');
         $totalCollected = (clone $query)->sum('advance');
         $totalPending = $totalValue - $totalCollected;
+        $filterParams = array_filter([
+            'project_id' => $request->input('project_id'),
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'search' => $request->input('search'),
+        ], fn ($value) => $value !== null && $value !== '');
+
         $lots = $query
-            ->orderByRaw('contract_date IS NULL')
             ->orderByDesc('contract_date')
             ->orderByDesc('updated_at')
             ->paginate(20)
-            ->withQueryString();
+            ->appends($filterParams);
         $projects = Project::query()->active()->orderBy('name')->get();
 
         return Inertia::render('inmopro/financial', [
@@ -56,7 +65,12 @@ class FinancialController extends Controller
             'totalValue' => $totalValue,
             'totalCollected' => $totalCollected,
             'totalPending' => $totalPending,
-            'filters' => $request->only('project_id', 'start_date', 'end_date', 'search'),
+            'filters' => [
+                'project_id' => $request->input('project_id'),
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'search' => $request->input('search'),
+            ],
         ]);
     }
 }

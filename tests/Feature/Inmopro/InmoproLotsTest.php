@@ -6,6 +6,7 @@ use App\Models\Inmopro\Client;
 use App\Models\Inmopro\Commission;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
+use App\Models\Inmopro\Project;
 use App\Models\User;
 use Database\Seeders\Inmopro\AdvisorLevelSeeder;
 use Database\Seeders\Inmopro\AdvisorSeeder;
@@ -149,5 +150,57 @@ class InmoproLotsTest extends TestCase
         $this->assertSame('2026-03-21', $lot->payment_limit_date?->toDateString());
         $this->assertSame('2026-03-22', $lot->contract_date?->toDateString());
         $this->assertSame('2026-03-23', $lot->notarial_transfer_date?->toDateString());
+    }
+
+    public function test_bulk_update_project_lots_persists_multiple_rows(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $project = Project::query()->firstOrFail();
+        $statusReservado = LotStatus::where('code', 'RESERVADO')->firstOrFail();
+        $lots = Lot::query()
+            ->where('project_id', $project->id)
+            ->where('lot_status_id', $statusReservado->id)
+            ->limit(2)
+            ->get();
+
+        $this->assertGreaterThanOrEqual(1, $lots->count());
+
+        $payload = $lots->map(fn (Lot $lot) => [
+            'id' => $lot->id,
+            'lot_status_id' => $statusReservado->id,
+            'client_id' => $lot->client_id,
+            'advisor_id' => $lot->advisor_id,
+            'client_name' => $lot->client_name,
+            'client_dni' => $lot->client_dni,
+            'client_phone' => $lot->client_phone,
+            'block' => $lot->block,
+            'number' => $lot->number,
+            'area' => $lot->area,
+            'price' => 50000 + $lot->id,
+            'advance' => 1000,
+            'remaining_balance' => 49000 + $lot->id,
+            'payment_limit_date' => null,
+            'operation_number' => null,
+            'contract_date' => null,
+            'contract_number' => null,
+            'notarial_transfer_date' => null,
+            'observations' => 'Bulk test '.$lot->id,
+        ])->all();
+
+        $response = $this->from(route('inmopro.projects.show', $project))
+            ->put(route('inmopro.projects.lots.bulk-update', $project), [
+                'lots' => $payload,
+            ]);
+
+        $response->assertRedirect(route('inmopro.projects.show', $project));
+        $response->assertSessionHas('success');
+
+        foreach ($lots as $lot) {
+            $lot->refresh();
+            $this->assertSame('Bulk test '.$lot->id, $lot->observations);
+            $this->assertSame((string) (50000 + $lot->id - 1000), (string) ((float) $lot->remaining_balance));
+        }
     }
 }

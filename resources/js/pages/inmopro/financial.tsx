@@ -31,7 +31,7 @@ export default function Financial({
     totalValue: number;
     totalCollected: number;
     totalPending: number;
-    filters: { project_id?: string; start_date?: string; end_date?: string; search?: string };
+    filters: { project_id?: string; start_date: string; end_date: string; search?: string };
 }) {
     const collectionRate = totalValue > 0 ? Math.round((totalCollected / totalValue) * 100) : 0;
     const pendingRate = totalValue > 0 ? Math.round((totalPending / totalValue) * 100) : 0;
@@ -47,8 +47,8 @@ export default function Financial({
 
         router.get('/inmopro/financial', {
             project_id: (formData.get('project_id') as string) || undefined,
-            start_date: (formData.get('start_date') as string) || undefined,
-            end_date: (formData.get('end_date') as string) || undefined,
+            start_date: (formData.get('start_date') as string) || filters.start_date,
+            end_date: (formData.get('end_date') as string) || filters.end_date,
             search: (formData.get('search') as string) || undefined,
         });
     };
@@ -63,7 +63,7 @@ export default function Financial({
                             Control financiero
                         </h1>
                         <p className="mt-1 text-sm text-slate-500">
-                            Seguimiento de ventas, cobranza y saldo pendiente por lote.
+                            Seguimiento de ventas, cobranza y saldo pendiente por lote. Por defecto se muestra el mes en curso.
                         </p>
                     </div>
                     <Link
@@ -92,20 +92,31 @@ export default function Financial({
                         ))}
                     </select>
                     <div className="relative">
+                        <label htmlFor="financial-start-date" className="sr-only">
+                            Desde
+                        </label>
                         <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                         <input
+                            id="financial-start-date"
                             type="date"
                             name="start_date"
+                            required
                             defaultValue={filters.start_date}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm font-semibold text-slate-700 outline-none"
                         />
                     </div>
                     <div className="relative">
+                        <label htmlFor="financial-end-date" className="sr-only">
+                            Hasta
+                        </label>
                         <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                         <input
+                            id="financial-end-date"
                             type="date"
                             name="end_date"
+                            required
                             defaultValue={filters.end_date}
+                            min={filters.start_date}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm font-semibold text-slate-700 outline-none"
                         />
                     </div>

@@ -19,6 +19,7 @@ import {
 export default function ProjectsShow({ project, lotStatuses }: PageProps) {
     const { errors } = usePage<PageProps>().props;
     const [savingLotId, setSavingLotId] = useState<number | null>(null);
+    const [savingAll, setSavingAll] = useState(false);
     const [edited, setEdited] = useState<Record<number, Partial<Record<string, string | number | null>>>>({});
     const [advisorSearchTerm, setAdvisorSearchTerm] = useState<Record<number, string>>({});
     const clientJustSelectedRef = useRef<{ lotId: number } | null>(null);
@@ -148,6 +149,33 @@ export default function ProjectsShow({ project, lotStatuses }: PageProps) {
             observations: getCellValue(lot, 'observations').trim() || (lot.observations ?? null),
         });
 
+    const pendingEditsCount = Object.keys(edited).length;
+
+    const saveAllChanges = () => {
+        if (pendingEditsCount === 0 || !project.lots?.length) {
+            return;
+        }
+
+        const lotsToSave = Object.keys(edited)
+            .map((id) => project.lots?.find((lot) => lot.id === Number(id)))
+            .filter((lot): lot is Lot => lot != null)
+            .map((lot) => ({
+                id: lot.id,
+                ...buildRowPayloadForSave(lot),
+            }));
+
+        if (lotsToSave.length === 0) {
+            return;
+        }
+
+        setSavingAll(true);
+        router.put(`/inmopro/projects/${project.id}/lots/bulk-update`, { lots: lotsToSave }, {
+            preserveScroll: true,
+            onSuccess: () => setEdited({}),
+            onFinish: () => setSavingAll(false),
+        });
+    };
+
     const handleToggleActive = async () => {
         const activating = !project.is_active;
         if (!(await confirmToggleProjectActive(project.name, activating))) {
@@ -166,7 +194,14 @@ export default function ProjectsShow({ project, lotStatuses }: PageProps) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${project.name} - Inmopro`} />
             <div className="flex flex-col gap-4 p-4 md:p-6" style={{ minHeight: 'calc(100vh - 8rem)' }}>
-                <ProjectShowHeader project={project} clientError={errors?.client} onToggleActive={handleToggleActive} />
+                <ProjectShowHeader
+                    project={project}
+                    clientError={errors?.client}
+                    onToggleActive={handleToggleActive}
+                    onSaveAll={saveAllChanges}
+                    pendingEditsCount={pendingEditsCount}
+                    savingAll={savingAll || savingLotId !== null}
+                />
 
                 {(project.images?.length || project.documents?.length) ? (
                     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

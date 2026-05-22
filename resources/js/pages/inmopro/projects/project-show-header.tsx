@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { LayoutGrid, MapPin, Pencil, Plus, Power, PowerOff } from 'lucide-react';
+import { LayoutGrid, MapPin, Pencil, Plus, Power, PowerOff, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { Project } from './show-types';
@@ -8,10 +8,16 @@ export function ProjectShowHeader({
     project,
     clientError,
     onToggleActive,
+    onSaveAll,
+    pendingEditsCount = 0,
+    savingAll = false,
 }: {
     project: Project;
     clientError?: string;
     onToggleActive: () => void;
+    onSaveAll: () => void;
+    pendingEditsCount?: number;
+    savingAll?: boolean;
 }) {
     return (
         <>
@@ -31,6 +37,17 @@ export function ProjectShowHeader({
                             <LayoutGrid className="h-4 w-4" />
                             Ver inventario
                         </Link>
+                    </Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                        disabled={pendingEditsCount === 0 || savingAll}
+                        onClick={onSaveAll}
+                    >
+                        <Save className="h-4 w-4" />
+                        {savingAll ? 'Guardando...' : pendingEditsCount > 0 ? `Guardar cambios (${pendingEditsCount})` : 'Guardar cambios'}
                     </Button>
                     <Button size="sm" asChild>
                         <Link href={`/inmopro/lots/create?project_id=${project.id}`}>

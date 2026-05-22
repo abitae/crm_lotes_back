@@ -155,6 +155,19 @@ class InmoproActiveFlagsTest extends TestCase
         $this->assertTrue($advisor->fresh()->is_active);
     }
 
+    public function test_financial_index_uses_current_month_date_defaults(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $this->get(route('inmopro.financial.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('inmopro/financial')
+                ->where('filters.start_date', now()->startOfMonth()->toDateString())
+                ->where('filters.end_date', now()->toDateString()));
+    }
+
     public function test_inactive_projects_are_hidden_from_lots_financial_and_receivables(): void
     {
         $user = User::factory()->create();
@@ -212,9 +225,13 @@ class InmoproActiveFlagsTest extends TestCase
             ->assertInertia(fn ($page) => $assertOnlyActiveProject($page)
                 ->where('project.id', $activeProject->id));
 
-        $this->get(route('inmopro.financial.index'))
+        $this->get(route('inmopro.financial.index', [
+            'start_date' => '2000-01-01',
+            'end_date' => now()->toDateString(),
+        ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $assertOnlyActiveProject($page)
+                ->where('filters.start_date', '2000-01-01')
                 ->has('lots.data', 1)
                 ->where('lots.data.0.project.id', $activeProject->id));
 

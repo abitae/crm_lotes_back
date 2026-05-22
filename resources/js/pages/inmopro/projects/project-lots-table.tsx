@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { Eye, Save } from 'lucide-react';
-import { Dispatch, MutableRefObject, SetStateAction } from 'react';
+import { Dispatch, MutableRefObject, SetStateAction, type CSSProperties } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { Advisor, Client, Lot, LotPayload, LotStatus, Project } from './show-types';
@@ -20,6 +20,48 @@ const inputClass =
     'w-full min-w-0 border-0 bg-transparent px-1 py-0.5 text-xs outline-none focus:bg-white focus:ring-1 focus:ring-emerald-400 disabled:opacity-60';
 const selectClass =
     'w-full min-w-0 max-w-[120px] border-0 bg-transparent px-1 py-0.5 text-xs outline-none focus:bg-white focus:ring-1 focus:ring-emerald-400 disabled:opacity-60';
+const statusColumnClass = 'min-w-[10.5rem] w-[10.5rem]';
+const statusSelectClass =
+    'w-full min-w-[9.5rem] rounded-md border border-slate-200/80 px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-offset-0 disabled:opacity-60';
+
+function lotStatusColor(code: string, lotStatuses: LotStatus[], fallback?: string): string | undefined {
+    return lotStatuses.find((status) => status.code === code)?.color ?? fallback;
+}
+
+function lotStatusSelectStyle(color?: string): CSSProperties {
+    if (!color) {
+        return {};
+    }
+
+    return {
+        backgroundColor: `${color}22`,
+        borderColor: color,
+        color: '#0f172a',
+    };
+}
+
+function lotStatusOptionStyle(color?: string): CSSProperties {
+    if (!color) {
+        return { backgroundColor: '#f8fafc', color: '#0f172a' };
+    }
+
+    return {
+        backgroundColor: color,
+        color: '#ffffff',
+    };
+}
+
+function lotRowStyle(statusColor?: string, isSaving: boolean): CSSProperties | undefined {
+    if (isSaving) {
+        return { backgroundColor: '#fef3c7' };
+    }
+
+    if (!statusColor) {
+        return undefined;
+    }
+
+    return { backgroundColor: `${statusColor}14` };
+}
 
 export function ProjectLotsTable({
     project,
@@ -60,14 +102,16 @@ export function ProjectLotsTable({
         <Card className="flex min-h-0 flex-1 flex-col">
             <CardContent className="flex min-h-0 flex-1 flex-col p-0">
                 <div className="inline-block max-h-[calc(100vh-11rem)] max-w-full overflow-auto">
-                    <table className="w-full min-w-[1200px] border-collapse text-xs">
+                    <table className="w-full min-w-[1240px] border-collapse text-xs">
                         <thead className="sticky top-0 z-10 border-b border-slate-300 bg-[#f3f4f6]">
                             <tr>
                                 <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Manzana</th>
                                 <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Numero</th>
                                 <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Area</th>
                                 <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Precio</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Estado</th>
+                                <th className={`border border-slate-300 px-2 py-1 text-left font-semibold text-slate-700 ${statusColumnClass}`}>
+                                    Estado
+                                </th>
                                 <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Nombre cliente</th>
                                 <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">DNI</th>
                                 <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Telefono</th>
@@ -87,19 +131,12 @@ export function ProjectLotsTable({
                             {project.lots.map((lot) => {
                                 const isSaving = savingLotId === lot.id;
                                 const statusCode = lot.status?.code ?? 'LIBRE';
+                                const statusColor = lot.status?.color ?? lotStatusColor(statusCode, lotStatuses);
                                 const availableStatuses = lotStatuses.filter((status) => status.code !== 'TRANSFERIDO' || status.id === lot.status?.id);
                                 const canEdit = statusCode === 'RESERVADO' || statusCode === 'TRANSFERIDO';
-                                const rowBg =
-                                    isSaving
-                                        ? 'bg-amber-100'
-                                        : statusCode === 'LIBRE'
-                                          ? 'bg-emerald-50'
-                                          : statusCode === 'RESERVADO'
-                                            ? 'bg-amber-50'
-                                            : 'bg-slate-100';
 
                                 return (
-                                    <tr key={lot.id} className={rowBg}>
+                                    <tr key={lot.id} style={lotRowStyle(statusColor, isSaving)}>
                                         <td className="border border-slate-200 px-1 py-0.5 align-middle text-slate-700">{lot.block}</td>
                                         <td className="border border-slate-200 px-1 py-0.5 align-middle tabular-nums text-slate-700">{lot.number}</td>
                                         <td className="border border-slate-200 px-1 py-0.5 align-middle">
@@ -108,12 +145,32 @@ export function ProjectLotsTable({
                                         <td className="border border-slate-200 px-1 py-0.5 align-middle">
                                             <input type="number" min={0} step={0.01} value={getCellValue(lot, 'price')} disabled={isSaving || !canEdit} onChange={(e) => setCellEdit(lot, 'price', e.target.value ? Number(e.target.value) : null)} className={inputClass} style={{ minWidth: '5rem' }} />
                                         </td>
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle">
-                                            <select value={lot.status?.id ?? ''} disabled={isSaving} onChange={(e) => updateLot(lot, buildPayload(lot, { lot_status_id: Number(e.target.value) }))} className={selectClass}>
-                                                {availableStatuses.map((status) => (
-                                                    <option key={status.id} value={status.id}>{status.name}</option>
-                                                ))}
-                                            </select>
+                                        <td className={`border border-slate-200 px-2 py-1 align-middle ${statusColumnClass}`}>
+                                            <div className="flex items-center gap-1.5">
+                                                <span
+                                                    className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white/80"
+                                                    style={{ backgroundColor: statusColor ?? '#94a3b8' }}
+                                                    title={lot.status?.name ?? statusCode}
+                                                />
+                                                <select
+                                                    value={lot.status?.id ?? ''}
+                                                    disabled={isSaving}
+                                                    onChange={(e) => updateLot(lot, buildPayload(lot, { lot_status_id: Number(e.target.value) }))}
+                                                    className={statusSelectClass}
+                                                    style={lotStatusSelectStyle(statusColor)}
+                                                    title={lot.status?.name ?? 'Estado del lote'}
+                                                >
+                                                    {availableStatuses.map((status) => (
+                                                        <option
+                                                            key={status.id}
+                                                            value={status.id}
+                                                            style={lotStatusOptionStyle(status.color)}
+                                                        >
+                                                            {status.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                         </td>
                                         <ClientLookupCell
                                             lot={lot}

@@ -4,14 +4,17 @@ namespace App\Http\Controllers\Inmopro;
 
 use App\Exports\Inmopro\ProjectWithLotsTemplateExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Inmopro\BulkUpdateProjectLotsRequest;
 use App\Http\Requests\Inmopro\ImportProjectConfirmRequest;
 use App\Http\Requests\Inmopro\ImportProjectPreviewRequest;
 use App\Http\Requests\Inmopro\StoreProjectRequest;
 use App\Http\Requests\Inmopro\UpdateProjectRequest;
+use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\ProjectAsset;
 use App\Models\Inmopro\ProjectType;
+use App\Services\Inmopro\LotPersistService;
 use App\Services\Inmopro\ProjectsExcelImportService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +32,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProjectController extends Controller
 {
+    public function __construct(
+        private LotPersistService $lotPersistService
+    ) {}
+
     public function index(Request $request): Response
     {
         $query = Project::query()
@@ -180,6 +187,31 @@ class ProjectController extends Controller
             'project' => $this->projectPayload($project, true),
             'lotStatuses' => LotStatus::orderBy('sort_order')->get(),
         ]);
+    }
+
+    public function bulkUpdateLots(BulkUpdateProjectLotsRequest $request, Project $project): RedirectResponse
+    {
+        $lotsPayload = $request->validated('lots');
+        $count = count($lotsPayload);
+
+        DB::transaction(function () use ($lotsPayload, $project): void {
+            foreach ($lotsPayload as $lotData) {
+                $lotId = (int) $lotData['id'];
+                unset($lotData['id']);
+
+                $lot = Lot::query()
+                    ->where('project_id', $project->id)
+                    ->findOrFail($lotId);
+
+                $this->lotPersistService->update($lot, $lotData);
+            }
+        });
+
+        $message = $count === 1
+            ? '1 lote actualizado correctamente.'
+            : "{$count} lotes actualizados correctamente.";
+
+        return back()->with('success', $message);
     }
 
     public function edit(Project $project): Response
