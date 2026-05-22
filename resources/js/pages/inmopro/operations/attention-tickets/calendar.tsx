@@ -56,7 +56,7 @@ export default function AttentionTicketsCalendar({
                             </Link>
                         </Button>
                         <Button size="sm" asChild>
-                            <Link href="/inmopro/attention-tickets/create">
+                            <Link href="/inmopro/attention-tickets?create=1">
                                 <Plus className="h-4 w-4" />
                                 Nuevo ticket
                             </Link>

@@ -34,7 +34,13 @@ class AttentionTicketController extends Controller
 
         return Inertia::render('inmopro/operations/attention-tickets/index', [
             'tickets' => $tickets,
-            'filters' => $request->only('status'),
+            'filters' => $request->only('status', 'create'),
+            'advisors' => Advisor::query()->orderBy('name')->get(['id', 'name']),
+            'clients' => Client::query()
+                ->with('advisor:id,name')
+                ->orderBy('name')
+                ->get(['id', 'name', 'advisor_id']),
+            'projects' => Project::query()->orderBy('name')->get(['id', 'name', 'location']),
         ]);
     }
 
@@ -78,15 +84,10 @@ class AttentionTicketController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(): RedirectResponse
     {
-        return Inertia::render('inmopro/operations/attention-tickets/create', [
-            'advisors' => Advisor::query()->orderBy('name')->get(['id', 'name']),
-            'clients' => Client::query()
-                ->with('advisor:id,name')
-                ->orderBy('name')
-                ->get(['id', 'name', 'advisor_id']),
-            'projects' => Project::query()->orderBy('name')->get(['id', 'name', 'location']),
+        return redirect()->route('inmopro.attention-tickets.index', [
+            'create' => 1,
         ]);
     }
 

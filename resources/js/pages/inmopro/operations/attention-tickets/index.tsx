@@ -1,14 +1,27 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Calendar, Eye, Plus, Ticket } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import type { FormEvent } from 'react';
+import { useState } from 'react';
+import InputError from '@/components/input-error';
 import Pagination, { type PaginationLink } from '@/components/pagination';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import AppLayout from '@/layouts/app-layout';
 import { formatDateTime } from '@/lib/date';
+import { showSuccessToast } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
 
-type Project = { id: number; name: string };
-type Client = { id: number; name: string; dni?: string };
+type Project = { id: number; name: string; location?: string | null };
+type Client = { id: number; name: string; dni?: string; advisor_id: number; advisor?: { id: number; name: string } | null };
 type Advisor = { id: number; name: string };
 type Lot = { id: number; block: string; number: number } | null;
 type DeliveryDeed = { id: number; printed_at: string | null; signed_at: string | null } | null;
@@ -25,24 +38,76 @@ type TicketItem = {
     delivery_deed: DeliveryDeed;
 };
 
+const initialTicketForm = {
+    advisor_id: '',
+    client_id: '',
+    project_id: '',
+    notes: '',
+};
+
 export default function AttentionTicketsIndex({
     tickets,
     filters,
+    advisors,
+    clients,
+    projects,
 }: {
     tickets: { data: TicketItem[]; links: PaginationLink[]; current_page: number; last_page: number };
-    filters: { status?: string };
+    filters: { status?: string; create?: string };
+    advisors: Advisor[];
+    clients: Client[];
+    projects: Project[];
 }) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
         { title: 'Operaciones', href: '/inmopro/attention-tickets' },
         { title: 'Tickets de atención', href: '/inmopro/attention-tickets' },
     ];
+    const [createOpen, setCreateOpen] = useState(filters.create === '1');
+    const { data, setData, post, processing, errors, reset, clearErrors } = useForm(initialTicketForm);
 
     const statusLabels: Record<string, string> = {
         pendiente: 'Pendiente',
         agendado: 'Agendado',
         realizado: 'Realizado',
         cancelado: 'Cancelado',
+    };
+
+    const visibleClients = data.advisor_id
+        ? clients.filter((client) => String(client.advisor_id) === data.advisor_id)
+        : clients;
+
+    const openCreateModal = () => {
+        clearErrors();
+        setCreateOpen(true);
+    };
+
+    const closeCreateModal = () => {
+        setCreateOpen(false);
+        reset();
+        clearErrors();
+
+        if (filters.create === '1') {
+            router.get('/inmopro/attention-tickets', filters.status ? { status: filters.status } : {}, {
+                preserveState: true,
+                replace: true,
+            });
+        }
+    };
+
+    const submitCreateTicket = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        post('/inmopro/attention-tickets', {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeCreateModal();
+                showSuccessToast('Ticket creado correctamente');
+            },
+            onError: () => {
+                setCreateOpen(true);
+            },
+        });
     };
 
     return (
@@ -63,11 +128,9 @@ export default function AttentionTicketsIndex({
                                 Ver calendario
                             </Link>
                         </Button>
-                        <Button size="sm" asChild>
-                            <Link href="/inmopro/attention-tickets/create">
-                                <Plus className="h-4 w-4" />
-                                Nuevo ticket
-                            </Link>
+                        <Button size="sm" type="button" onClick={openCreateModal}>
+                            <Plus className="h-4 w-4" />
+                            Nuevo ticket
                         </Button>
                     </div>
                 </div>
@@ -109,8 +172,8 @@ export default function AttentionTicketsIndex({
                                 </div>
                                 <p className="mt-4 font-medium text-slate-700">Sin tickets</p>
                                 <p className="mt-1 text-sm text-slate-500">Cree una solicitud para iniciar el flujo de atención.</p>
-                                <Button className="mt-4" variant="outline" asChild>
-                                    <Link href="/inmopro/attention-tickets/create">Nuevo ticket</Link>
+                                <Button className="mt-4" variant="outline" type="button" onClick={openCreateModal}>
+                                    Nuevo ticket
                                 </Button>
                             </div>
                         ) : (
@@ -167,6 +230,120 @@ export default function AttentionTicketsIndex({
                     </CardContent>
                 </Card>
             </div>
+
+            <Dialog open={createOpen} onOpenChange={(open) => {
+                if (open) {
+                    setCreateOpen(true);
+                    return;
+                }
+
+                closeCreateModal();
+            }}>
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Nuevo ticket de atención</DialogTitle>
+                        <DialogDescription>
+                            Registra la solicitud por proyecto. El ticket inicia en pendiente y se agenda desde administración.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={submitCreateTicket} className="grid gap-4 md:grid-cols-2">
+                        <div className="md:col-span-1">
+                            <Label htmlFor="advisor_id">Vendedor</Label>
+                            <select
+                                id="advisor_id"
+                                value={data.advisor_id}
+                                onChange={(event) => {
+                                    const nextAdvisorId = event.target.value;
+                                    setData('advisor_id', nextAdvisorId);
+
+                                    if (
+                                        data.client_id &&
+                                        !clients.some(
+                                            (client) =>
+                                                String(client.id) === data.client_id &&
+                                                String(client.advisor_id) === nextAdvisorId,
+                                        )
+                                    ) {
+                                        setData('client_id', '');
+                                    }
+                                }}
+                                className="mt-1 flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                                required
+                            >
+                                <option value="">Seleccione</option>
+                                {advisors.map((advisor) => (
+                                    <option key={advisor.id} value={advisor.id}>
+                                        {advisor.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <InputError message={errors.advisor_id} />
+                        </div>
+
+                        <div className="md:col-span-1">
+                            <Label htmlFor="client_id">Cliente</Label>
+                            <select
+                                id="client_id"
+                                value={data.client_id}
+                                onChange={(event) => setData('client_id', event.target.value)}
+                                className="mt-1 flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                                required
+                            >
+                                <option value="">Seleccione</option>
+                                {visibleClients.map((client) => (
+                                    <option key={client.id} value={client.id}>
+                                        {client.name}
+                                        {client.advisor?.name ? ` · ${client.advisor.name}` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            <InputError message={errors.client_id} />
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <Label htmlFor="project_id">Proyecto</Label>
+                            <select
+                                id="project_id"
+                                value={data.project_id}
+                                onChange={(event) => setData('project_id', event.target.value)}
+                                className="mt-1 flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                                required
+                            >
+                                <option value="">Seleccione</option>
+                                {projects.map((project) => (
+                                    <option key={project.id} value={project.id}>
+                                        {project.name}
+                                        {project.location ? ` · ${project.location}` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            <InputError message={errors.project_id} />
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <Label htmlFor="notes">Observaciones</Label>
+                            <textarea
+                                id="notes"
+                                value={data.notes}
+                                onChange={(event) => setData('notes', event.target.value)}
+                                className="mt-1 flex min-h-[100px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                                rows={4}
+                            />
+                            <InputError message={errors.notes} />
+                        </div>
+
+                        <DialogFooter className="pt-2 md:col-span-2">
+                            <Button type="button" variant="outline" onClick={closeCreateModal}>
+                                Cancelar
+                            </Button>
+                            <Button type="submit" disabled={processing}>
+                                Crear ticket
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }
