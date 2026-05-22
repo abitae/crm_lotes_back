@@ -23,6 +23,7 @@ type Project = {
     location?: string;
     total_lots?: number;
     blocks?: string[];
+    is_active: boolean;
     assets?: ProjectAsset[];
 };
 type ProjectEditForm = {
@@ -31,6 +32,7 @@ type ProjectEditForm = {
     location: string;
     total_lots: number | '';
     blocks: string[];
+    is_active: boolean;
     image_files: File[];
     document_files: File[];
     _method?: 'put';
@@ -52,6 +54,7 @@ export default function ProjectsEdit({
         location: project.location ?? '',
         total_lots: project.total_lots ?? ('' as number | ''),
         blocks: blocksList,
+        is_active: project.is_active ?? true,
         image_files: [],
         document_files: [],
     });
@@ -146,6 +149,19 @@ export default function ProjectsEdit({
                         <Input id="location" value={data.location} onChange={(e) => setData('location', e.target.value)} className="mt-1" />
                         <InputError message={errors.location} />
                     </div>
+                    <div className="flex items-center gap-2">
+                        <input
+                            id="is_active"
+                            type="checkbox"
+                            checked={data.is_active}
+                            onChange={(e) => setData('is_active', e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300"
+                        />
+                        <Label htmlFor="is_active" className="cursor-pointer">
+                            Proyecto activo (visible en dashboard y apps)
+                        </Label>
+                    </div>
+                    <InputError message={errors.is_active} />
                     <div>
                         <Label htmlFor="total_lots">Total de lotes (opcional)</Label>
                         <Input

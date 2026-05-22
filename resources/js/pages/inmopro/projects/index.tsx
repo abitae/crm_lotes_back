@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertTriangle, Download, Eye, FileSpreadsheet, MapPin, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
+import { AlertTriangle, Download, Eye, FileSpreadsheet, MapPin, Pencil, Plus, Power, PowerOff, Search, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
@@ -8,12 +8,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
-import { confirmDelete } from '@/lib/swal';
+import { confirmDelete, confirmToggleProjectActive } from '@/lib/swal';
 import { cn } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
 type Project = {
     id: number;
+    is_active: boolean;
     name: string;
     project_type_id?: number | null;
     project_type?: { id: number; name: string; code: string } | null;
@@ -92,7 +93,14 @@ type ImportPreviewResponse = {
 
 type PageProps = {
     projects: { data: Project[]; links: PaginationLink[]; total?: number };
-    filters: { search?: string; project_type_id?: string | number; location?: string; health?: string; order?: string };
+    filters: {
+        search?: string;
+        project_type_id?: string | number;
+        location?: string;
+        health?: string;
+        order?: string;
+        is_active?: string;
+    };
     projectTypes: ProjectTypeOption[];
     locations: string[];
     summary: {
@@ -118,6 +126,14 @@ export default function ProjectsIndex({ projects, filters, projectTypes, locatio
         }
     };
 
+    const handleToggleActive = async (project: Project) => {
+        const activating = !project.is_active;
+        if (!(await confirmToggleProjectActive(project.name, activating))) {
+            return;
+        }
+        router.patch(`/inmopro/projects/${project.id}/toggle-active`, {}, { preserveState: true, preserveScroll: true });
+    };
+
     const handleFilter = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
@@ -130,6 +146,7 @@ export default function ProjectsIndex({ projects, filters, projectTypes, locatio
                 location: formData.get('location') || undefined,
                 health: formData.get('health') || undefined,
                 order: formData.get('order') || undefined,
+                is_active: formData.get('is_active') || undefined,
             },
             { preserveState: true }
         );
@@ -178,7 +195,7 @@ export default function ProjectsIndex({ projects, filters, projectTypes, locatio
                         <CardDescription>Busque por proyecto, sectorice por ubicacion y priorice riesgos de inventario.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form onSubmit={handleFilter} className="grid gap-3 lg:grid-cols-5">
+                        <form onSubmit={handleFilter} className="grid gap-3 lg:grid-cols-6">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                 <Input name="search" placeholder="Nombre o ubicacion..." defaultValue={filters.search} className="pl-9" />
@@ -209,7 +226,16 @@ export default function ProjectsIndex({ projects, filters, projectTypes, locatio
                                 <option value="sold_out">Sin stock libre</option>
                                 <option value="inconsistent">Inconsistentes</option>
                             </select>
-                            <div className="flex gap-2">
+                            <select
+                                name="is_active"
+                                defaultValue={filters.is_active ?? ''}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                            >
+                                <option value="">Activos e inactivos</option>
+                                <option value="1">Solo activos</option>
+                                <option value="0">Solo inactivos</option>
+                            </select>
+                            <div className="flex gap-2 lg:col-span-2">
                                 <select name="order" defaultValue={filters.order ?? ''} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
                                     <option value="">Orden alfabetico</option>
                                     <option value="lots_desc">Mas lotes</option>
@@ -252,6 +278,7 @@ export default function ProjectsIndex({ projects, filters, projectTypes, locatio
                                         <thead>
                                             <tr className="border-b border-slate-100 bg-slate-50/80">
                                                 <th className="px-4 py-3 text-left font-medium text-slate-600">Proyecto</th>
+                                                <th className="px-4 py-3 text-left font-medium text-slate-600">Estado</th>
                                                 <th className="px-4 py-3 text-left font-medium text-slate-600">Tipo</th>
                                                 <th className="px-4 py-3 text-left font-medium text-slate-600">Stock</th>
                                                 <th className="px-4 py-3 text-left font-medium text-slate-600">Avance</th>
@@ -270,6 +297,17 @@ export default function ProjectsIndex({ projects, filters, projectTypes, locatio
                                                                 {project.location ?? 'Sin ubicacion'} · {project.blocks_count ?? 0} manzana(s)
                                                             </p>
                                                         </div>
+                                                    </td>
+                                                    <td className="px-4 py-4">
+                                                        <span
+                                                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${
+                                                                project.is_active
+                                                                    ? 'bg-emerald-100 text-emerald-700'
+                                                                    : 'bg-slate-100 text-slate-600'
+                                                            }`}
+                                                        >
+                                                            {project.is_active ? 'Activo' : 'Inactivo'}
+                                                        </span>
                                                     </td>
                                                     <td className="px-4 py-4">
                                                         <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
@@ -351,6 +389,20 @@ export default function ProjectsIndex({ projects, filters, projectTypes, locatio
                                                                 <Link href={`/inmopro/projects/${project.id}/edit`} title="Editar">
                                                                     <Pencil className="h-4 w-4" />
                                                                 </Link>
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className={cn(
+                                                                    'h-8 w-8',
+                                                                    project.is_active
+                                                                        ? 'text-amber-600 hover:bg-amber-50 hover:text-amber-700'
+                                                                        : 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700',
+                                                                )}
+                                                                onClick={() => handleToggleActive(project)}
+                                                                title={project.is_active ? 'Desactivar' : 'Activar'}
+                                                            >
+                                                                {project.is_active ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
                                                             </Button>
                                                             <Button
                                                                 variant="ghost"

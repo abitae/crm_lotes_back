@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { LayoutGrid, MapPin, Pencil, Plus } from 'lucide-react';
+import { LayoutGrid, MapPin, Pencil, Plus, Power, PowerOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { Project } from './show-types';
@@ -7,9 +7,11 @@ import type { Project } from './show-types';
 export function ProjectShowHeader({
     project,
     clientError,
+    onToggleActive,
 }: {
     project: Project;
     clientError?: string;
+    onToggleActive: () => void;
 }) {
     return (
         <>
@@ -42,10 +44,34 @@ export function ProjectShowHeader({
                             Editar proyecto
                         </Link>
                     </Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className={
+                            project.is_active
+                                ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
+                                : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                        }
+                        onClick={onToggleActive}
+                    >
+                        {project.is_active ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                        {project.is_active ? 'Desactivar' : 'Activar'}
+                    </Button>
                 </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                <span
+                    className={
+                        project.is_active
+                            ? 'rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700'
+                            : 'rounded-full bg-slate-200 px-2 py-0.5 font-semibold text-slate-600'
+                    }
+                >
+                    {project.is_active ? 'Activo' : 'Inactivo'}
+                </span>
+                <span>·</span>
                 <span className="tabular-nums font-medium text-slate-700">{project.lots?.length ?? 0} lotes</span>
                 <span>·</span>
                 <span>Manzanas: {project.blocks?.length ? project.blocks.join(', ') : '-'}</span>

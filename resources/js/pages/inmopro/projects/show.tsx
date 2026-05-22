@@ -2,6 +2,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import { confirmToggleProjectActive } from '@/lib/swal';
 import { ProjectLotsTable } from './project-lots-table';
 import { ProjectShowHeader } from './project-show-header';
 import type { Advisor, Client, Lot, LotPayload, PageProps } from './show-types';
@@ -147,6 +148,14 @@ export default function ProjectsShow({ project, lotStatuses }: PageProps) {
             observations: getCellValue(lot, 'observations').trim() || (lot.observations ?? null),
         });
 
+    const handleToggleActive = async () => {
+        const activating = !project.is_active;
+        if (!(await confirmToggleProjectActive(project.name, activating))) {
+            return;
+        }
+        router.patch(`/inmopro/projects/${project.id}/toggle-active`, {}, { preserveScroll: true });
+    };
+
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
         { title: 'Proyectos', href: '/inmopro/projects' },
@@ -157,7 +166,7 @@ export default function ProjectsShow({ project, lotStatuses }: PageProps) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${project.name} - Inmopro`} />
             <div className="flex flex-col gap-4 p-4 md:p-6" style={{ minHeight: 'calc(100vh - 8rem)' }}>
-                <ProjectShowHeader project={project} clientError={errors?.client} />
+                <ProjectShowHeader project={project} clientError={errors?.client} onToggleActive={handleToggleActive} />
 
                 {(project.images?.length || project.documents?.length) ? (
                     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

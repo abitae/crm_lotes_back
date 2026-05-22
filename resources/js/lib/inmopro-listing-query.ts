@@ -5,6 +5,7 @@ const ADVISORS_LIST_KEYS = [
     'search',
     'advisor_level_id',
     'team_id',
+    'is_active',
     'membership_pending',
     'membership_id',
     'modal',

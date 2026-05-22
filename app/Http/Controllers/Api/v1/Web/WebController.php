@@ -90,6 +90,7 @@ class WebController extends Controller
     private function baseProjectQuery(): Builder
     {
         return Project::query()
+            ->where('is_active', true)
             ->with(['projectType'])
             ->with(['assets' => fn ($q) => $q->where('is_active', true)->orderBy('sort_order')->orderBy('id')])
             ->withCount('lots')

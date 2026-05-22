@@ -24,6 +24,7 @@ final class InertiaListingRedirect
             'search',
             'advisor_level_id',
             'team_id',
+            'is_active',
             'membership_pending',
             'membership_id',
             'modal',

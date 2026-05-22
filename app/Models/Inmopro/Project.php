@@ -17,6 +17,7 @@ class Project extends Model
         'location',
         'total_lots',
         'blocks',
+        'is_active',
     ];
 
     /**
@@ -27,6 +28,7 @@ class Project extends Model
         return [
             'blocks' => 'array',
             'total_lots' => 'integer',
+            'is_active' => 'boolean',
         ];
     }
 

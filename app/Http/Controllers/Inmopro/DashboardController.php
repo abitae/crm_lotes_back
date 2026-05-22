@@ -14,8 +14,14 @@ class DashboardController extends Controller
 {
     public function __invoke(Request $request): Response
     {
-        $lots = Lot::with(['project', 'status'])->get();
-        $projects = Project::with('lots')->get();
+        $lots = Lot::query()
+            ->whereHas('project', fn ($query) => $query->where('is_active', true))
+            ->with(['project', 'status'])
+            ->get();
+        $projects = Project::query()
+            ->where('is_active', true)
+            ->with('lots')
+            ->get();
 
         $statusLibre = LotStatus::where('code', 'LIBRE')->first();
         $statusPreReserva = LotStatus::where('code', 'PRERESERVA')->first();
@@ -49,7 +55,9 @@ class DashboardController extends Controller
             ['name' => 'Cuotas', 'value' => $stats['cuotas']],
         ];
 
-        $recentReservations = Lot::with(['project', 'status', 'client', 'advisor'])
+        $recentReservations = Lot::query()
+            ->whereHas('project', fn ($query) => $query->where('is_active', true))
+            ->with(['project', 'status', 'client', 'advisor'])
             ->where('lot_status_id', $statusReservado?->id)
             ->latest('updated_at')
             ->limit(5)

@@ -35,6 +35,7 @@ export type Lot = {
 
 export type Project = {
     id: number;
+    is_active: boolean;
     name: string;
     location?: string;
     total_lots?: number;

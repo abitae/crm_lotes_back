@@ -60,6 +60,10 @@ class ProjectController extends Controller
             $query->where('project_type_id', (int) $request->input('project_type_id'));
         }
 
+        if ($request->has('is_active') && $request->input('is_active') !== '') {
+            $query->where('is_active', $request->boolean('is_active'));
+        }
+
         if ($request->filled('health')) {
             match ((string) $request->input('health')) {
                 'with_stock' => $query->whereHas('lots.status', fn (Builder $builder) => $builder->where('code', 'LIBRE')),
@@ -107,6 +111,7 @@ class ProjectController extends Controller
                 'consistency_gap' => $plannedLots - $actualLots,
                 'is_consistent' => $plannedLots === $actualLots,
                 'blocks_count' => count($project->blocks ?? []),
+                'is_active' => (bool) $project->is_active,
             ];
         });
 
@@ -120,6 +125,7 @@ class ProjectController extends Controller
                 'location' => $request->input('location'),
                 'health' => $request->input('health'),
                 'order' => $request->input('order'),
+                'is_active' => $request->input('is_active'),
             ],
             'projectTypes' => ProjectType::query()
                 ->where('is_active', true)
@@ -214,6 +220,18 @@ class ProjectController extends Controller
         return redirect()->route('inmopro.projects.index');
     }
 
+    public function toggleActive(Project $project): RedirectResponse
+    {
+        $activating = ! $project->is_active;
+        $project->update(['is_active' => $activating]);
+
+        $message = $activating
+            ? 'Proyecto activado correctamente.'
+            : 'Proyecto desactivado correctamente.';
+
+        return back()->with('success', $message);
+    }
+
     public function downloadAsset(Project $project, ProjectAsset $asset): StreamedResponse
     {
         abort_unless($asset->project_id === $project->id, 404);
@@ -293,6 +311,12 @@ class ProjectController extends Controller
     {
         unset($validated['image_files'], $validated['document_files']);
 
+        if (array_key_exists('is_active', $validated)) {
+            $validated['is_active'] = (bool) $validated['is_active'];
+        } else {
+            $validated['is_active'] = true;
+        }
+
         return $validated;
     }
 
@@ -353,6 +377,7 @@ class ProjectController extends Controller
             'location' => $project->location,
             'total_lots' => $project->total_lots,
             'blocks' => $project->blocks,
+            'is_active' => (bool) $project->is_active,
             'assets' => $project->assets
                 ->map(fn (ProjectAsset $asset) => $this->assetPayload($project, $asset))
                 ->values()

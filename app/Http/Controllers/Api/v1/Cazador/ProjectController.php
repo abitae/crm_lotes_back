@@ -15,6 +15,7 @@ class ProjectController extends Controller
     public function index(): JsonResponse
     {
         $projects = Project::query()
+            ->where('is_active', true)
             ->withCount('lots')
             ->withCount([
                 'assets as images_count' => fn ($query) => $query->where('kind', 'image')->where('is_active', true),
@@ -30,6 +31,8 @@ class ProjectController extends Controller
 
     public function show(Project $project): JsonResponse
     {
+        abort_unless($project->is_active, 404);
+
         $project->loadCount([
             'lots',
             'assets as images_count' => fn ($query) => $query->where('kind', 'image')->where('is_active', true),

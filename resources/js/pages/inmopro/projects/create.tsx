@@ -14,6 +14,7 @@ type ProjectCreateForm = {
     location: string;
     total_lots: string | number;
     blocks: string[];
+    is_active: boolean;
     image_files: File[];
     document_files: File[];
 };
@@ -27,6 +28,7 @@ export default function ProjectsCreate({ projectTypes }: { projectTypes: Array<{
             location: '',
             total_lots: '' as string | number,
             blocks: [] as string[],
+            is_active: true,
             image_files: [],
             document_files: [],
         });
@@ -106,6 +108,19 @@ export default function ProjectsCreate({ projectTypes }: { projectTypes: Array<{
                         />
                         <InputError message={errors.location} />
                     </div>
+                    <div className="flex items-center gap-2">
+                        <input
+                            id="is_active"
+                            type="checkbox"
+                            checked={data.is_active}
+                            onChange={(e) => setData('is_active', e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300"
+                        />
+                        <Label htmlFor="is_active" className="cursor-pointer">
+                            Proyecto activo (visible en dashboard y apps)
+                        </Label>
+                    </div>
+                    <InputError message={errors.is_active} />
                     <div>
                         <Label htmlFor="total_lots">Total de lotes (opcional)</Label>
                         <Input

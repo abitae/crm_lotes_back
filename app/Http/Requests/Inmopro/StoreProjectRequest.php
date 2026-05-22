@@ -27,6 +27,7 @@ class StoreProjectRequest extends FormRequest
             'total_lots' => ['nullable', 'integer', 'min:0'],
             'blocks' => ['nullable', 'array'],
             'blocks.*' => ['string', 'max:10'],
+            'is_active' => ['nullable', 'boolean'],
             'image_files' => ['nullable', 'array'],
             'image_files.*' => ['file', 'image', 'max:10240'],
             'document_files' => ['nullable', 'array'],

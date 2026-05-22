@@ -57,6 +57,7 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::post('projects/import-confirm', [ProjectController::class, 'importConfirm'])->name('projects.import-confirm');
         Route::get('projects/{project}/assets/{asset}/download', [ProjectController::class, 'downloadAsset'])->name('projects.assets.download');
         Route::delete('projects/{project}/assets/{asset}', [ProjectController::class, 'destroyAsset'])->name('projects.assets.destroy');
+        Route::patch('projects/{project}/toggle-active', [ProjectController::class, 'toggleActive'])->name('projects.toggle-active');
         Route::resource('projects', ProjectController::class);
         Route::resource('project-types', ProjectTypeController::class)
             ->except(['create', 'edit', 'show'])

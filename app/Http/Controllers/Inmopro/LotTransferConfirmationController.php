@@ -28,6 +28,12 @@ class LotTransferConfirmationController extends Controller
         abort_unless($request->user()?->can('inmopro.lot-transfer-confirmations.index'), 403);
 
         $search = trim((string) $request->string('search'));
+        $advisorSearch = trim((string) $request->string('advisor_search'));
+        $pendingReview = $request->boolean('pending_review');
+        $allowedStatusCodes = [
+            LotStatus::CODE_RESERVADO,
+            LotStatus::CODE_TRANSFERIDO,
+        ];
 
         $lots = Lot::query()
             ->with([
@@ -38,11 +44,15 @@ class LotTransferConfirmationController extends Controller
                 'latestTransferConfirmation.requester',
                 'latestTransferConfirmation.reviewer',
             ])
-            ->whereHas('status', fn ($query) => $query->whereIn('code', [
-                LotStatus::CODE_RESERVADO,
-                LotStatus::CODE_TRANSFERIDO,
-            ]))
+            ->whereHas('status', fn ($query) => $query->whereIn('code', $allowedStatusCodes))
             ->when($request->filled('project_id'), fn ($query) => $query->where('project_id', $request->integer('project_id')))
+            ->when($request->filled('lot_status_id'), function ($query) use ($request, $allowedStatusCodes) {
+                $query->whereHas('status', function ($statusQuery) use ($request, $allowedStatusCodes) {
+                    $statusQuery
+                        ->whereIn('code', $allowedStatusCodes)
+                        ->whereKey($request->integer('lot_status_id'));
+                });
+            })
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($lotQuery) use ($search) {
                     $lotQuery
@@ -58,6 +68,16 @@ class LotTransferConfirmationController extends Controller
                         });
                 });
             })
+            ->when($advisorSearch !== '', function ($query) use ($advisorSearch) {
+                $query->whereHas('advisor', function ($advisorQuery) use ($advisorSearch) {
+                    $advisorQuery->where('name', 'like', "%{$advisorSearch}%");
+                });
+            })
+            ->when($pendingReview, function ($query) {
+                $query->whereHas('latestTransferConfirmation', function ($transferQuery) {
+                    $transferQuery->where('status', LotTransferConfirmation::STATUS_PENDING);
+                });
+            })
             ->orderBy('project_id')
             ->orderBy('block')
             ->orderBy('number')
@@ -66,8 +86,18 @@ class LotTransferConfirmationController extends Controller
 
         return Inertia::render('inmopro/lot-transfer-confirmations/index', [
             'lots' => $lots,
-            'filters' => $request->only('project_id', 'search'),
+            'filters' => [
+                'project_id' => $request->input('project_id'),
+                'lot_status_id' => $request->input('lot_status_id'),
+                'search' => $request->input('search'),
+                'advisor_search' => $request->input('advisor_search'),
+                'pending_review' => $pendingReview ? '1' : null,
+            ],
             'projects' => Project::query()->orderBy('name')->get(['id', 'name']),
+            'lotStatuses' => LotStatus::query()
+                ->whereIn('code', $allowedStatusCodes)
+                ->orderBy('sort_order')
+                ->get(['id', 'name', 'code', 'color']),
         ]);
     }
 

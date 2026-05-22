@@ -211,6 +211,7 @@ class AdvisorController extends Controller
                 'search',
                 'advisor_level_id',
                 'team_id',
+                'is_active',
                 'membership_pending',
                 'joined_from',
                 'joined_to',
@@ -241,6 +242,10 @@ class AdvisorController extends Controller
 
         if ($request->filled('team_id')) {
             $query->where('team_id', $request->integer('team_id'));
+        }
+
+        if ($request->has('is_active') && $request->input('is_active') !== '') {
+            $query->where('is_active', $request->boolean('is_active'));
         }
 
         if ($request->boolean('membership_pending')) {

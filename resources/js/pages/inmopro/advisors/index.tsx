@@ -50,6 +50,7 @@ type AdvisorProfile = {
 };
 type Advisor = {
     id: number;
+    is_active: boolean;
     name: string;
     dni?: string | null;
     first_name?: string | null;
@@ -195,6 +196,7 @@ type PageProps = {
         search?: string;
         advisor_level_id?: string | number;
         team_id?: string | number;
+        is_active?: string | number | boolean;
         membership_pending?: string | number | boolean;
         joined_from?: string;
         joined_to?: string;
@@ -365,6 +367,7 @@ export default function AdvisorsIndex({
                 filters.search ?? '',
                 String(filters.advisor_level_id ?? ''),
                 String(filters.team_id ?? ''),
+                filters.is_active != null && String(filters.is_active) !== '' ? String(filters.is_active) : '',
                 filters.membership_pending ? '1' : '',
             ].join('|'),
         [filters],
@@ -387,11 +390,13 @@ export default function AdvisorsIndex({
         const advisorLevelId = (fd.get('advisor_level_id') as string)?.trim();
         const teamId = (fd.get('team_id') as string)?.trim();
         const membershipPending = fd.get('membership_pending') === '1';
+        const isActive = (fd.get('is_active') as string)?.trim();
 
         navigateAdvisorsWithPatch({
             search: search || null,
             advisor_level_id: advisorLevelId || null,
             team_id: teamId || null,
+            is_active: isActive !== '' ? isActive : null,
             membership_pending: membershipPending ? '1' : null,
         });
     };
@@ -438,6 +443,9 @@ export default function AdvisorsIndex({
     }
     if (filters.team_id != null && String(filters.team_id) !== '') {
         advisorsExportQuery.set('team_id', String(filters.team_id));
+    }
+    if (filters.is_active != null && String(filters.is_active) !== '') {
+        advisorsExportQuery.set('is_active', String(filters.is_active));
     }
     if (filters.membership_pending) {
         advisorsExportQuery.set('membership_pending', '1');
@@ -587,6 +595,18 @@ export default function AdvisorsIndex({
                                     ))}
                                 </select>
                             </div>
+                            <div className="w-28 shrink-0 sm:w-36">
+                                <Label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">Estado</Label>
+                                <select
+                                    name="is_active"
+                                    defaultValue={filters.is_active != null ? String(filters.is_active) : ''}
+                                    className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs font-medium outline-none ring-emerald-500/30 focus:ring-2"
+                                >
+                                    <option value="">Activos e inactivos</option>
+                                    <option value="1">Solo activos</option>
+                                    <option value="0">Solo inactivos</option>
+                                </select>
+                            </div>
                             <label
                                 htmlFor="filter-membership-pending"
                                 className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-amber-100/80 bg-amber-50/50 px-2"
@@ -710,6 +730,7 @@ export default function AdvisorsIndex({
                             <thead>
                                 <tr className="border-b border-slate-100 bg-slate-50/50">
                                     <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Nivel / Vendedor</th>
+                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Estado</th>
                                     <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Team</th>
                                     <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Ciudad</th>
                                     <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Superior</th>
@@ -738,6 +759,17 @@ export default function AdvisorsIndex({
                                                     </p>
                                                 </div>
                                             </div>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <span
+                                                className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                                                    adv.is_active
+                                                        ? 'bg-emerald-100 text-emerald-700'
+                                                        : 'bg-slate-100 text-slate-600'
+                                                }`}
+                                            >
+                                                {adv.is_active ? 'Activo' : 'Inactivo'}
+                                            </span>
                                         </td>
                                         <td className="px-4 py-3">
                                             <span
@@ -1359,6 +1391,7 @@ function CreateAdvisorModal({
         bank_name: '',
         bank_account_number: '',
         bank_cci: '',
+        is_active: true,
         material_items: buildMaterialFormRows(materialTypes),
     });
 
@@ -1530,6 +1563,17 @@ function CreateAdvisorModal({
                             </div>
                         </div>
 
+                        <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                            <input
+                                type="checkbox"
+                                checked={data.is_active}
+                                onChange={(e) => setData('is_active', e.target.checked)}
+                                className="h-4 w-4 rounded border-slate-300"
+                            />
+                            Vendedor activo (puede acceder a Cazador)
+                        </label>
+                        <InputError message={errors.is_active} />
+
                         <Separator className="my-5" />
                         <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Material corporativo</p>
                         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -1627,6 +1671,7 @@ function EditAdvisorModal({
         bank_name: advisor.bank_name ?? '',
         bank_account_number: advisor.bank_account_number ?? '',
         bank_cci: advisor.bank_cci ?? '',
+        is_active: advisor.is_active ?? true,
         material_items: buildMaterialFormRows(materialTypes, advisor.material_items),
         profile: {
             professional_profile: advisor.profile?.professional_profile ?? '',
@@ -1808,6 +1853,17 @@ function EditAdvisorModal({
                                 <InputError message={errors.bank_cci} />
                             </div>
                         </div>
+
+                        <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                            <input
+                                type="checkbox"
+                                checked={data.is_active}
+                                onChange={(e) => setData('is_active', e.target.checked)}
+                                className="h-4 w-4 rounded border-slate-300"
+                            />
+                            Vendedor activo (puede acceder a Cazador)
+                        </label>
+                        <InputError message={errors.is_active} />
 
                         <Separator className="my-5" />
                         <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Perfil profesional</p>

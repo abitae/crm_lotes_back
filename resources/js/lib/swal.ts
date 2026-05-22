@@ -1,6 +1,29 @@
 import Swal from 'sweetalert2';
 
 /**
+ * Confirma activar o desactivar un proyecto desde el listado o la ficha.
+ */
+export async function confirmToggleProjectActive(projectName: string, activating: boolean): Promise<boolean> {
+    const result = await Swal.fire({
+        title: activating ? '¿Activar proyecto?' : '¿Desactivar proyecto?',
+        html: `<p style="margin:0;text-align:left;font-size:0.95rem;line-height:1.5;color:#475569">
+            ${activating
+                ? `El proyecto <strong>${escapeHtml(projectName)}</strong> volverá a mostrarse en el dashboard, apps y catálogos.`
+                : `El proyecto <strong>${escapeHtml(projectName)}</strong> dejará de mostrarse en el dashboard, apps y catálogos. Los lotes y el historial se conservan.`}
+        </p>`,
+        icon: 'question',
+        showCancelButton: true,
+        focusCancel: true,
+        confirmButtonColor: activating ? '#059669' : '#d97706',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: activating ? 'Sí, activar' : 'Sí, desactivar',
+        cancelButtonText: 'Cancelar',
+    });
+
+    return result.isConfirmed;
+}
+
+/**
  * Muestra un cuadro de confirmación para eliminar. Retorna true si el usuario confirma.
  */
 export async function confirmDelete(title: string, text?: string): Promise<boolean> {
