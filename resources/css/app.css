@@ -202,4 +202,44 @@
     .dark textarea[class*='border-slate-']::placeholder {
         color: oklch(0.72 0 0);
     }
+
+    .dark [class*='bg-blue-50']:not([class*='dark:bg-']) {
+        background-color: oklch(0.28 0.04 250);
+    }
+
+    .dark [class*='bg-emerald-50']:not([class*='dark:bg-']),
+    .dark [class*='bg-green-50']:not([class*='dark:bg-']) {
+        background-color: oklch(0.26 0.04 155);
+    }
+
+    .dark [class*='bg-amber-50']:not([class*='dark:bg-']) {
+        background-color: oklch(0.28 0.04 75);
+    }
+
+    .dark [class*='bg-rose-50']:not([class*='dark:bg-']) {
+        background-color: oklch(0.28 0.04 25);
+    }
+
+    .dark [class*='bg-sky-50']:not([class*='dark:bg-']) {
+        background-color: oklch(0.26 0.04 230);
+    }
+
+    .dark [class*='bg-violet-50']:not([class*='dark:bg-']),
+    .dark [class*='bg-indigo-50']:not([class*='dark:bg-']) {
+        background-color: oklch(0.26 0.04 290);
+    }
+
+    .dark [class*='bg-\\[#f3f4f6\\]']:not([class*='dark:bg-']) {
+        background-color: oklch(0.24 0 0);
+    }
+
+    .dark [class~='text-blue-600']:not([class*='dark:text-']),
+    .dark [class~='text-emerald-600']:not([class*='dark:text-']),
+    .dark [class~='text-emerald-700']:not([class*='dark:text-']),
+    .dark [class~='text-amber-600']:not([class*='dark:text-']),
+    .dark [class~='text-amber-700']:not([class*='dark:text-']),
+    .dark [class~='text-rose-600']:not([class*='dark:text-']),
+    .dark [class~='text-rose-700']:not([class*='dark:text-']) {
+        color: oklch(0.88 0.06 0);
+    }
 }

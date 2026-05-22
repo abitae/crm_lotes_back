@@ -50,7 +50,7 @@ export default function CashAccountsIndex({ accounts }: { accounts: Account[] })
                             onSuccess: () => accountForm.reset('name', 'initial_balance'),
                         });
                     }}
-                    className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-5"
+                    className="grid gap-3 rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm md:grid-cols-5"
                 >
                     <input
                         placeholder="Nombre"
@@ -105,7 +105,7 @@ function CashAccountCard({ account }: { account: Account }) {
     });
 
     return (
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm">
             <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                     <h2 className="text-lg font-black text-slate-900">{account.name}</h2>
@@ -139,7 +139,7 @@ function CashAccountCard({ account }: { account: Account }) {
                     <select
                         value={entryForm.data.type}
                         onChange={(event) => entryForm.setData('type', event.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none"
+                        className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none"
                     >
                         <option value="INGRESO">Ingreso</option>
                         <option value="EGRESO">Egreso</option>
@@ -148,7 +148,7 @@ function CashAccountCard({ account }: { account: Account }) {
                         placeholder="Concepto"
                         value={entryForm.data.concept}
                         onChange={(event) => entryForm.setData('concept', event.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none"
+                        className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none"
                     />
                     <input
                         type="number"
@@ -157,13 +157,13 @@ function CashAccountCard({ account }: { account: Account }) {
                         placeholder="Monto"
                         value={entryForm.data.amount}
                         onChange={(event) => entryForm.setData('amount', event.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none"
+                        className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none"
                     />
                     <input
                         type="date"
                         value={entryForm.data.entry_date}
                         onChange={(event) => entryForm.setData('entry_date', event.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none"
+                        className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none"
                     />
                     <button type="submit" className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white">
                         Registrar

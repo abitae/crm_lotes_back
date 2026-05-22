@@ -82,7 +82,7 @@ export default function LotsShow({ lot, canConfirmTransfer }: { lot: Lot; canCon
                     </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="rounded-2xl border border-border bg-card text-card-foreground p-6 shadow-sm">
                     <div className="grid gap-6 sm:grid-cols-2">
                         <div>
                             <h3 className="mb-3 font-bold text-slate-700">Identificación</h3>

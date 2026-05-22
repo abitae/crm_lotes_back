@@ -3,6 +3,8 @@ import { AlertTriangle, Building2, Calendar, DollarSign, Search, WalletCards } f
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import AppLayout from '@/layouts/app-layout';
 import { formatDate } from '@/lib/date';
+import { InmoproMetricCard } from '@/components/inmopro/metric-card';
+import { inmoproUi } from '@/lib/inmopro-ui';
 import type { BreadcrumbItem } from '@/types';
 
 type Lot = {
@@ -57,18 +59,16 @@ export default function Financial({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Control Financiero - Inmopro" />
             <div className="space-y-6 p-4 md:p-6">
-                <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-col gap-4 rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h1 className="text-2xl font-black tracking-tight text-slate-900">
-                            Control financiero
-                        </h1>
-                        <p className="mt-1 text-sm text-slate-500">
+                        <h1 className={inmoproUi.pageTitle}>Control financiero</h1>
+                        <p className={inmoproUi.pageSubtitle}>
                             Seguimiento de ventas, cobranza y saldo pendiente por lote. Por defecto se muestra el mes en curso.
                         </p>
                     </div>
                     <Link
                         href="/inmopro/accounts-receivable"
-                        className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white"
+                        className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground"
                     >
                         <WalletCards className="h-4 w-4" />
                         Abrir cuentas por cobrar
@@ -77,10 +77,10 @@ export default function Financial({
 
                 <section className="space-y-4" aria-label="Resumen financiero">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <MetricCard icon={Building2} label="Portafolio" value={`S/ ${totalValue.toLocaleString()}`} tone="blue" />
-                        <MetricCard icon={DollarSign} label="Cobrado" value={`S/ ${totalCollected.toLocaleString()}`} tone="emerald" />
-                        <MetricCard icon={AlertTriangle} label="Pendiente" value={`S/ ${totalPending.toLocaleString()}`} tone="amber" />
-                        <MetricCard icon={WalletCards} label="Operaciones" value={String(lots.total)} tone="slate" />
+                        <InmoproMetricCard icon={Building2} label="Portafolio" value={`S/ ${totalValue.toLocaleString()}`} tone="blue" />
+                        <InmoproMetricCard icon={DollarSign} label="Cobrado" value={`S/ ${totalCollected.toLocaleString()}`} tone="emerald" />
+                        <InmoproMetricCard icon={AlertTriangle} label="Pendiente" value={`S/ ${totalPending.toLocaleString()}`} tone="amber" />
+                        <InmoproMetricCard icon={WalletCards} label="Operaciones" value={String(lots.total)} tone="slate" />
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -101,12 +101,12 @@ export default function Financial({
 
                 <form
                     onSubmit={handleFilter}
-                    className="grid grid-cols-1 gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 md:grid-cols-2 lg:grid-cols-5"
+                    className="grid grid-cols-1 gap-3 rounded-3xl border border-border bg-card text-card-foreground p-4 shadow-sm sm:p-6 md:grid-cols-2 lg:grid-cols-5"
                 >
                     <select
                         name="project_id"
                         defaultValue={filters.project_id}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none"
+                        className={inmoproUi.input}
                     >
                         <option value="">Todos los proyectos</option>
                         {projects.map((project) => (
@@ -162,31 +162,31 @@ export default function Financial({
                     </button>
                 </form>
 
-                <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm">
                     <div className="border-b border-slate-100 px-6 py-4">
-                        <h2 className="text-lg font-black text-slate-900">Detalle de operaciones</h2>
+                        <h2 className={inmoproUi.sectionTitle}>Detalle de operaciones</h2>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[900px] text-left text-sm">
-                            <thead className="bg-slate-50">
+                            <thead className={inmoproUi.tableHead}>
                                 <tr>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Fecha / Lote</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Cliente</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Proyecto</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Precio</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Cobrado</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Saldo</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">% avance</th>
+                                    <th className={`px-6 py-3 ${inmoproUi.tableHeadCell}`}>Fecha / Lote</th>
+                                    <th className={`px-6 py-3 ${inmoproUi.tableHeadCell}`}>Cliente</th>
+                                    <th className={`px-6 py-3 ${inmoproUi.tableHeadCell}`}>Proyecto</th>
+                                    <th className={`px-6 py-3 ${inmoproUi.tableHeadCell}`}>Precio</th>
+                                    <th className={`px-6 py-3 ${inmoproUi.tableHeadCell}`}>Cobrado</th>
+                                    <th className={`px-6 py-3 ${inmoproUi.tableHeadCell}`}>Saldo</th>
+                                    <th className={`px-6 py-3 ${inmoproUi.tableHeadCell}`}>% avance</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className={`divide-y ${inmoproUi.divide}`}>
                                 {lots.data.map((lot) => {
                                     const price = Number(lot.price);
                                     const collected = Number(lot.advance ?? 0);
                                     const progress = price > 0 ? Math.round((collected / price) * 100) : 0;
 
                                     return (
-                                        <tr key={lot.id} className="hover:bg-slate-50/60">
+                                        <tr key={lot.id} className={inmoproUi.tableRowHover}>
                                             <td className="px-6 py-4">
                                                 <p className="font-black text-slate-900">
                                                     {lot.block}-{lot.number}
@@ -246,37 +246,6 @@ export default function Financial({
     );
 }
 
-function MetricCard({
-    icon: Icon,
-    label,
-    value,
-    tone,
-}: {
-    icon: typeof DollarSign;
-    label: string;
-    value: string;
-    tone: 'slate' | 'blue' | 'emerald' | 'amber';
-}) {
-    const tones = {
-        slate: 'bg-slate-50 text-slate-700',
-        blue: 'bg-blue-50 text-blue-700',
-        emerald: 'bg-emerald-50 text-emerald-700',
-        amber: 'bg-amber-50 text-amber-700',
-    };
-
-    return (
-        <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-            <div className="mb-3 flex items-center justify-between gap-2 sm:mb-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-                <div className={`shrink-0 rounded-2xl p-2.5 sm:p-3 ${tones[tone]}`}>
-                    <Icon className="h-5 w-5" />
-                </div>
-            </div>
-            <p className="break-words text-2xl font-black text-slate-900 sm:text-3xl">{value}</p>
-        </div>
-    );
-}
-
 function ProgressCard({
     title,
     description,
@@ -291,18 +260,18 @@ function ProgressCard({
     const barTone = tone === 'emerald' ? 'from-emerald-600 to-emerald-400' : 'from-amber-500 to-amber-300';
 
     return (
-        <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className={`${inmoproUi.metricCard} sm:p-6`}>
             <div className="mb-4 flex items-center justify-between gap-2">
-                <h3 className="text-sm font-black uppercase tracking-wide text-slate-700">{title}</h3>
-                <span className="shrink-0 text-lg font-black text-slate-900">{value}%</span>
+                <h3 className="text-sm font-black uppercase tracking-wide text-foreground">{title}</h3>
+                <span className="shrink-0 text-lg font-black text-foreground">{value}%</span>
             </div>
-            <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-3 overflow-hidden rounded-full bg-muted">
                 <div
                     className={`h-full rounded-full bg-gradient-to-r ${barTone}`}
                     style={{ width: `${Math.min(100, value)}%` }}
                 />
             </div>
-            <p className="mt-3 text-sm text-slate-500">{description}</p>
+            <p className="mt-3 text-sm text-muted-foreground">{description}</p>
         </div>
     );
 }

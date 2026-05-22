@@ -204,7 +204,7 @@ export default function ProjectsShow({ project, lotStatuses }: PageProps) {
                 />
 
                 {(project.images?.length || project.documents?.length) ? (
-                    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <section className="rounded-2xl border border-border bg-card text-card-foreground p-4 shadow-sm">
                         <h3 className="text-lg font-black text-slate-800">Archivos del proyecto</h3>
                         <div className="mt-4 grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">

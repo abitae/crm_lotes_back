@@ -25,7 +25,7 @@ export default function CommissionStatusesShow({ commissionStatus }: { commissio
                     </div>
                     <Link href={'/inmopro/commission-statuses/' + commissionStatus.id + '/edit'} className="rounded-xl bg-emerald-600 px-4 py-2.5 font-bold text-white hover:bg-emerald-700">Editar</Link>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="rounded-2xl border border-border bg-card text-card-foreground p-4">
                     <p className="text-slate-600">Comisiones con este estado: <strong>{commissionStatus.commissions_count ?? 0}</strong></p>
                 </div>
             </div>

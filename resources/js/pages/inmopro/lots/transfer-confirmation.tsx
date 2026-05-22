@@ -48,7 +48,7 @@ export default function TransferConfirmationCreate({ lot }: { lot: Lot }) {
                     </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="rounded-2xl border border-border bg-card text-card-foreground p-6 shadow-sm">
                     <dl className="grid gap-4 sm:grid-cols-2">
                         <div>
                             <dt className="text-sm text-slate-500">Proyecto</dt>
@@ -69,7 +69,7 @@ export default function TransferConfirmationCreate({ lot }: { lot: Lot }) {
                     </dl>
                 </div>
 
-                <form onSubmit={submit} className="max-w-2xl space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <form onSubmit={submit} className="max-w-2xl space-y-4 rounded-2xl border border-border bg-card text-card-foreground p-6 shadow-sm">
                     <div>
                         <Label htmlFor="evidence_image">Evidencia de transferencia</Label>
                         <input

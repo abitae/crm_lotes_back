@@ -40,7 +40,7 @@ type AdvisorCreateForm = {
 };
 
 const fieldClass = 'mt-1.5 h-11 w-full text-base';
-const textareaClass = 'mt-1.5 min-h-28 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-base shadow-sm';
+const textareaClass = 'mt-1.5 min-h-28 w-full rounded-lg border border-input bg-background px-3 py-2.5 text-base shadow-sm';
 
 function buildMaterialFormRows(types: MaterialTypeRow[]): MaterialFormRow[] {
     return types.map((type) => ({
@@ -62,7 +62,7 @@ function FormSection({
     className?: string;
 }) {
     return (
-        <section className={cn('rounded-2xl border border-slate-200 bg-white p-4 shadow-sm', className)}>
+        <section className={cn('rounded-2xl border border-border bg-card text-card-foreground p-4 shadow-sm', className)}>
             <div className="mb-4 space-y-1">
                 <h2 className="text-base font-semibold text-slate-900">{title}</h2>
                 {description ? <p className="text-sm leading-snug text-slate-500">{description}</p> : null}

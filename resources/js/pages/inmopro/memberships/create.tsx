@@ -51,7 +51,7 @@ export default function MembershipsCreate({ advisors }: { advisors: Advisor[] })
                                     id="advisor_id"
                                     value={data.advisor_id}
                                     onChange={(e) => setData('advisor_id', e.target.value)}
-                                    className="mt-1 flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm"
+                                    className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                     required
                                 >
                                     <option value="">— Seleccione —</option>

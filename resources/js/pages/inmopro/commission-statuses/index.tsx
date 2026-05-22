@@ -38,7 +38,7 @@ export default function CommissionStatusesIndex({ commissionStatuses }: { commis
                     <CommissionMetric label="Ciclo" value="Pendiente / Pagado" tone="emerald" />
                     <CommissionMetric label="Uso" value="Liquidacion" tone="blue" />
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                <div className="rounded-2xl border border-border bg-card text-card-foreground overflow-hidden">
                     <table className="w-full">
                         <thead className="bg-slate-50 border-b border-slate-200">
                             <tr>
@@ -90,7 +90,7 @@ function CommissionMetric({
     };
 
     return (
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-3xl border border-border bg-card text-card-foreground p-5 shadow-sm">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
             <p className={`mt-3 text-xl font-black ${tones[tone]}`}>{value}</p>
         </div>

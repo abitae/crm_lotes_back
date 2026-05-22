@@ -1,5 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { Calendar, CheckCircle2, DollarSign, Percent, Search } from 'lucide-react';
+import { InmoproMetricCard } from '@/components/inmopro/metric-card';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import AppLayout from '@/layouts/app-layout';
 import { confirmCommissionMarkPaid } from '@/lib/swal';
@@ -68,7 +69,7 @@ export default function Commissions({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Comisiones - Inmopro" />
             <div className="space-y-6 p-4 md:p-6">
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm">
                     <h1 className="text-2xl font-black tracking-tight text-slate-900">Comisiones</h1>
                     <p className="mt-1 text-sm text-slate-500">
                         Liquidacion de comisiones directas y piramidales por lote transferido.
@@ -76,14 +77,14 @@ export default function Commissions({
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-3">
-                    <MetricCard icon={DollarSign} label="Total comisiones" value={`S/ ${totalCommissions.toLocaleString()}`} tone="emerald" />
-                    <MetricCard icon={Percent} label="Pendientes" value={String(pendingCount)} tone="amber" />
-                    <MetricCard icon={CheckCircle2} label="Pagadas" value={String(paidCount)} tone="slate" />
+                    <InmoproMetricCard icon={DollarSign} label="Total comisiones" value={`S/ ${totalCommissions.toLocaleString()}`} tone="emerald" />
+                    <InmoproMetricCard icon={Percent} label="Pendientes" value={String(pendingCount)} tone="amber" />
+                    <InmoproMetricCard icon={CheckCircle2} label="Pagadas" value={String(paidCount)} tone="slate" />
                 </div>
 
                 <form
                     onSubmit={handleFilter}
-                    className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-4"
+                    className="grid gap-3 rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm md:grid-cols-4"
                 >
                     <div className="relative">
                         <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -121,7 +122,7 @@ export default function Commissions({
                     </button>
                 </form>
 
-                <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm">
                     <div className="border-b border-slate-100 px-6 py-4">
                         <h2 className="text-lg font-black text-slate-900">Liquidacion de comisiones</h2>
                     </div>
@@ -211,32 +212,3 @@ export default function Commissions({
     );
 }
 
-function MetricCard({
-    icon: Icon,
-    label,
-    value,
-    tone,
-}: {
-    icon: typeof DollarSign;
-    label: string;
-    value: string;
-    tone: 'slate' | 'emerald' | 'amber';
-}) {
-    const tones = {
-        slate: 'bg-slate-50 text-slate-700',
-        emerald: 'bg-emerald-50 text-emerald-700',
-        amber: 'bg-amber-50 text-amber-700',
-    };
-
-    return (
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-                <div className={`rounded-2xl p-3 ${tones[tone]}`}>
-                    <Icon className="h-5 w-5" />
-                </div>
-            </div>
-            <p className="text-3xl font-black text-slate-900">{value}</p>
-        </div>
-    );
-}

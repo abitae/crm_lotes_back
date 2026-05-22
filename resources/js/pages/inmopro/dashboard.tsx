@@ -44,12 +44,12 @@ export default function InmoproDashboard({
     ];
 
     const statCards = [
-        { label: 'Lotes Totales', value: stats.total, icon: TrendingUp, className: 'bg-sky-500/10 text-sky-600' },
-        { label: 'Disponibles', value: stats.libre, icon: CheckCircle2, className: 'bg-emerald-500/10 text-emerald-600' },
-        { label: 'Pre-reserva', value: stats.prereserva, icon: ArrowRightLeft, className: 'bg-sky-500/10 text-sky-600' },
-        { label: 'Reservados', value: stats.reservado, icon: Clock, className: 'bg-amber-500/10 text-amber-600' },
-        { label: 'Transferidos', value: stats.transferido, icon: Users, className: 'bg-slate-500/10 text-slate-600' },
-        { label: 'Cuotas', value: stats.cuotas, icon: Landmark, className: 'bg-violet-500/10 text-violet-600' },
+        { label: 'Lotes Totales', value: stats.total, icon: TrendingUp, className: 'bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 dark:text-sky-300' },
+        { label: 'Disponibles', value: stats.libre, icon: CheckCircle2, className: 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300' },
+        { label: 'Pre-reserva', value: stats.prereserva, icon: ArrowRightLeft, className: 'bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 dark:text-sky-300' },
+        { label: 'Reservados', value: stats.reservado, icon: Clock, className: 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300' },
+        { label: 'Transferidos', value: stats.transferido, icon: Users, className: 'bg-muted text-muted-foreground' },
+        { label: 'Cuotas', value: stats.cuotas, icon: Landmark, className: 'bg-violet-500/10 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300' },
     ];
 
     return (
@@ -57,8 +57,8 @@ export default function InmoproDashboard({
             <Head title="Dashboard - Inmopro" />
             <div className="space-y-8 p-4 md:p-6">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
-                    <p className="mt-1 text-sm text-slate-500">Resumen del inventario y reservas recientes.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h1>
+                    <p className="mt-1 text-sm text-muted-foreground">Resumen del inventario y reservas recientes.</p>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
@@ -67,8 +67,8 @@ export default function InmoproDashboard({
                             <CardContent className="pt-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                                        <p className="mt-1 text-3xl font-bold tabular-nums text-slate-900">{stat.value}</p>
+                                        <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
+                                        <p className="mt-1 text-3xl font-bold tabular-nums text-foreground">{stat.value}</p>
                                     </div>
                                     <div className={`rounded-xl p-3 ${stat.className}`}>
                                         <stat.icon className="h-6 w-6" />

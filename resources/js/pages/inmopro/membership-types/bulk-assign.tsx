@@ -85,7 +85,7 @@ export default function MembershipTypesBulkAssign({ membershipType, advisors, al
                 </div>
 
                 <form onSubmit={submit} className="space-y-4">
-                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="rounded-xl border border-border bg-card text-card-foreground p-4">
                         <Label htmlFor="start_date">Fecha de inicio de la membresía</Label>
                         <p className="mt-1 text-sm text-slate-500">
                             La fecha de vencimiento se calculará automáticamente ({membershipType.months} meses después).
@@ -128,7 +128,7 @@ export default function MembershipTypesBulkAssign({ membershipType, advisors, al
 
                     <InputError message={errors.advisor_ids} />
 
-                    <div className="rounded-2xl border border-slate-200 bg-white">
+                    <div className="rounded-2xl border border-border bg-card text-card-foreground">
                         <div className="max-h-[50vh] overflow-y-auto">
                             {filtered.length === 0 ? (
                                 <div className="py-8 text-center text-slate-500">No hay vendedores que coincidan.</div>

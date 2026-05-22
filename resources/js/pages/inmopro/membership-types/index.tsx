@@ -46,7 +46,7 @@ export default function MembershipTypesIndex({
                         <Plus className="h-5 w-5" /> Nuevo tipo
                     </Link>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                <div className="rounded-2xl border border-border bg-card text-card-foreground overflow-hidden">
                     <table className="w-full">
                         <thead className="bg-slate-50 border-b border-slate-200">
                             <tr>

@@ -70,7 +70,7 @@ export default function MembershipsIndex({
                             <select
                                 value={filters.advisor_id ?? ''}
                                 onChange={(e) => applyFilters({ advisor_id: e.target.value || undefined })}
-                                className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
+                                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                             >
                                 <option value="">Todos</option>
                                 {advisors.map((a) => (
@@ -83,7 +83,7 @@ export default function MembershipsIndex({
                             <select
                                 value={filters.year ?? ''}
                                 onChange={(e) => applyFilters({ year: e.target.value || undefined })}
-                                className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
+                                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                             >
                                 <option value="">Todos</option>
                                 {[2026, 2025, 2024, 2023].map((y) => (

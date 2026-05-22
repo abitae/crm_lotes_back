@@ -99,7 +99,7 @@ export default function LotsEdit({ lot, lotStatuses, clients, advisors, projects
                 <form onSubmit={submit} className="max-w-2xl space-y-4">
                     <div>
                         <Label htmlFor="lot_status_id">Estado (Estados de lote)</Label>
-                        <select id="lot_status_id" value={data.lot_status_id} onChange={(e) => setData('lot_status_id', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <select id="lot_status_id" value={data.lot_status_id} onChange={(e) => setData('lot_status_id', e.target.value)} className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2">
                             {availableLotStatuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                         <InputError message={errors.lot_status_id} />
@@ -110,7 +110,7 @@ export default function LotsEdit({ lot, lotStatuses, clients, advisors, projects
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <div>
                                     <Label htmlFor="client_id">Cliente</Label>
-                                    <select id="client_id" value={data.client_id} onChange={(e) => setData('client_id', e.target.value === '' ? '' : Number(e.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                                    <select id="client_id" value={data.client_id} onChange={(e) => setData('client_id', e.target.value === '' ? '' : Number(e.target.value))} className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2">
                                         <option value="">—</option>
                                         {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     </select>
@@ -129,7 +129,7 @@ export default function LotsEdit({ lot, lotStatuses, clients, advisors, projects
                                 </div>
                                 <div>
                                     <Label htmlFor="advisor_id">Asesor</Label>
-                                    <select id="advisor_id" value={data.advisor_id} onChange={(e) => setData('advisor_id', e.target.value === '' ? '' : Number(e.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                                    <select id="advisor_id" value={data.advisor_id} onChange={(e) => setData('advisor_id', e.target.value === '' ? '' : Number(e.target.value))} className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2">
                                         <option value="">—</option>
                                         {advisors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                                     </select>

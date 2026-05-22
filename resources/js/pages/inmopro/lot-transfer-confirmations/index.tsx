@@ -208,7 +208,7 @@ export default function LotTransferConfirmationsIndex({
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-3">
-                    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="rounded-3xl border border-border bg-card text-card-foreground p-5 shadow-sm">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Lotes totales</p>
                         <p className="mt-3 text-3xl font-black text-slate-900">{lots.total}</p>
                     </div>
@@ -226,7 +226,7 @@ export default function LotTransferConfirmationsIndex({
                     </div>
                 </div>
 
-                <form onSubmit={submitFilters} className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-2 xl:grid-cols-[220px_220px_1fr_1fr_180px_160px]">
+                <form onSubmit={submitFilters} className="grid gap-3 rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm md:grid-cols-2 xl:grid-cols-[220px_220px_1fr_1fr_180px_160px]">
                     <select
                         name="project_id"
                         defaultValue={filters.project_id}
@@ -279,7 +279,7 @@ export default function LotTransferConfirmationsIndex({
                     <Button type="submit">Filtrar</Button>
                 </form>
 
-                <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm">
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[1100px] text-sm">
                             <thead className="bg-slate-50">

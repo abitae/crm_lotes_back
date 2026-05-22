@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { InmoproMetricCard } from '@/components/inmopro/metric-card';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { clientsListingQuerySuffix } from '@/lib/inmopro-listing-query';
 import { cn } from '@/lib/utils';
@@ -163,7 +164,7 @@ export default function ClientsIndex({
                             <select
                                 name="client_type_id"
                                 defaultValue={filters.client_type_id ? String(filters.client_type_id) : ''}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
                             >
                                 <option value="">Todos los tipos</option>
                                 {clientTypes.map((clientType) => (
@@ -173,7 +174,7 @@ export default function ClientsIndex({
                             <select
                                 name="city_id"
                                 defaultValue={filters.city_id ? String(filters.city_id) : ''}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
                             >
                                 <option value="">Todas las ciudades</option>
                                 {cities.map((city) => (
@@ -184,7 +185,7 @@ export default function ClientsIndex({
                                 <select
                                     name="advisor_id"
                                     defaultValue={filters.advisor_id ? String(filters.advisor_id) : ''}
-                                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                    className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
                                 >
                                     <option value="">Todos los asesores</option>
                                     {advisors.map((advisor) => (
@@ -602,18 +603,7 @@ function SummaryCard({
     value: string;
     tone?: 'slate' | 'emerald' | 'blue';
 }) {
-    const tones = {
-        slate: 'text-slate-900',
-        emerald: 'text-emerald-600',
-        blue: 'text-blue-600',
-    };
-
-    return (
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-            <p className={`mt-3 text-3xl font-black ${tones[tone]}`}>{value}</p>
-        </div>
-    );
+    return <InmoproMetricCard label={label} value={value} tone={tone} />;
 }
 
 function ImportMetric({
@@ -625,18 +615,7 @@ function ImportMetric({
     value: string;
     tone?: 'slate' | 'emerald' | 'rose';
 }) {
-    const tones = {
-        slate: 'text-slate-900',
-        emerald: 'text-emerald-600',
-        rose: 'text-rose-600',
-    };
-
-    return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-            <p className={`mt-2 text-lg font-black ${tones[tone]}`}>{value}</p>
-        </div>
-    );
+    return <InmoproMetricCard label={label} value={value} tone={tone} size="md" />;
 }
 
 function getXsrfTokenFromCookie(): string {

@@ -118,7 +118,7 @@ export default function DaterosIndex({
                     </CardContent>
                 </Card>
 
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground">
                     <table className="w-full">
                         <thead className="border-b border-slate-200 bg-slate-50">
                             <tr>

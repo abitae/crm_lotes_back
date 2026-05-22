@@ -79,7 +79,7 @@ export default function AttentionTicketsEdit({ ticket }: { ticket: Ticket }) {
                                     id="status"
                                     value={data.status}
                                     onChange={(event) => setData('status', event.target.value)}
-                                    className="mt-1 flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm"
+                                    className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                 >
                                     <option value="pendiente">Pendiente</option>
                                     <option value="agendado">Agendado</option>
@@ -105,7 +105,7 @@ export default function AttentionTicketsEdit({ ticket }: { ticket: Ticket }) {
                                     id="notes"
                                     value={data.notes}
                                     onChange={(event) => setData('notes', event.target.value)}
-                                    className="mt-1 flex min-h-[100px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                                    className="mt-1 flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                     rows={4}
                                 />
                                 <InputError message={errors.notes} />

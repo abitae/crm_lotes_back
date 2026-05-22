@@ -2,6 +2,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { Edit, Plus, Search, Trash2 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import InputError from '@/components/input-error';
+import { InmoproMetricCard } from '@/components/inmopro/metric-card';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
 import {
@@ -179,7 +180,7 @@ export default function ProjectTypesIndex({ projectTypes, filters, abilities }: 
                     <MetricCard label="Total proyectos asociados" value={String(rows.reduce((sum, row) => sum + (row.projects_count ?? 0), 0))} tone="blue" />
                 </div>
 
-                <form onSubmit={applyFilter} className="flex gap-2 rounded-2xl border border-slate-200 bg-white p-4">
+                <form onSubmit={applyFilter} className="flex gap-2 rounded-2xl border border-border bg-card text-card-foreground p-4">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                         <Input
@@ -194,7 +195,7 @@ export default function ProjectTypesIndex({ projectTypes, filters, abilities }: 
                     </Button>
                 </form>
 
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground">
                     <table className="w-full text-sm">
                         <thead className="border-b border-slate-200 bg-slate-50/80">
                             <tr>
@@ -437,16 +438,5 @@ function ProjectTypeModal({
 }
 
 function MetricCard({ label, value, tone = 'slate' }: { label: string; value: string; tone?: 'slate' | 'emerald' | 'blue' }) {
-    const toneClass = {
-        slate: 'text-slate-900',
-        emerald: 'text-emerald-600',
-        blue: 'text-blue-600',
-    };
-
-    return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-            <p className={`mt-2 text-2xl font-black ${toneClass[tone]}`}>{value}</p>
-        </div>
-    );
+    return <InmoproMetricCard label={label} value={value} tone={tone} size="md" />;
 }

@@ -21,7 +21,7 @@ export default function AccessControlRolesEdit({ role }: { role: Role }) {
                 <Form
                     action={`/inmopro/access-control/roles/${role.id}`}
                     method="post"
-                    className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-950/40"
+                    className="space-y-4 rounded-2xl border border-border bg-card text-card-foreground p-6 dark:border-slate-700 dark:bg-slate-950/40"
                     options={{
                         preserveScroll: true,
                     }}

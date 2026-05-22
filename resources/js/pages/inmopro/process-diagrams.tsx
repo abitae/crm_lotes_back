@@ -82,7 +82,7 @@ export default function ProcessDiagramsPage({
                         {diagrams.map((diagram, index) => (
                             <section
                                 key={`${baseId}-${index}`}
-                                className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+                                className="rounded-xl border border-border bg-card text-card-foreground p-6 shadow-sm"
                             >
                                 <h3 className="mb-4 text-lg font-semibold text-slate-700">{diagram.title}</h3>
                                 <div

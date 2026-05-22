@@ -1,6 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import { Eye, HandCoins, Plus, Search } from 'lucide-react';
+import { InmoproMetricCard } from '@/components/inmopro/metric-card';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
 import {
@@ -90,15 +91,15 @@ export default function AccountsReceivable({
             <Head title="Cuentas por cobrar - Inmopro" />
             <div className="space-y-6 p-4 md:p-6">
                 <div className="grid gap-4 md:grid-cols-4">
-                    <Metric label="Portafolio" value={summary.portfolio} />
-                    <Metric label="Cobrado" value={summary.collected} tone="emerald" />
-                    <Metric label="Pendiente" value={summary.pending} tone="amber" />
-                    <Metric label="Cuotas vencidas" value={summary.overdueInstallments} raw />
+                    <InmoproMetricCard label="Portafolio" value={`S/ ${summary.portfolio.toLocaleString()}`} />
+                    <InmoproMetricCard label="Cobrado" value={`S/ ${summary.collected.toLocaleString()}`} tone="emerald" />
+                    <InmoproMetricCard label="Pendiente" value={`S/ ${summary.pending.toLocaleString()}`} tone="amber" />
+                    <InmoproMetricCard label="Cuotas vencidas" value={summary.overdueInstallments.toLocaleString()} tone="rose" />
                 </div>
 
                 <form
                     onSubmit={handleFilter}
-                    className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-3"
+                    className="grid gap-3 rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm md:grid-cols-3"
                 >
                     <select
                         name="project_id"
@@ -130,7 +131,7 @@ export default function AccountsReceivable({
                     </button>
                 </form>
 
-                <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm">
                     <div className="border-b border-slate-100 px-6 py-4">
                         <h2 className="text-lg font-black text-slate-900">Cartera de cuentas por cobrar</h2>
                         <p className="mt-1 text-sm text-slate-500">
@@ -258,32 +259,6 @@ export default function AccountsReceivable({
     );
 }
 
-function Metric({
-    label,
-    value,
-    tone = 'slate',
-    raw = false,
-}: {
-    label: string;
-    value: number;
-    tone?: 'slate' | 'emerald' | 'amber';
-    raw?: boolean;
-}) {
-    const tones = {
-        slate: 'text-slate-900',
-        emerald: 'text-emerald-600',
-        amber: 'text-amber-600',
-    };
-
-    return (
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
-            <p className={`mt-3 text-2xl font-black ${tones[tone]}`}>
-                {raw ? value.toLocaleString() : `S/ ${value.toLocaleString()}`}
-            </p>
-        </div>
-    );
-}
 
 function LotDetailDialog({
     lot,

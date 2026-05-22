@@ -22,7 +22,7 @@ export default function AdvisorLevelsShow({ advisorLevel }: { advisorLevel: Advi
                     </div>
                     <Link href={'/inmopro/advisor-levels/' + advisorLevel.id + '/edit'} className="rounded-xl bg-emerald-600 px-4 py-2.5 font-bold text-white hover:bg-emerald-700">Editar</Link>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="rounded-2xl border border-border bg-card text-card-foreground p-4">
                     <p className="text-slate-600">Asesores en este nivel: <strong>{advisorLevel.advisors_count ?? 0}</strong></p>
                 </div>
             </div>

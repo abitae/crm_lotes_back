@@ -67,7 +67,7 @@ export default function AccessControlRolePermissions({
                     {permissionGroups.map((group) => (
                         <div
                             key={group.label}
-                            className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-950/40"
+                            className="rounded-2xl border border-border bg-card text-card-foreground p-4 dark:border-slate-700 dark:bg-slate-950/40"
                         >
                             <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                 {group.label}

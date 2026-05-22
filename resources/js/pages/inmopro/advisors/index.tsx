@@ -555,7 +555,7 @@ export default function AdvisorsIndex({
                     />
                 </div>
 
-                <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="rounded-xl border border-border bg-card text-card-foreground p-3 shadow-sm">
                     <form
                         key={advisorCriteriaFiltersFormKey}
                         onSubmit={handleCriteriaFiltersSubmit}
@@ -732,7 +732,7 @@ export default function AdvisorsIndex({
                     )}
                 </div>
 
-                <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm">
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse text-left text-sm">
                             <thead>
@@ -1225,7 +1225,7 @@ function AdvisorExcelImportModal({
 
                     {preview ? (
                         <div className="space-y-3">
-                            <div className="flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm">
+                            <div className="flex flex-wrap gap-3 rounded-xl border border-border bg-card text-card-foreground p-3 text-sm">
                                 <span className="rounded-lg bg-emerald-50 px-3 py-1.5 font-medium text-emerald-800">
                                     Válidas: <strong className="tabular-nums">{preview.summary.valid}</strong>
                                 </span>
@@ -1349,7 +1349,7 @@ function AdvisorMetric({
 
     const interactive = typeof onClick === 'function';
     const baseClass = cn(
-        'flex items-start justify-between gap-3 rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all',
+        'flex items-start justify-between gap-3 rounded-3xl border border-border bg-card text-card-foreground p-5 text-left shadow-sm transition-all',
         interactive && 'cursor-pointer hover:-translate-y-0.5 hover:border-slate-300 hover:shadow',
         active && activeRings[tone],
     );
@@ -1428,7 +1428,7 @@ function CreateAdvisorModal({
         setData('material_items', next);
     };
 
-    const selectClass = 'mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm shadow-sm';
+    const selectClass = 'mt-1 h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm shadow-sm';
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1719,7 +1719,7 @@ function EditAdvisorModal({
         setData('material_items', next);
     };
 
-    const selectClass = 'mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-sm shadow-sm';
+    const selectClass = 'mt-1 h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm shadow-sm';
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>

@@ -42,7 +42,7 @@ export default function MembershipTypesShow({ membershipType }: { membershipType
                         </Link>
                     </div>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-6">
+                <div className="rounded-2xl border border-border bg-card text-card-foreground p-6">
                     <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div>
                             <dt className="text-sm font-medium text-slate-500">Duración</dt>

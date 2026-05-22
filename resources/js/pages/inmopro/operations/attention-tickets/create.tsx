@@ -80,7 +80,7 @@ export default function AttentionTicketsCreate({
                                             setData('client_id', '');
                                         }
                                     }}
-                                    className="mt-1 flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm"
+                                    className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                     required
                                 >
                                     <option value="">Seleccione</option>
@@ -99,7 +99,7 @@ export default function AttentionTicketsCreate({
                                     id="client_id"
                                     value={data.client_id}
                                     onChange={(event) => setData('client_id', event.target.value)}
-                                    className="mt-1 flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm"
+                                    className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                     required
                                 >
                                     <option value="">Seleccione</option>
@@ -119,7 +119,7 @@ export default function AttentionTicketsCreate({
                                     id="project_id"
                                     value={data.project_id}
                                     onChange={(event) => setData('project_id', event.target.value)}
-                                    className="mt-1 flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm"
+                                    className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                     required
                                 >
                                     <option value="">Seleccione</option>
@@ -139,7 +139,7 @@ export default function AttentionTicketsCreate({
                                     id="notes"
                                     value={data.notes}
                                     onChange={(event) => setData('notes', event.target.value)}
-                                    className="mt-1 flex min-h-[100px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                                    className="mt-1 flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                     rows={4}
                                 />
                                 <InputError message={errors.notes} />

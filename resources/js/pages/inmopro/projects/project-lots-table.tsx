@@ -22,7 +22,7 @@ const selectClass =
     'w-full min-w-0 max-w-[120px] border-0 bg-transparent px-1 py-0.5 text-xs outline-none focus:bg-white focus:ring-1 focus:ring-emerald-400 disabled:opacity-60';
 const statusColumnClass = 'min-w-[10.5rem] w-[10.5rem]';
 const statusSelectClass =
-    'w-full min-w-[9.5rem] rounded-md border border-slate-200/80 px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-offset-0 disabled:opacity-60';
+    'w-full min-w-[9.5rem] rounded-md border border-border/80 px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-offset-0 disabled:opacity-60';
 
 function lotStatusColor(code: string, lotStatuses: LotStatus[], fallback?: string): string | undefined {
     return lotStatuses.find((status) => status.code === code)?.color ?? fallback;
@@ -103,27 +103,27 @@ export function ProjectLotsTable({
             <CardContent className="flex min-h-0 flex-1 flex-col p-0">
                 <div className="inline-block max-h-[calc(100vh-11rem)] max-w-full overflow-auto">
                     <table className="w-full min-w-[1240px] border-collapse text-xs">
-                        <thead className="sticky top-0 z-10 border-b border-slate-300 bg-[#f3f4f6]">
+                        <thead className="sticky top-0 z-10 border-b border-border bg-muted">
                             <tr>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Manzana</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Numero</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Area</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Precio</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">Manzana</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">Numero</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">Area</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">Precio</th>
                                 <th className={`border border-slate-300 px-2 py-1 text-left font-semibold text-slate-700 ${statusColumnClass}`}>
                                     Estado
                                 </th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Nombre cliente</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">DNI</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Telefono</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Asesor</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Adelanto</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Monto rest.</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">F. limite</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">N° op.</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">F. contrato</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Nº contrato</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">F. escritura</th>
-                                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold text-slate-700">Observ.</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">Nombre cliente</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">DNI</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">Telefono</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">Asesor</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">Adelanto</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">Monto rest.</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">F. limite</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">N° op.</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">F. contrato</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">Nº contrato</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">F. escritura</th>
+                                <th className="border border-border px-1.5 py-1 text-left font-semibold text-foreground">Observ.</th>
                                 <th className="border border-slate-300 px-1.5 py-1 text-center font-semibold text-slate-700">Acciones</th>
                             </tr>
                         </thead>
@@ -137,15 +137,15 @@ export function ProjectLotsTable({
 
                                 return (
                                     <tr key={lot.id} style={lotRowStyle(statusColor, isSaving)}>
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle text-slate-700">{lot.block}</td>
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle tabular-nums text-slate-700">{lot.number}</td>
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle">
+                                        <td className="border border-border px-1 py-0.5 align-middle text-slate-700">{lot.block}</td>
+                                        <td className="border border-border px-1 py-0.5 align-middle tabular-nums text-slate-700">{lot.number}</td>
+                                        <td className="border border-border px-1 py-0.5 align-middle">
                                             <input type="number" min={0} step={0.01} value={getCellValue(lot, 'area')} disabled={isSaving || !canEdit} onChange={(e) => setCellEdit(lot, 'area', e.target.value ? Number(e.target.value) : null)} className={inputClass} style={{ minWidth: '4rem' }} />
                                         </td>
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle">
+                                        <td className="border border-border px-1 py-0.5 align-middle">
                                             <input type="number" min={0} step={0.01} value={getCellValue(lot, 'price')} disabled={isSaving || !canEdit} onChange={(e) => setCellEdit(lot, 'price', e.target.value ? Number(e.target.value) : null)} className={inputClass} style={{ minWidth: '5rem' }} />
                                         </td>
-                                        <td className={`border border-slate-200 px-2 py-1 align-middle ${statusColumnClass}`}>
+                                        <td className={`border border-border px-2 py-1 align-middle ${statusColumnClass}`}>
                                             <div className="flex items-center gap-1.5">
                                                 <span
                                                     className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white/80"
@@ -200,7 +200,7 @@ export function ProjectLotsTable({
                                             placeholder="Buscar por DNI"
                                             width="6rem"
                                         />
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle">
+                                        <td className="border border-border px-1 py-0.5 align-middle">
                                             <input type="text" value={getCellValue(lot, 'client_phone')} disabled={isSaving || !canEdit} onChange={(e) => setCellEdit(lot, 'client_phone', e.target.value)} className={inputClass} style={{ minWidth: '6rem' }} placeholder="Opcional" />
                                         </td>
                                         <AdvisorLookupCell
@@ -214,31 +214,31 @@ export function ProjectLotsTable({
                                             isSaving={isSaving}
                                             canEdit={canEdit}
                                         />
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle">
+                                        <td className="border border-border px-1 py-0.5 align-middle">
                                             <input type="number" min={0} step={0.01} value={getCellValue(lot, 'advance')} disabled={isSaving || !canEdit} onChange={(e) => setCellEdit(lot, 'advance', e.target.value ? Number(e.target.value) : null)} className={inputClass} style={{ minWidth: '5rem' }} />
                                         </td>
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle">
+                                        <td className="border border-border px-1 py-0.5 align-middle">
                                             <input type="number" min={0} step={0.01} value={getCellValue(lot, 'remaining_balance')} disabled className={inputClass} style={{ minWidth: '5rem' }} />
                                         </td>
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle">
+                                        <td className="border border-border px-1 py-0.5 align-middle">
                                             <input type="date" value={getCellValue(lot, 'payment_limit_date') ? toDateStr(getCellValue(lot, 'payment_limit_date')) : ''} disabled={isSaving || !canEdit} onChange={(e) => setCellEdit(lot, 'payment_limit_date', e.target.value || null)} className={inputClass} style={{ minWidth: '7rem' }} />
                                         </td>
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle">
+                                        <td className="border border-border px-1 py-0.5 align-middle">
                                             <input type="text" value={getCellValue(lot, 'operation_number')} disabled={isSaving || !canEdit} onChange={(e) => setCellEdit(lot, 'operation_number', e.target.value)} className={inputClass} style={{ minWidth: '5rem' }} />
                                         </td>
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle">
+                                        <td className="border border-border px-1 py-0.5 align-middle">
                                             <input type="date" value={getCellValue(lot, 'contract_date') ? toDateStr(getCellValue(lot, 'contract_date')) : ''} disabled={isSaving || !canEdit} onChange={(e) => setCellEdit(lot, 'contract_date', e.target.value || null)} className={inputClass} style={{ minWidth: '7rem' }} />
                                         </td>
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle">
+                                        <td className="border border-border px-1 py-0.5 align-middle">
                                             <input type="text" value={getCellValue(lot, 'contract_number')} disabled={isSaving || !canEdit} onChange={(e) => setCellEdit(lot, 'contract_number', e.target.value)} className={inputClass} style={{ minWidth: '6rem' }} />
                                         </td>
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle">
+                                        <td className="border border-border px-1 py-0.5 align-middle">
                                             <input type="date" value={getCellValue(lot, 'notarial_transfer_date') ? toDateStr(getCellValue(lot, 'notarial_transfer_date')) : ''} disabled={isSaving || !canEdit} onChange={(e) => setCellEdit(lot, 'notarial_transfer_date', e.target.value || null)} className={inputClass} style={{ minWidth: '7rem' }} />
                                         </td>
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle">
+                                        <td className="border border-border px-1 py-0.5 align-middle">
                                             <input type="text" value={getCellValue(lot, 'observations')} disabled={isSaving || !canEdit} onChange={(e) => setCellEdit(lot, 'observations', e.target.value)} className={inputClass} style={{ minWidth: '8rem' }} title={lot.observations ?? ''} />
                                         </td>
-                                        <td className="border border-slate-200 px-1 py-0.5 align-middle">
+                                        <td className="border border-border px-1 py-0.5 align-middle">
                                             <div className="flex items-center justify-center gap-0.5">
                                                 {canEdit && (
                                                     <Button variant="ghost" size="icon" className="h-6 w-6" disabled={isSaving} onClick={() => updateLot(lot, buildRowPayloadForSave(lot))} title="Guardar cambios">
@@ -291,7 +291,7 @@ function ClientLookupCell({
     width: string;
 }) {
     return (
-        <td className="border border-slate-200 px-1 py-0.5 align-middle relative">
+        <td className="border border-border px-1 py-0.5 align-middle relative">
             <input
                 type="text"
                 value={getCellValue(lot, field)}
@@ -320,7 +320,7 @@ function ClientLookupCell({
                 placeholder={placeholder}
             />
             {clientSearch.openKey === searchKey && (
-                <div className="absolute left-0 top-full z-20 mt-0.5 max-h-40 w-72 overflow-auto rounded border border-slate-200 bg-white shadow-lg">
+                <div className="absolute left-0 top-full z-20 mt-0.5 max-h-40 w-72 overflow-auto rounded border border-border bg-popover text-popover-foreground shadow-lg">
                     {clientSearch.loading ? (
                         <div className="px-2 py-1.5 text-xs text-slate-500">Buscando...</div>
                     ) : clientSearch.results.length === 0 ? (
@@ -385,7 +385,7 @@ function AdvisorLookupCell({
     const searchKey = `${lot.id}_advisor`;
 
     return (
-        <td className="border border-slate-200 px-1 py-0.5 align-middle relative">
+        <td className="border border-border px-1 py-0.5 align-middle relative">
             <input
                 type="text"
                 value={advisorSearch.openKey === searchKey ? (advisorSearchTerm[lot.id] ?? getCellValue(lot, 'advisor_name')) : getCellValue(lot, 'advisor_name')}
@@ -419,7 +419,7 @@ function AdvisorLookupCell({
                 placeholder="Buscar asesor"
             />
             {advisorSearch.openKey === searchKey && (
-                <div className="absolute left-0 top-full z-20 mt-0.5 max-h-40 w-72 overflow-auto rounded border border-slate-200 bg-white shadow-lg">
+                <div className="absolute left-0 top-full z-20 mt-0.5 max-h-40 w-72 overflow-auto rounded border border-border bg-popover text-popover-foreground shadow-lg">
                     {advisorSearch.loading ? (
                         <div className="px-2 py-1.5 text-xs text-slate-500">Buscando...</div>
                     ) : advisorSearch.results.length === 0 ? (

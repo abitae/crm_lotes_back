@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { AlertTriangle, Download, Eye, FileSpreadsheet, MapPin, Pencil, Plus, Power, PowerOff, Search, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { InmoproMetricCard } from '@/components/inmopro/metric-card';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -200,7 +201,7 @@ export default function ProjectsIndex({ projects, filters, projectTypes, locatio
                                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                 <Input name="search" placeholder="Nombre o ubicacion..." defaultValue={filters.search} className="pl-9" />
                             </div>
-                            <select name="location" defaultValue={filters.location ?? ''} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+                            <select name="location" defaultValue={filters.location ?? ''} className="rounded-xl border border-input bg-background px-3 py-2 text-sm">
                                 <option value="">Todas las ubicaciones</option>
                                 {locations.map((location) => (
                                     <option key={location} value={location}>
@@ -211,7 +212,7 @@ export default function ProjectsIndex({ projects, filters, projectTypes, locatio
                             <select
                                 name="project_type_id"
                                 defaultValue={filters.project_type_id != null ? String(filters.project_type_id) : ''}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
                             >
                                 <option value="">Todos los tipos</option>
                                 {projectTypes.map((type) => (
@@ -220,7 +221,7 @@ export default function ProjectsIndex({ projects, filters, projectTypes, locatio
                                     </option>
                                 ))}
                             </select>
-                            <select name="health" defaultValue={filters.health ?? ''} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+                            <select name="health" defaultValue={filters.health ?? ''} className="rounded-xl border border-input bg-background px-3 py-2 text-sm">
                                 <option value="">Todos los estados</option>
                                 <option value="with_stock">Con stock libre</option>
                                 <option value="sold_out">Sin stock libre</option>
@@ -229,14 +230,14 @@ export default function ProjectsIndex({ projects, filters, projectTypes, locatio
                             <select
                                 name="is_active"
                                 defaultValue={filters.is_active ?? ''}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
                             >
                                 <option value="">Activos e inactivos</option>
                                 <option value="1">Solo activos</option>
                                 <option value="0">Solo inactivos</option>
                             </select>
                             <div className="flex gap-2 lg:col-span-2">
-                                <select name="order" defaultValue={filters.order ?? ''} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+                                <select name="order" defaultValue={filters.order ?? ''} className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm">
                                     <option value="">Orden alfabetico</option>
                                     <option value="lots_desc">Mas lotes</option>
                                     <option value="availability_desc">Mas stock libre</option>
@@ -684,7 +685,7 @@ function ProjectExcelImportModal({
                                 id="project-import-type"
                                 value={form.project_type_id}
                                 onChange={(e) => updateField('project_type_id', e.target.value)}
-                                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+                                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                             >
                                 <option value="">Seleccione un tipo</option>
                                 {projectTypes.map((type) => (
@@ -744,7 +745,7 @@ function ProjectExcelImportModal({
                                 <PreviewMetric label="Con error" value={String(preview.summary.invalid)} tone={preview.summary.invalid > 0 ? 'rose' : 'slate'} />
                             </div>
 
-                            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                            <div className="rounded-2xl border border-border bg-card text-card-foreground p-4">
                                 <div className="flex flex-col gap-2 text-sm text-slate-700 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
                                         <p className="font-semibold text-slate-900">{preview.project.name}</p>
@@ -985,18 +986,7 @@ function PreviewMetric({
     value: string;
     tone?: 'slate' | 'emerald' | 'rose';
 }) {
-    const tones = {
-        slate: 'text-slate-900',
-        emerald: 'text-emerald-600',
-        rose: 'text-rose-600',
-    };
-
-    return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-            <p className={`mt-2 text-lg font-black ${tones[tone]}`}>{value}</p>
-        </div>
-    );
+    return <InmoproMetricCard label={label} value={value} tone={tone} size="md" />;
 }
 
 function ProjectMetric({
@@ -1008,20 +998,7 @@ function ProjectMetric({
     value: string;
     tone?: 'slate' | 'emerald' | 'blue' | 'amber' | 'rose';
 }) {
-    const tones = {
-        slate: 'text-slate-900',
-        emerald: 'text-emerald-600',
-        blue: 'text-blue-600',
-        amber: 'text-amber-600',
-        rose: 'text-rose-600',
-    };
-
-    return (
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-            <p className={`mt-3 text-2xl font-black ${tones[tone]}`}>{value}</p>
-        </div>
-    );
+    return <InmoproMetricCard label={label} value={value} tone={tone} />;
 }
 
 function getXsrfTokenFromCookie(): string {

@@ -68,7 +68,7 @@ export default function AccessControlPermissionsIndex({
                     </button>
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950/40">
+                <div className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground dark:border-slate-700 dark:bg-slate-950/40">
                     <table className="w-full">
                         <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50">
                             <tr>

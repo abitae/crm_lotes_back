@@ -261,7 +261,7 @@ export default function LotPreReservationsIndex({
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-3">
-                    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="rounded-3xl border border-border bg-card text-card-foreground p-5 shadow-sm">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Solicitudes visibles</p>
                         <p className="mt-3 text-3xl font-black text-slate-900">{preReservations.data.length}</p>
                     </div>
@@ -279,7 +279,7 @@ export default function LotPreReservationsIndex({
                     </div>
                 </div>
 
-                <form onSubmit={submitFilters} className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-4">
+                <form onSubmit={submitFilters} className="grid gap-4 rounded-2xl border border-border bg-card text-card-foreground p-4 md:grid-cols-4">
                     <select value={form.data.status} onChange={(event) => form.setData('status', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2">
                         <option value="">Todos los estados</option>
                         <option value="PENDIENTE">Pendiente</option>
@@ -301,7 +301,7 @@ export default function LotPreReservationsIndex({
                     <Button type="submit">Filtrar</Button>
                 </form>
 
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="bg-slate-50">

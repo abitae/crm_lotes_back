@@ -159,7 +159,7 @@ export default function ProcessDiagramsIndex({
                     <>
                         <nav
                             aria-label="Índice de diagramas"
-                            className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm dark:border-slate-700/90 dark:bg-slate-950/40"
+                            className="rounded-xl border border-border bg-card text-card-foreground p-4 shadow-sm"
                         >
                             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                 Índice
