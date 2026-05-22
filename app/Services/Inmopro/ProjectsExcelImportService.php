@@ -14,6 +14,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use RuntimeException;
@@ -458,9 +459,44 @@ class ProjectsExcelImportService
      */
     private function loadSheet(UploadedFile $file): array
     {
-        $spreadsheet = IOFactory::load($file->getRealPath());
+        $path = $file->getRealPath();
+        if ($path === false) {
+            throw new RuntimeException('No se pudo leer el archivo subido.');
+        }
+
+        try {
+            $reader = IOFactory::createReaderForFile($path);
+            $reader->setReadDataOnly(true);
+            $spreadsheet = $reader->load($path);
+        } catch (\Throwable $e) {
+            throw new RuntimeException(
+                'No se pudo abrir el archivo Excel. Verifique que sea un .xlsx o .xls valido.',
+                previous: $e
+            );
+        }
+
         $sheet = $spreadsheet->getSheet(0);
-        $rows = $sheet->toArray(null, true, true, false);
+
+        $highestRow = max(1, (int) $sheet->getHighestDataRow());
+        $highestColumn = $sheet->getHighestDataColumn() ?: 'A';
+        $highestColIndex = Coordinate::columnIndexFromString($highestColumn);
+
+        $rows = [];
+        try {
+            for ($row = 1; $row <= $highestRow; $row++) {
+                $cells = [];
+                for ($col = 1; $col <= $highestColIndex; $col++) {
+                    $address = Coordinate::stringFromColumnIndex($col).$row;
+                    $cells[] = $sheet->getCell($address)->getValue();
+                }
+                $rows[] = $cells;
+            }
+        } catch (\Throwable $e) {
+            throw new RuntimeException(
+                'No se pudieron leer las celdas del Excel. Use la plantilla oficial y pegue solo valores (sin formulas ni tablas dinamicas).',
+                previous: $e
+            );
+        }
 
         if ($rows === []) {
             throw new RuntimeException('El archivo Excel no contiene filas.');
@@ -904,6 +940,12 @@ class ProjectsExcelImportService
             'd/m/y',
             'd-m-y',
             'd.m.y',
+            'm/d/Y',
+            'm-d-Y',
+            'm.d.Y',
+            'm/d/y',
+            'm-d-y',
+            'm.d.y',
             'Y-m-d',
             'Y/m/d',
             'Y.m.d',

@@ -509,7 +509,15 @@ function ProjectExcelImportModal({
 
             if (!res.ok) {
                 const firstFieldError = Object.values(body.errors ?? {}).flat()[0];
-                setFetchError(firstFieldError ?? body.message ?? 'No se pudo validar el archivo.');
+                const serverMessage = body.message?.trim();
+                setFetchError(
+                    serverMessage
+                    ?? firstFieldError
+                    ?? (res.status >= 500
+                        ? 'Error del servidor al validar el archivo. Revise el Excel o contacte al administrador.'
+                        : 'No se pudo validar el archivo.'),
+                );
+                setPreview(null);
 
                 return;
             }

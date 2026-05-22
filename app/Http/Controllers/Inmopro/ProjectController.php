@@ -241,14 +241,33 @@ class ProjectController extends Controller
 
     public function importPreview(ImportProjectPreviewRequest $request, ProjectsExcelImportService $importService): JsonResponse
     {
-        return response()->json(
-            $importService->preview(
-                $request->file('file'),
-                (int) $request->validated('project_type_id'),
-                (string) $request->validated('location'),
-                $request->validated('name')
-            )
-        );
+        try {
+            return response()->json(
+                $importService->preview(
+                    $request->file('file'),
+                    (int) $request->validated('project_type_id'),
+                    (string) $request->validated('location'),
+                    $request->validated('name')
+                )
+            );
+        } catch (RuntimeException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'can_import' => false,
+            ], 422);
+        } catch (\Throwable $e) {
+            report($e);
+
+            $hint = str_contains(strtolower($e->getMessage()), 'structured reference')
+                || str_contains(strtolower($e->getMessage()), 'tabla')
+                ? ' El archivo tiene formulas o tablas de Excel (por ejemplo en la columna MONTO RESTANTE). Copie los datos y peguelos como valores usando la plantilla oficial.'
+                : '';
+
+            return response()->json([
+                'message' => 'No se pudo leer el archivo Excel.'.$hint,
+                'can_import' => false,
+            ], 422);
+        }
     }
 
     public function importConfirm(ImportProjectConfirmRequest $request, ProjectsExcelImportService $importService): RedirectResponse
