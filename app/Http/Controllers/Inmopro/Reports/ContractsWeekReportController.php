@@ -101,7 +101,7 @@ class ContractsWeekReportController extends Controller
         $transferredLotIds = Lot::query()
             ->join('lot_transfer_confirmations as ltc', 'ltc.lot_id', '=', 'lots.id')
             ->where('ltc.status', LotTransferConfirmation::STATUS_APPROVED)
-            ->whereBetween(DB::raw('DATE(ltc.reviewed_at)'), [$filters['start_date'], $filters['end_date'])
+            ->whereBetween(DB::raw('DATE(ltc.reviewed_at)'), [$filters['start_date'], $filters['end_date']])
             ->pluck('lots.id');
 
         $transferredLots = $this->lotQueryBuilder

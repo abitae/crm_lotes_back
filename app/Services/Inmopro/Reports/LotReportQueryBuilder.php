@@ -23,7 +23,6 @@ class LotReportQueryBuilder
             'client.type:id,name,code',
             'client.registeredByDatero:id,name',
             'payments:id,lot_id,amount,paid_at',
-            'latestTransferConfirmation:id,lot_id,status,reviewed_at',
         ]);
     }
 

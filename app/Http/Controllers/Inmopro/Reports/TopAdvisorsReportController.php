@@ -112,7 +112,7 @@ class TopAdvisorsReportController extends Controller
             })
             ->when($filters['project_id'], fn (Builder $q, int $pid) => $q->where('lots.project_id', $pid))
             ->when($filters['team_id'], fn (Builder $q, int $tid) => $q->whereHas('advisor', fn (Builder $aq) => $aq->where('team_id', $tid)))
-            ->whereBetween(DB::raw('DATE(ltc.reviewed_at)'), [$filters['start_date'], $filters['end_date'])
+            ->whereBetween(DB::raw('DATE(ltc.reviewed_at)'), [$filters['start_date'], $filters['end_date']])
             ->whereNotNull('lots.advisor_id')
             ->select(
                 'lots.advisor_id',
