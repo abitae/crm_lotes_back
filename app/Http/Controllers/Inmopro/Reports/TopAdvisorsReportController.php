@@ -93,16 +93,20 @@ class TopAdvisorsReportController extends Controller
 
         $advisors = $advisorsQuery->get(['id', 'name', 'team_id']);
 
-        $soldByAdvisor = $this->lotQueryBuilder
-            ->base()
+        $soldByAdvisor = Lot::query()
+            ->join('projects', 'projects.id', '=', 'lots.project_id')
+            ->leftJoin('project_types', 'project_types.id', '=', 'projects.project_type_id')
             ->tap(fn (Builder $q) => $this->lotQueryBuilder->excludingLibreAndPreReserva($q))
-            ->when($filters['project_id'], fn (Builder $q, int $pid) => $q->where('project_id', $pid))
+            ->when($filters['project_id'], fn (Builder $q, int $pid) => $q->where('lots.project_id', $pid))
             ->when($filters['team_id'], fn (Builder $q, int $tid) => $q->whereHas('advisor', fn (Builder $aq) => $aq->where('team_id', $tid)))
-            ->whereDate('contract_date', '>=', $filters['start_date'])
-            ->whereDate('contract_date', '<=', $filters['end_date'])
-            ->whereNotNull('advisor_id')
-            ->select('advisor_id', DB::raw('SUM(price) as sold_amount'))
-            ->groupBy('advisor_id')
+            ->whereDate('lots.contract_date', '>=', $filters['start_date'])
+            ->whereDate('lots.contract_date', '<=', $filters['end_date'])
+            ->whereNotNull('lots.advisor_id')
+            ->select(
+                'lots.advisor_id',
+                DB::raw('SUM(lots.price * COALESCE(project_types.percentage_meta, 100) / 100) as sold_amount')
+            )
+            ->groupBy('lots.advisor_id')
             ->pluck('sold_amount', 'advisor_id');
 
         $transferStats = Lot::query()
@@ -144,7 +148,7 @@ class TopAdvisorsReportController extends Controller
         return [
             'title' => 'Top cazadores (vendedores)',
             'description' => 'Ranking por ventas (fecha de contrato) y transferencias aprobadas en el periodo.',
-            'criteriaNote' => 'Cazador = vendedor asignado al lote. Transferencia = confirmación APROBADA según fecha de revisión.',
+            'criteriaNote' => 'Cazador = vendedor asignado al lote. Ventas = precio × % meta del tipo de proyecto. Transferencia = confirmación APROBADA según fecha de revisión.',
             'filters' => $filters,
             'rows' => $rows,
             'summary' => [

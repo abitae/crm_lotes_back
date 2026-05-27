@@ -21,7 +21,7 @@ class ProjectTypeSeeder extends Seeder
         foreach ($types as $type) {
             ProjectType::query()->updateOrCreate(
                 ['code' => $type['code']],
-                $type + ['is_active' => true],
+                $type + ['is_active' => true, 'percentage_meta' => 100],
             );
         }
     }

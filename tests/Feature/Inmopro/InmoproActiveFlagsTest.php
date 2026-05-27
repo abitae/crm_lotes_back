@@ -168,7 +168,7 @@ class InmoproActiveFlagsTest extends TestCase
                 ->missing('filters.end_date'));
     }
 
-    public function test_inactive_projects_are_hidden_from_lots_financial_and_receivables(): void
+    public function test_inactive_projects_are_included_in_financial_and_receivables(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
@@ -220,6 +220,11 @@ class InmoproActiveFlagsTest extends TestCase
             ->where('projects.0.id', $activeProject->id)
             ->where('projects.0.name', 'Proyecto Activo Lotes');
 
+        $assertBothProjects = fn ($page) => $page
+            ->has('projects', 2)
+            ->where('projects.0.id', $activeProject->id)
+            ->where('projects.1.id', $inactiveProject->id);
+
         $this->get(route('inmopro.lots.index', ['project_id' => $inactiveProject->id]))
             ->assertOk()
             ->assertInertia(fn ($page) => $assertOnlyActiveProject($page)
@@ -227,15 +232,15 @@ class InmoproActiveFlagsTest extends TestCase
 
         $this->get(route('inmopro.financial.index'))
             ->assertOk()
-            ->assertInertia(fn ($page) => $assertOnlyActiveProject($page)
-                ->has('lots.data', 1)
-                ->where('lots.data.0.project.id', $activeProject->id));
+            ->assertInertia(fn ($page) => $assertBothProjects($page)
+                ->has('lots.data', 2)
+                ->where('totalValue', 300000));
 
         $this->get(route('inmopro.accounts-receivable.index'))
             ->assertOk()
-            ->assertInertia(fn ($page) => $assertOnlyActiveProject($page)
-                ->has('lots.data', 1)
-                ->where('lots.data.0.project.id', $activeProject->id));
+            ->assertInertia(fn ($page) => $assertBothProjects($page)
+                ->has('lots.data', 2)
+                ->where('summary.portfolio', 300000));
 
         $this->get(route('inmopro.lot-pre-reservations.index'))
             ->assertOk()

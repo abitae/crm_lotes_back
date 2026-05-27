@@ -21,6 +21,7 @@ class ProjectType extends Model
         'description',
         'color',
         'sort_order',
+        'percentage_meta',
         'is_active',
     ];
 
@@ -31,6 +32,7 @@ class ProjectType extends Model
     {
         return [
             'is_active' => 'boolean',
+            'percentage_meta' => 'integer',
         ];
     }
 

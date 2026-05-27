@@ -26,6 +26,7 @@ type ProjectTypeRow = {
     description?: string | null;
     color?: string | null;
     sort_order?: number;
+    percentage_meta: number;
     is_active: boolean;
     projects_count?: number;
 };
@@ -46,6 +47,7 @@ type ProjectTypeForm = {
     description: string;
     color: string;
     sort_order: number | '';
+    percentage_meta: number | '';
     is_active: boolean;
 };
 
@@ -55,6 +57,7 @@ const emptyForm: ProjectTypeForm = {
     description: '',
     color: '',
     sort_order: 0,
+    percentage_meta: 100,
     is_active: true,
 };
 
@@ -97,6 +100,7 @@ export default function ProjectTypesIndex({ projectTypes, filters, abilities }: 
             description: row.description ?? '',
             color: row.color ?? '',
             sort_order: row.sort_order ?? 0,
+            percentage_meta: row.percentage_meta ?? 100,
             is_active: row.is_active,
         });
         editForm.clearErrors();
@@ -108,6 +112,7 @@ export default function ProjectTypesIndex({ projectTypes, filters, abilities }: 
         description: data.description.trim() === '' ? null : data.description.trim(),
         color: data.color.trim() === '' ? null : data.color.trim(),
         sort_order: data.sort_order === '' ? 0 : Number(data.sort_order),
+        percentage_meta: data.percentage_meta === '' ? 100 : Number(data.percentage_meta),
         is_active: Boolean(data.is_active),
     });
 
@@ -202,6 +207,7 @@ export default function ProjectTypesIndex({ projectTypes, filters, abilities }: 
                                 <th className="px-4 py-3 text-left font-semibold text-slate-600">Tipo</th>
                                 <th className="px-4 py-3 text-left font-semibold text-slate-600">Codigo</th>
                                 <th className="px-4 py-3 text-left font-semibold text-slate-600">Orden</th>
+                                <th className="px-4 py-3 text-left font-semibold text-slate-600">% meta</th>
                                 <th className="px-4 py-3 text-left font-semibold text-slate-600">Proyectos</th>
                                 <th className="px-4 py-3 text-left font-semibold text-slate-600">Estado</th>
                                 <th className="px-4 py-3 text-right font-semibold text-slate-600">Acciones</th>
@@ -224,6 +230,7 @@ export default function ProjectTypesIndex({ projectTypes, filters, abilities }: 
                                     </td>
                                     <td className="px-4 py-3 font-mono text-xs text-slate-700">{row.code}</td>
                                     <td className="px-4 py-3 text-slate-700">{row.sort_order ?? 0}</td>
+                                    <td className="px-4 py-3 text-slate-700">{row.percentage_meta ?? 100}%</td>
                                     <td className="px-4 py-3 text-slate-700">{row.projects_count ?? 0}</td>
                                     <td className="px-4 py-3">
                                         <span
@@ -406,6 +413,25 @@ function ProjectTypeModal({
                             />
                             <InputError message={form.errors.sort_order} />
                         </div>
+                    </div>
+                    <div>
+                        <Label htmlFor={`project-type-percentage-meta-${idPrefix}`}>Porcentaje para meta (%)</Label>
+                        <Input
+                            id={`project-type-percentage-meta-${idPrefix}`}
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={form.data.percentage_meta}
+                            onChange={(e) =>
+                                form.setData('percentage_meta', e.target.value === '' ? '' : Number(e.target.value))
+                            }
+                            className="mt-1"
+                        />
+                        <p className="mt-1 text-xs text-slate-500">
+                            Porcentaje del precio del lote que cuenta hacia metas individuales y grupales (0–100).
+                        </p>
+                        <InputError message={form.errors.percentage_meta} />
                     </div>
                     <label className="inline-flex items-center gap-2 text-sm text-slate-700">
                         <input

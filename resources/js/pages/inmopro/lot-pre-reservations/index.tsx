@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Check, Eye, ImagePlus, Plus, X } from 'lucide-react';
+import { Check, Eye, ImagePlus, Plus, Search, X } from 'lucide-react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import InputError from '@/components/input-error';
@@ -54,6 +54,52 @@ type PreReservation = {
     reviewer?: { name: string } | null;
 };
 
+type RegisterFormData = {
+    lot_ids: number[];
+    advisor_id: string;
+    client_id: string;
+    new_client: {
+        name: string;
+        dni: string;
+        phone: string;
+    };
+    amount: string;
+    payment_reference: string;
+    notes: string;
+    voucher_image: File | null;
+};
+
+const moneyFormatter = new Intl.NumberFormat('es-PE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+});
+
+function normalizeSearch(value: string): string {
+    return value.trim().toLowerCase();
+}
+
+function includesSearch(value: string | number | null | undefined, search: string): boolean {
+    return String(value ?? '').toLowerCase().includes(search);
+}
+
+function distributeAmounts(total: string, count: number): string[] {
+    const totalNumber = Number(total);
+
+    if (!Number.isFinite(totalNumber) || count <= 0) {
+        return [];
+    }
+
+    const totalCents = Math.round(totalNumber * 100);
+    const baseCents = Math.floor(totalCents / count);
+    const remainderCents = totalCents - baseCents * count;
+
+    return Array.from({ length: count }, (_, index) => {
+        const cents = baseCents + (index === count - 1 ? remainderCents : 0);
+
+        return moneyFormatter.format(cents / 100);
+    });
+}
+
 export default function LotPreReservationsIndex({
     preReservations,
     filters,
@@ -79,20 +125,21 @@ export default function LotPreReservationsIndex({
     const [approveOpen, setApproveOpen] = useState(false);
     const [rejectOpen, setRejectOpen] = useState(false);
     const [registerPreview, setRegisterPreview] = useState<string | null>(null);
-    const registerForm = useForm<{
-        project_id: string;
-        lot_id: string;
-        advisor_id: string;
-        client_id: string;
-        amount: string;
-        payment_reference: string;
-        notes: string;
-        voucher_image: File | null;
-    }>({
-        project_id: '',
-        lot_id: '',
+    const [projectSearch, setProjectSearch] = useState('');
+    const [lotSearch, setLotSearch] = useState('');
+    const [advisorSearch, setAdvisorSearch] = useState('');
+    const [clientSearch, setClientSearch] = useState('');
+    const [selectedProjectIds, setSelectedProjectIds] = useState<number[]>([]);
+    const [clientMode, setClientMode] = useState<'existing' | 'new'>('existing');
+    const registerForm = useForm<RegisterFormData>({
+        lot_ids: [],
         advisor_id: '',
         client_id: '',
+        new_client: {
+            name: '',
+            dni: '',
+            phone: '',
+        },
         amount: '',
         payment_reference: '',
         notes: '',
@@ -110,21 +157,53 @@ export default function LotPreReservationsIndex({
         { title: 'Pre-reservas', href: '/inmopro/lot-pre-reservations' },
     ];
 
-    const filteredLots = useMemo(() => {
-        if (!registerForm.data.project_id) {
-            return availableLots;
-        }
+    const filteredProjects = useMemo(() => {
+        const search = normalizeSearch(projectSearch);
 
-        return availableLots.filter((lot) => String(lot.project_id) === registerForm.data.project_id);
-    }, [availableLots, registerForm.data.project_id]);
+        return projects.filter((project) => includesSearch(project.name, search));
+    }, [projectSearch, projects]);
+
+    const filteredLots = useMemo(() => {
+        const search = normalizeSearch(lotSearch);
+
+        return availableLots.filter((lot) => {
+            const matchesProject = selectedProjectIds.length === 0 || selectedProjectIds.includes(lot.project_id);
+            const label = `${lot.project?.name ?? ''} ${lot.block}-${lot.number}`;
+
+            return matchesProject && includesSearch(label, search);
+        });
+    }, [availableLots, lotSearch, selectedProjectIds]);
+
+    const filteredAdvisors = useMemo(() => {
+        const search = normalizeSearch(advisorSearch);
+
+        return advisors.filter((advisor) => includesSearch(advisor.name, search));
+    }, [advisorSearch, advisors]);
 
     const filteredClients = useMemo(() => {
-        if (!registerForm.data.advisor_id) {
-            return clients;
-        }
+        const search = normalizeSearch(clientSearch);
 
-        return clients.filter((client) => String(client.advisor_id ?? '') === registerForm.data.advisor_id);
-    }, [clients, registerForm.data.advisor_id]);
+        return clients.filter((client) => {
+            const matchesAdvisor = !registerForm.data.advisor_id || String(client.advisor_id ?? '') === registerForm.data.advisor_id;
+            const label = `${client.name} ${client.dni ?? ''} ${client.phone ?? ''}`;
+
+            return matchesAdvisor && includesSearch(label, search);
+        });
+    }, [clientSearch, clients, registerForm.data.advisor_id]);
+
+    const selectedLots = useMemo(
+        () => registerForm.data.lot_ids
+            .map((id) => availableLots.find((lot) => lot.id === id))
+            .filter((lot): lot is AvailableLot => lot !== undefined),
+        [availableLots, registerForm.data.lot_ids],
+    );
+    const distributedAmounts = useMemo(
+        () => distributeAmounts(registerForm.data.amount, selectedLots.length),
+        [registerForm.data.amount, selectedLots.length],
+    );
+    const selectedAdvisor = advisors.find((advisor) => String(advisor.id) === registerForm.data.advisor_id);
+    const selectedClient = clients.find((client) => String(client.id) === registerForm.data.client_id);
+    const registerErrors = registerForm.errors as Record<string, string | undefined>;
 
     const submitFilters = (event: FormEvent) => {
         event.preventDefault();
@@ -143,10 +222,25 @@ export default function LotPreReservationsIndex({
         };
     }, [registerPreview]);
 
-    const openRegisterDialog = () => {
+    const resetRegisterState = () => {
         registerForm.reset();
         registerForm.clearErrors();
+        setProjectSearch('');
+        setLotSearch('');
+        setAdvisorSearch('');
+        setClientSearch('');
+        setSelectedProjectIds([]);
+        setClientMode('existing');
+
+        if (registerPreview) {
+            URL.revokeObjectURL(registerPreview);
+        }
+
         setRegisterPreview(null);
+    };
+
+    const openRegisterDialog = () => {
+        resetRegisterState();
         setRegisterOpen(true);
     };
 
@@ -161,24 +255,52 @@ export default function LotPreReservationsIndex({
         setRegisterPreview(file ? URL.createObjectURL(file) : null);
     };
 
-    const handleAdvisorChange = (advisorId: string) => {
-        const selectedClient = clients.find((client) => String(client.id) === registerForm.data.client_id);
+    const toggleProject = (projectId: number) => {
+        setSelectedProjectIds((current) => (
+            current.includes(projectId)
+                ? current.filter((id) => id !== projectId)
+                : [...current, projectId]
+        ));
+    };
+
+    const toggleLot = (lotId: number) => {
+        registerForm.setData('lot_ids', registerForm.data.lot_ids.includes(lotId)
+            ? registerForm.data.lot_ids.filter((id) => id !== lotId)
+            : [...registerForm.data.lot_ids, lotId]);
+    };
+
+    const handleAdvisorSelect = (advisorId: string) => {
+        const selected = clients.find((client) => String(client.id) === registerForm.data.client_id);
 
         registerForm.setData((data) => ({
             ...data,
             advisor_id: advisorId,
-            client_id: !advisorId || String(selectedClient?.advisor_id ?? '') === advisorId ? data.client_id : '',
+            client_id: !advisorId || String(selected?.advisor_id ?? '') === advisorId ? data.client_id : '',
         }));
     };
 
-    const handleClientChange = (clientId: string) => {
-        const client = clients.find((item) => String(item.id) === clientId);
-
+    const handleClientSelect = (client: ClientOption) => {
         registerForm.setData((data) => ({
             ...data,
-            client_id: clientId,
-            advisor_id: client?.advisor_id ? String(client.advisor_id) : data.advisor_id,
+            client_id: String(client.id),
+            advisor_id: client.advisor_id ? String(client.advisor_id) : data.advisor_id,
         }));
+        setClientSearch(`${client.name}${client.dni ? ` - ${client.dni}` : ''}`);
+    };
+
+    const switchClientMode = (mode: 'existing' | 'new') => {
+        setClientMode(mode);
+        registerForm.clearErrors();
+        registerForm.setData((data) => ({
+            ...data,
+            client_id: '',
+            new_client: {
+                name: '',
+                dni: '',
+                phone: '',
+            },
+        }));
+        setClientSearch('');
     };
 
     const register = (event: FormEvent<HTMLFormElement>) => {
@@ -188,12 +310,8 @@ export default function LotPreReservationsIndex({
             forceFormData: true,
             onSuccess: () => {
                 setRegisterOpen(false);
-                registerForm.reset();
-                if (registerPreview) {
-                    URL.revokeObjectURL(registerPreview);
-                }
-                setRegisterPreview(null);
-                showSuccessToast('Pre-reserva registrada correctamente');
+                resetRegisterState();
+                showSuccessToast('Pre-reservas registradas correctamente');
             },
         });
     };
@@ -261,25 +379,23 @@ export default function LotPreReservationsIndex({
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-3">
-                    <div className="rounded-3xl border border-border bg-card text-card-foreground p-5 shadow-sm">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Solicitudes visibles</p>
+                    <div className="rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm">
+                        <p className="text-[10px] font-black uppercase text-slate-400">Solicitudes visibles</p>
                         <p className="mt-3 text-3xl font-black text-slate-900">{preReservations.data.length}</p>
                     </div>
-                    <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">Pendientes</p>
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+                        <p className="text-[10px] font-black uppercase text-amber-500">Pendientes</p>
                         <p className="mt-3 text-3xl font-black text-amber-700">
                             {preReservations.data.filter((preReservation) => preReservation.status === 'PENDIENTE').length}
                         </p>
                     </div>
-                    <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Lotes disponibles</p>
-                        <p className="mt-3 text-3xl font-black text-emerald-700">
-                            {availableLots.length}
-                        </p>
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+                        <p className="text-[10px] font-black uppercase text-emerald-500">Lotes disponibles</p>
+                        <p className="mt-3 text-3xl font-black text-emerald-700">{availableLots.length}</p>
                     </div>
                 </div>
 
-                <form onSubmit={submitFilters} className="grid gap-4 rounded-2xl border border-border bg-card text-card-foreground p-4 md:grid-cols-4">
+                <form onSubmit={submitFilters} className="grid gap-4 rounded-2xl border border-border bg-card p-4 text-card-foreground md:grid-cols-4">
                     <select value={form.data.status} onChange={(event) => form.setData('status', event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2">
                         <option value="">Todos los estados</option>
                         <option value="PENDIENTE">Pendiente</option>
@@ -339,11 +455,11 @@ export default function LotPreReservationsIndex({
                                             ) : null}
                                         </td>
                                         <td className="px-4 py-3 font-medium text-slate-700">
-                                            S/ {Number(preReservation.amount).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            S/ {moneyFormatter.format(Number(preReservation.amount))}
                                         </td>
                                         <td className="px-4 py-3 text-slate-600">
                                             <div>{formatDateTime(preReservation.created_at)}</div>
-                                            {preReservation.reviewed_at ? <div className="text-xs text-slate-400">Revisión: {formatDateTime(preReservation.reviewed_at)}</div> : null}
+                                            {preReservation.reviewed_at ? <div className="text-xs text-slate-400">Revision: {formatDateTime(preReservation.reviewed_at)}</div> : null}
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex justify-end gap-2">
@@ -374,194 +490,225 @@ export default function LotPreReservationsIndex({
                     </div>
                 </div>
             </div>
+
             <Dialog open={registerOpen} onOpenChange={(open) => {
                 setRegisterOpen(open);
 
                 if (!open) {
-                    registerForm.reset();
-                    registerForm.clearErrors();
-                    if (registerPreview) {
-                        URL.revokeObjectURL(registerPreview);
-                    }
-                    setRegisterPreview(null);
+                    resetRegisterState();
                 }
             }}>
-                <DialogContent className="sm:max-w-4xl">
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-6xl">
                     <DialogHeader>
                         <DialogTitle>Registrar pre-reserva</DialogTitle>
                         <DialogDescription>
-                            Seleccione la unidad, asocie cliente y asesor, cargue el voucher y deje la solicitud pendiente de aprobación.
+                            Seleccione lotes libres, vincule asesor y cliente, cargue el voucher y registre una pre-reserva por lote.
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={register} className="space-y-5">
+                        <div className="grid gap-4 lg:grid-cols-[1.1fr_1.4fr]">
+                            <section className="space-y-3 rounded-2xl border border-slate-200 p-4">
+                                <div className="flex items-center gap-2">
+                                    <Search className="h-4 w-4 text-slate-400" />
+                                    <Input value={projectSearch} onChange={(event) => setProjectSearch(event.target.value)} placeholder="Buscar proyecto activo" />
+                                </div>
+                                <div className="max-h-36 space-y-2 overflow-y-auto pr-1">
+                                    {filteredProjects.map((project) => {
+                                        const checked = selectedProjectIds.includes(project.id);
+
+                                        return (
+                                            <label key={project.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50">
+                                                <input type="checkbox" checked={checked} onChange={() => toggleProject(project.id)} className="h-4 w-4" />
+                                                <span className="font-medium text-slate-700">{project.name}</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+
+                            <section className="space-y-3 rounded-2xl border border-slate-200 p-4">
+                                <div className="flex items-center gap-2">
+                                    <Search className="h-4 w-4 text-slate-400" />
+                                    <Input value={lotSearch} onChange={(event) => setLotSearch(event.target.value)} placeholder="Buscar lote por proyecto, manzana o numero" />
+                                </div>
+                                <div className="max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-100">
+                                    {filteredLots.map((lot) => {
+                                        const checked = registerForm.data.lot_ids.includes(lot.id);
+
+                                        return (
+                                            <label key={lot.id} className={`flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-sm ${checked ? 'bg-emerald-50' : 'hover:bg-slate-50'}`}>
+                                                <span className="flex items-center gap-3">
+                                                    <input type="checkbox" checked={checked} onChange={() => toggleLot(lot.id)} className="h-4 w-4" />
+                                                    <span>
+                                                        <span className="font-semibold text-slate-800">{lot.block}-{lot.number}</span>
+                                                        <span className="ml-2 text-slate-500">{lot.project?.name ?? 'Proyecto'}</span>
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                                <InputError message={registerForm.errors.lot_ids} />
+                            </section>
+                        </div>
+
+                        <div className="grid gap-4 lg:grid-cols-2">
+                            <section className="space-y-3 rounded-2xl border border-slate-200 p-4">
+                                <label className="text-sm font-medium text-slate-700">Asesor</label>
+                                <Input value={advisorSearch} onChange={(event) => setAdvisorSearch(event.target.value)} placeholder="Buscar asesor" />
+                                <div className="max-h-40 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-100">
+                                    {filteredAdvisors.map((advisor) => {
+                                        const selected = registerForm.data.advisor_id === String(advisor.id);
+
+                                        return (
+                                            <button
+                                                key={advisor.id}
+                                                type="button"
+                                                onClick={() => handleAdvisorSelect(String(advisor.id))}
+                                                className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${selected ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-slate-50'}`}
+                                            >
+                                                <span className="font-medium">{advisor.name}</span>
+                                                {selected ? <Check className="h-4 w-4" /> : null}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <InputError message={registerForm.errors.advisor_id} />
+                            </section>
+
+                            <section className="space-y-3 rounded-2xl border border-slate-200 p-4">
+                                <div className="flex gap-2">
+                                    <Button type="button" size="sm" variant={clientMode === 'existing' ? 'default' : 'outline'} onClick={() => switchClientMode('existing')}>
+                                        Cliente existente
+                                    </Button>
+                                    <Button type="button" size="sm" variant={clientMode === 'new' ? 'default' : 'outline'} onClick={() => switchClientMode('new')}>
+                                        Crear cliente
+                                    </Button>
+                                </div>
+
+                                {clientMode === 'existing' ? (
+                                    <div className="space-y-3">
+                                        <Input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} placeholder="Buscar cliente por nombre, DNI o telefono" />
+                                        <div className="max-h-40 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-100">
+                                            {filteredClients.map((client) => {
+                                                const selected = registerForm.data.client_id === String(client.id);
+
+                                                return (
+                                                    <button
+                                                        key={client.id}
+                                                        type="button"
+                                                        onClick={() => handleClientSelect(client)}
+                                                        className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${selected ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-slate-50'}`}
+                                                    >
+                                                        <span>
+                                                            <span className="font-medium">{client.name}</span>
+                                                            <span className="ml-2 text-slate-500">{client.dni ?? 'Sin DNI'}</span>
+                                                        </span>
+                                                        {selected ? <Check className="h-4 w-4" /> : null}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <InputError message={registerForm.errors.client_id} />
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-3 sm:grid-cols-3">
+                                        <div>
+                                            <Input value={registerForm.data.new_client.name} onChange={(event) => registerForm.setData('new_client', { ...registerForm.data.new_client, name: event.target.value })} placeholder="Nombre" />
+                                            <InputError message={registerErrors['new_client.name']} />
+                                        </div>
+                                        <div>
+                                            <Input value={registerForm.data.new_client.dni} onChange={(event) => registerForm.setData('new_client', { ...registerForm.data.new_client, dni: event.target.value })} placeholder="DNI" />
+                                            <InputError message={registerErrors['new_client.dni']} />
+                                        </div>
+                                        <div>
+                                            <Input value={registerForm.data.new_client.phone} onChange={(event) => registerForm.setData('new_client', { ...registerForm.data.new_client, phone: event.target.value })} placeholder="Telefono" />
+                                            <InputError message={registerErrors['new_client.phone']} />
+                                        </div>
+                                        <div className="sm:col-span-3">
+                                            <InputError message={registerErrors.duplicate_registration} />
+                                        </div>
+                                    </div>
+                                )}
+                            </section>
+                        </div>
+
                         <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
-                                <label htmlFor="register_pre_reservation_project_id" className="text-sm font-medium text-slate-700">
-                                    Proyecto
-                                </label>
-                                <select
-                                    id="register_pre_reservation_project_id"
-                                    value={registerForm.data.project_id}
-                                    onChange={(event) => registerForm.setData((data) => ({
-                                        ...data,
-                                        project_id: event.target.value,
-                                        lot_id: '',
-                                    }))}
-                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                                >
-                                    <option value="">Seleccione un proyecto</option>
-                                    {projects.map((project) => (
-                                        <option key={project.id} value={project.id}>
-                                            {project.name}
-                                        </option>
-                                    ))}
-                                </select>
-                                <InputError message={registerForm.errors.project_id} />
-                            </div>
-                            <div className="space-y-2">
-                                <label htmlFor="register_pre_reservation_lot_id" className="text-sm font-medium text-slate-700">
-                                    Lote
-                                </label>
-                                <select
-                                    id="register_pre_reservation_lot_id"
-                                    value={registerForm.data.lot_id}
-                                    onChange={(event) => registerForm.setData('lot_id', event.target.value)}
-                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                                >
-                                    <option value="">Seleccione una unidad</option>
-                                    {filteredLots.map((lot) => (
-                                        <option key={lot.id} value={lot.id}>
-                                            {lot.project?.name ?? 'Proyecto'} · {lot.block}-{lot.number}
-                                        </option>
-                                    ))}
-                                </select>
-                                <InputError message={registerForm.errors.lot_id} />
-                            </div>
-                            <div className="space-y-2">
-                                <label htmlFor="register_pre_reservation_advisor_id" className="text-sm font-medium text-slate-700">
-                                    Asesor
-                                </label>
-                                <select
-                                    id="register_pre_reservation_advisor_id"
-                                    value={registerForm.data.advisor_id}
-                                    onChange={(event) => handleAdvisorChange(event.target.value)}
-                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                                >
-                                    <option value="">Seleccione un asesor</option>
-                                    {advisors.map((advisor) => (
-                                        <option key={advisor.id} value={advisor.id}>
-                                            {advisor.name}
-                                        </option>
-                                    ))}
-                                </select>
-                                <InputError message={registerForm.errors.advisor_id} />
-                            </div>
-                            <div className="space-y-2">
-                                <label htmlFor="register_pre_reservation_client_id" className="text-sm font-medium text-slate-700">
-                                    Cliente
-                                </label>
-                                <select
-                                    id="register_pre_reservation_client_id"
-                                    value={registerForm.data.client_id}
-                                    onChange={(event) => handleClientChange(event.target.value)}
-                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                                >
-                                    <option value="">Seleccione un cliente</option>
-                                    {filteredClients.map((client) => (
-                                        <option key={client.id} value={client.id}>
-                                            {client.name} {client.dni ? `· ${client.dni}` : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                                <InputError message={registerForm.errors.client_id} />
-                            </div>
-                            <div className="space-y-2">
-                                <label htmlFor="register_pre_reservation_amount" className="text-sm font-medium text-slate-700">
-                                    Monto
-                                </label>
-                                <Input
-                                    id="register_pre_reservation_amount"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={registerForm.data.amount}
-                                    onChange={(event) => registerForm.setData('amount', event.target.value)}
-                                    placeholder="0.00"
-                                />
+                                <label htmlFor="register_pre_reservation_amount" className="text-sm font-medium text-slate-700">Monto total</label>
+                                <Input id="register_pre_reservation_amount" type="number" min="0" step="0.01" value={registerForm.data.amount} onChange={(event) => registerForm.setData('amount', event.target.value)} placeholder="0.00" />
                                 <InputError message={registerForm.errors.amount} />
                             </div>
                             <div className="space-y-2">
-                                <label htmlFor="register_pre_reservation_reference" className="text-sm font-medium text-slate-700">
-                                    Referencia de pago
-                                </label>
-                                <Input
-                                    id="register_pre_reservation_reference"
-                                    value={registerForm.data.payment_reference}
-                                    onChange={(event) => registerForm.setData('payment_reference', event.target.value)}
-                                    placeholder="Operacion, Yape, deposito, etc."
-                                />
+                                <label htmlFor="register_pre_reservation_reference" className="text-sm font-medium text-slate-700">Referencia de pago</label>
+                                <Input id="register_pre_reservation_reference" value={registerForm.data.payment_reference} onChange={(event) => registerForm.setData('payment_reference', event.target.value)} placeholder="Operacion, Yape, deposito, etc." />
                                 <InputError message={registerForm.errors.payment_reference} />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <label htmlFor="register_pre_reservation_notes" className="text-sm font-medium text-slate-700">
-                                Observaciones
-                            </label>
-                            <textarea
-                                id="register_pre_reservation_notes"
-                                value={registerForm.data.notes}
-                                onChange={(event) => registerForm.setData('notes', event.target.value)}
-                                rows={3}
-                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none"
-                                placeholder="Notas internas de la solicitud"
-                            />
+                            <label htmlFor="register_pre_reservation_notes" className="text-sm font-medium text-slate-700">Observaciones</label>
+                            <textarea id="register_pre_reservation_notes" value={registerForm.data.notes} onChange={(event) => registerForm.setData('notes', event.target.value)} rows={3} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none" placeholder="Notas internas de la solicitud" />
                             <InputError message={registerForm.errors.notes} />
                         </div>
 
                         <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
                             <div className="space-y-3">
-                                <label
-                                    htmlFor="register_pre_reservation_voucher"
-                                    className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center transition hover:border-emerald-400 hover:bg-emerald-50"
-                                >
+                                <label htmlFor="register_pre_reservation_voucher" className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center transition hover:border-emerald-400 hover:bg-emerald-50">
                                     <div className="rounded-full bg-white p-3 shadow-sm">
                                         <ImagePlus className="h-6 w-6 text-emerald-600" />
                                     </div>
-                                    <p className="mt-4 font-semibold text-slate-800">
-                                        {registerForm.data.voucher_image ? 'Cambiar voucher' : 'Seleccionar voucher'}
-                                    </p>
-                                    <p className="mt-1 text-sm text-slate-500">
-                                        Formatos permitidos: JPG, PNG, WEBP. Máximo 5 MB.
-                                    </p>
+                                    <p className="mt-4 font-semibold text-slate-800">{registerForm.data.voucher_image ? 'Cambiar voucher' : 'Seleccionar voucher'}</p>
+                                    <p className="mt-1 text-sm text-slate-500">Formatos permitidos: JPG, PNG, WEBP. Maximo 5 MB.</p>
                                 </label>
-                                <input
-                                    id="register_pre_reservation_voucher"
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleRegisterImageChange}
-                                    className="hidden"
-                                />
+                                <input id="register_pre_reservation_voucher" type="file" accept="image/*" onChange={handleRegisterImageChange} className="hidden" />
                                 <InputError message={registerForm.errors.voucher_image} />
                             </div>
 
                             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                                 {registerPreview ? (
-                                    <img
-                                        src={registerPreview}
-                                        alt="Vista previa del voucher"
-                                        className="max-h-[360px] w-full object-contain"
-                                    />
+                                    <img src={registerPreview} alt="Vista previa del voucher" className="max-h-[360px] w-full object-contain" />
                                 ) : (
                                     <div className="flex min-h-[240px] flex-col items-center justify-center px-6 py-10 text-center">
                                         <ImagePlus className="h-10 w-10 text-slate-300" />
                                         <p className="mt-3 font-medium text-slate-600">Vista previa del voucher</p>
-                                        <p className="mt-1 text-sm text-slate-400">
-                                            Revise aquí la imagen antes de registrar la pre-reserva.
-                                        </p>
+                                        <p className="mt-1 text-sm text-slate-400">Revise aqui la imagen antes de registrar la pre-reserva.</p>
                                     </div>
                                 )}
                             </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+                            <div className="grid gap-3 md:grid-cols-4">
+                                <div>
+                                    <p className="text-xs font-bold uppercase text-emerald-700">Lotes</p>
+                                    <p className="text-lg font-black">{selectedLots.length}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold uppercase text-emerald-700">Monto total</p>
+                                    <p className="text-lg font-black">S/ {registerForm.data.amount ? moneyFormatter.format(Number(registerForm.data.amount)) : '0.00'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold uppercase text-emerald-700">Asesor</p>
+                                    <p className="font-semibold">{selectedAdvisor?.name ?? 'Sin seleccionar'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold uppercase text-emerald-700">Cliente</p>
+                                    <p className="font-semibold">{clientMode === 'existing' ? (selectedClient?.name ?? 'Sin seleccionar') : (registerForm.data.new_client.name || 'Nuevo cliente')}</p>
+                                </div>
+                            </div>
+                            {selectedLots.length > 0 ? (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {selectedLots.map((lot, index) => (
+                                        <span key={lot.id} className="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-emerald-800">
+                                            {lot.project?.name ?? 'Proyecto'} {lot.block}-{lot.number}: S/ {distributedAmounts[index] ?? '0.00'}
+                                        </span>
+                                    ))}
+                                </div>
+                            ) : null}
+                            {registerForm.data.voucher_image ? (
+                                <p className="mt-3 text-xs font-semibold text-emerald-700">Voucher: {registerForm.data.voucher_image.name}</p>
+                            ) : null}
                         </div>
 
                         <DialogFooter>
@@ -569,12 +716,13 @@ export default function LotPreReservationsIndex({
                                 Cancelar
                             </Button>
                             <Button type="submit" disabled={registerForm.processing}>
-                                Registrar pre-reserva
+                                Registrar pre-reservas
                             </Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
             </Dialog>
+
             <Dialog open={approveOpen} onOpenChange={(open) => {
                 setApproveOpen(open);
 
@@ -586,61 +734,38 @@ export default function LotPreReservationsIndex({
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>Aprobar pre-reserva</DialogTitle>
-                        <DialogDescription>
-                            Revise el voucher cargado, registre una reseña y confirme la aprobación.
-                        </DialogDescription>
+                        <DialogDescription>Revise el voucher cargado, registre una resena y confirme la aprobacion.</DialogDescription>
                     </DialogHeader>
                     {selectedPreReservation ? (
                         <form onSubmit={approve} className="space-y-4">
                             <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                                <img
-                                    src={`/storage/${selectedPreReservation.voucher_path}`}
-                                    alt={`Voucher pre-reserva ${selectedPreReservation.id}`}
-                                    className="max-h-[420px] w-full object-contain"
-                                />
+                                <img src={`/storage/${selectedPreReservation.voucher_path}`} alt={`Voucher pre-reserva ${selectedPreReservation.id}`} className="max-h-[420px] w-full object-contain" />
                             </div>
                             <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 md:grid-cols-3">
                                 <div>
-                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Unidad</p>
-                                    <p className="mt-1 font-semibold text-slate-800">
-                                        {selectedPreReservation.lot ? `${selectedPreReservation.lot.block}-${selectedPreReservation.lot.number}` : 'Unidad'}
-                                    </p>
+                                    <p className="text-xs font-bold uppercase text-slate-400">Unidad</p>
+                                    <p className="mt-1 font-semibold text-slate-800">{selectedPreReservation.lot ? `${selectedPreReservation.lot.block}-${selectedPreReservation.lot.number}` : 'Unidad'}</p>
                                     <p>{selectedPreReservation.lot?.project?.name ?? 'Sin proyecto'}</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Cliente</p>
+                                    <p className="text-xs font-bold uppercase text-slate-400">Cliente</p>
                                     <p className="mt-1 font-semibold text-slate-800">{selectedPreReservation.client?.name ?? 'Sin cliente'}</p>
                                     <p>{selectedPreReservation.client?.city?.name ?? 'Sin ciudad'}</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Monto</p>
-                                    <p className="mt-1 font-semibold text-slate-800">
-                                        S/ {Number(selectedPreReservation.amount).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </p>
+                                    <p className="text-xs font-bold uppercase text-slate-400">Monto</p>
+                                    <p className="mt-1 font-semibold text-slate-800">S/ {moneyFormatter.format(Number(selectedPreReservation.amount))}</p>
                                     <p>{selectedPreReservation.advisor?.name ?? 'Sin vendedor'}</p>
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <label htmlFor="pre_reservation_review_notes" className="text-sm font-medium text-slate-700">
-                                    Reseña de aprobación
-                                </label>
-                                <textarea
-                                    id="pre_reservation_review_notes"
-                                    value={approveForm.data.review_notes}
-                                    onChange={(event) => approveForm.setData('review_notes', event.target.value)}
-                                    rows={4}
-                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none"
-                                    placeholder="Detalle breve de la validación realizada"
-                                />
+                                <label htmlFor="pre_reservation_review_notes" className="text-sm font-medium text-slate-700">Resena de aprobacion</label>
+                                <textarea id="pre_reservation_review_notes" value={approveForm.data.review_notes} onChange={(event) => approveForm.setData('review_notes', event.target.value)} rows={4} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none" placeholder="Detalle breve de la validacion realizada" />
                                 <InputError message={approveForm.errors.review_notes} />
                             </div>
                             <DialogFooter>
-                                <Button type="button" variant="outline" onClick={() => setApproveOpen(false)}>
-                                    Cancelar
-                                </Button>
-                                <Button type="submit" disabled={approveForm.processing}>
-                                    Aprobar pre-reserva
-                                </Button>
+                                <Button type="button" variant="outline" onClick={() => setApproveOpen(false)}>Cancelar</Button>
+                                <Button type="submit" disabled={approveForm.processing}>Aprobar pre-reserva</Button>
                             </DialogFooter>
                         </form>
                     ) : null}
@@ -658,40 +783,21 @@ export default function LotPreReservationsIndex({
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>Rechazar pre-reserva</DialogTitle>
-                        <DialogDescription>
-                            Revise el voucher y documente el motivo antes de devolver la solicitud.
-                        </DialogDescription>
+                        <DialogDescription>Revise el voucher y documente el motivo antes de devolver la solicitud.</DialogDescription>
                     </DialogHeader>
                     {selectedPreReservation ? (
                         <form onSubmit={reject} className="space-y-4">
                             <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                                <img
-                                    src={`/storage/${selectedPreReservation.voucher_path}`}
-                                    alt={`Voucher pre-reserva ${selectedPreReservation.id}`}
-                                    className="max-h-[320px] w-full object-contain"
-                                />
+                                <img src={`/storage/${selectedPreReservation.voucher_path}`} alt={`Voucher pre-reserva ${selectedPreReservation.id}`} className="max-h-[320px] w-full object-contain" />
                             </div>
                             <div className="space-y-2">
-                                <label htmlFor="pre_reservation_rejection_reason" className="text-sm font-medium text-slate-700">
-                                    Motivo del rechazo
-                                </label>
-                                <textarea
-                                    id="pre_reservation_rejection_reason"
-                                    value={rejectForm.data.rejection_reason}
-                                    onChange={(event) => rejectForm.setData('rejection_reason', event.target.value)}
-                                    rows={4}
-                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none"
-                                    placeholder="Detalle por qué la solicitud no procede"
-                                />
+                                <label htmlFor="pre_reservation_rejection_reason" className="text-sm font-medium text-slate-700">Motivo del rechazo</label>
+                                <textarea id="pre_reservation_rejection_reason" value={rejectForm.data.rejection_reason} onChange={(event) => rejectForm.setData('rejection_reason', event.target.value)} rows={4} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none" placeholder="Detalle por que la solicitud no procede" />
                                 <InputError message={rejectForm.errors.rejection_reason} />
                             </div>
                             <DialogFooter>
-                                <Button type="button" variant="outline" onClick={() => setRejectOpen(false)}>
-                                    Cancelar
-                                </Button>
-                                <Button type="submit" variant="outline" disabled={rejectForm.processing}>
-                                    Confirmar rechazo
-                                </Button>
+                                <Button type="button" variant="outline" onClick={() => setRejectOpen(false)}>Cancelar</Button>
+                                <Button type="submit" variant="outline" disabled={rejectForm.processing}>Confirmar rechazo</Button>
                             </DialogFooter>
                         </form>
                     ) : null}

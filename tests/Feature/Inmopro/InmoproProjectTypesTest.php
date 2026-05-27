@@ -75,6 +75,7 @@ class InmoproProjectTypesTest extends TestCase
                 'description' => 'Parques industriales',
                 'color' => '#334155',
                 'sort_order' => 9,
+                'percentage_meta' => 100,
                 'is_active' => true,
             ])
             ->assertRedirect(route('inmopro.project-types.index'));
@@ -97,6 +98,7 @@ class InmoproProjectTypesTest extends TestCase
                 'description' => 'Actualizado',
                 'color' => '#111827',
                 'sort_order' => 3,
+                'percentage_meta' => 50,
                 'is_active' => true,
             ])
             ->assertRedirect(route('inmopro.project-types.index'));
@@ -104,6 +106,7 @@ class InmoproProjectTypesTest extends TestCase
         $this->assertDatabaseHas('project_types', [
             'id' => $projectType->id,
             'name' => 'Residencial Prime',
+            'percentage_meta' => 50,
         ]);
     }
 

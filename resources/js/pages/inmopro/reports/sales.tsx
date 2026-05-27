@@ -301,8 +301,9 @@ export default function Reports({
                                 Reporte por {viewLabel.toLowerCase()}
                             </h1>
                             <p className="text-sm text-slate-300">
-                                Consolidado de ventas (precio de lote), metas, cobranza efectiva y saldo pendiente según
-                                fecha de contrato. Excluye lotes en estado libre o pre-reserva.
+                                Consolidado de ventas, metas, cobranza efectiva y saldo pendiente según fecha de contrato.
+                                Las ventas para meta usan precio del lote × porcentaje del tipo de proyecto. Excluye lotes
+                                libre o pre-reserva.
                             </p>
                             <p className="text-xs font-semibold text-slate-400">
                                 {filterSummary || 'Sin filtros aplicados'} · Generado el {generatedAt}

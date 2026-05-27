@@ -17,6 +17,7 @@ class SalesReportService
     public function __construct(
         private readonly ReportDateRangeResolver $dateRangeResolver,
         private readonly LotReportQueryBuilder $lotQueryBuilder,
+        private readonly LotGoalAttributedAmount $goalAttributedAmount,
     ) {}
 
     /**
@@ -191,7 +192,7 @@ class SalesReportService
      */
     private function makeRow(int $id, string $label, Collection $lots, float $goalAmount, array $extra = []): array
     {
-        $soldAmount = (float) $lots->sum(fn (Lot $lot) => (float) $lot->price);
+        $soldAmount = (float) $lots->sum(fn (Lot $lot) => $this->goalAttributedAmount->forLot($lot));
         $collectedAmount = (float) $lots->sum(fn (Lot $lot) => $this->collectedAmountForLot($lot));
         $pendingAmount = (float) $lots->sum(fn (Lot $lot) => (float) ($lot->remaining_balance ?? 0));
         $lotsCount = $lots->count();

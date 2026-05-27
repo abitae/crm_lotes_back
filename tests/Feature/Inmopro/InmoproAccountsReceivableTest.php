@@ -117,6 +117,7 @@ class InmoproAccountsReceivableTest extends TestCase
     {
         $user = User::factory()->create();
         $lot = Lot::whereNotNull('client_id')->firstOrFail();
+        $lot->update(['block' => 'STATUSFILTER']);
         $statusId = $lot->lot_status_id;
         $this->actingAs($user);
 
@@ -141,7 +142,7 @@ class InmoproAccountsReceivableTest extends TestCase
 
         $this->get(route('inmopro.accounts-receivable.index', [
             'lot_status_id' => $otherStatusId,
-            'search' => $lot->client?->name,
+            'search' => 'STATUSFILTER',
         ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page

@@ -7,6 +7,7 @@ use App\Http\Controllers\Inmopro\Reports\Concerns\ExportsReportDetail;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\Team;
 use App\Services\Inmopro\Reports\LotDetailSerializer;
+use App\Services\Inmopro\Reports\LotGoalAttributedAmount;
 use App\Services\Inmopro\Reports\LotReportQueryBuilder;
 use App\Services\Inmopro\Reports\ReportDateRangeResolver;
 use App\Services\Inmopro\Reports\ReportFilterOptions;
@@ -25,6 +26,7 @@ class TeamGoalsReportController extends Controller
         private readonly ReportDateRangeResolver $dateRangeResolver,
         private readonly LotReportQueryBuilder $lotQueryBuilder,
         private readonly LotDetailSerializer $lotSerializer,
+        private readonly LotGoalAttributedAmount $goalAttributedAmount,
         private readonly ReportFilterOptions $filterOptions,
     ) {}
 
@@ -92,7 +94,7 @@ class TeamGoalsReportController extends Controller
                 ->sum('personal_quota');
             $groupGoal = (float) ($team->group_sales_goal ?? 0);
             $goalAmount = $groupGoal > 0 ? $groupGoal : $quotaSum;
-            $soldAmount = (float) $teamLots->sum(fn (Lot $lot) => (float) $lot->price);
+            $soldAmount = (float) $teamLots->sum(fn (Lot $lot) => $this->goalAttributedAmount->forLot($lot));
             $pct = $goalAmount > 0 ? (int) round(($soldAmount / $goalAmount) * 100) : 0;
 
             return [
@@ -113,7 +115,7 @@ class TeamGoalsReportController extends Controller
         return [
             'title' => 'Meta grupal por equipo',
             'description' => 'Ventas del periodo vs meta grupal con detalle de lotes.',
-            'criteriaNote' => 'Ventas por fecha de contrato. Meta = group_sales_goal o suma de cuotas personales.',
+            'criteriaNote' => 'Ventas para meta = precio del lote × porcentaje del tipo de proyecto (Tipos de proyecto). Meta = group_sales_goal o suma de cuotas personales.',
             'filters' => $filters,
             'rows' => $rows,
             'detail_rows' => $detailRows,
