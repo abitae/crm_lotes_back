@@ -176,6 +176,11 @@ class LotTransferConfirmationController extends Controller
                 ]);
             }
 
+            $lot_transfer_confirmation->lot->update([
+                'advance' => $lot_transfer_confirmation->lot->price,
+                'remaining_balance' => 0,
+            ]);
+
             if (! $lot_transfer_confirmation->lot->commissions()->exists()) {
                 $this->commissionService->createCommissionsForTransferredLot($lot_transfer_confirmation->lot->fresh());
             }

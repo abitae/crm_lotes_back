@@ -33,6 +33,13 @@ type Payment = {
     payment_method: string;
     cash_account?: { name: string } | null;
 };
+type LotStatusOption = {
+    id: number;
+    name: string;
+    code: string;
+    color?: string | null;
+};
+
 type LotStatus = {
     name: string;
     code: string;
@@ -56,15 +63,17 @@ type LotItem = {
 export default function AccountsReceivable({
     lots,
     projects,
+    lotStatuses,
     cashAccounts,
     summary,
     filters,
 }: {
     lots: { data: LotItem[]; links: PaginationLink[] };
     projects: Project[];
+    lotStatuses: LotStatusOption[];
     cashAccounts: CashAccount[];
     summary: { portfolio: number; collected: number; pending: number; overdueInstallments: number };
-    filters: { project_id?: string; status?: string; search?: string };
+    filters: { project_id?: string; lot_status_id?: string; status?: string; search?: string };
 }) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
@@ -82,6 +91,7 @@ export default function AccountsReceivable({
 
         router.get('/inmopro/accounts-receivable', {
             project_id: (formData.get('project_id') as string) || undefined,
+            lot_status_id: (formData.get('lot_status_id') as string) || undefined,
             search: (formData.get('search') as string) || undefined,
         });
     };
@@ -99,7 +109,7 @@ export default function AccountsReceivable({
 
                 <form
                     onSubmit={handleFilter}
-                    className="grid gap-3 rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm md:grid-cols-3"
+                    className="grid gap-3 rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm md:grid-cols-2 lg:grid-cols-4"
                 >
                     <select
                         name="project_id"
@@ -110,6 +120,18 @@ export default function AccountsReceivable({
                         {projects.map((project) => (
                             <option key={project.id} value={project.id}>
                                 {project.name}
+                            </option>
+                        ))}
+                    </select>
+                    <select
+                        name="lot_status_id"
+                        defaultValue={filters.lot_status_id}
+                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none"
+                    >
+                        <option value="">Todos los estados de lote</option>
+                        {lotStatuses.map((status) => (
+                            <option key={status.id} value={status.id}>
+                                {status.name}
                             </option>
                         ))}
                     </select>

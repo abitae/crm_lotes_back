@@ -181,7 +181,13 @@ class ProjectController extends Controller
 
     public function show(Project $project): Response
     {
-        $project->load(['lots.status', 'lots.client', 'lots.advisor', 'assets']);
+        $project->load([
+            'lots' => fn ($query) => $query
+                ->with(['status', 'client', 'advisor'])
+                ->orderBy('block')
+                ->orderBy('number'),
+            'assets',
+        ]);
 
         return Inertia::render('inmopro/projects/show', [
             'project' => $this->projectPayload($project, true),
@@ -424,8 +430,26 @@ class ProjectController extends Controller
                 ->map(fn (ProjectAsset $asset) => $this->assetPayload($project, $asset))
                 ->values()
                 ->all(),
-            'lots' => $includeLots ? $project->lots : [],
+            'lots' => $includeLots
+                ? $project->lots
+                    ->map(fn (Lot $lot) => $this->lotPayload($lot))
+                    ->values()
+                    ->all()
+                : [],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function lotPayload(Lot $lot): array
+    {
+        $lot->loadMissing(['status', 'client', 'advisor']);
+
+        $payload = $lot->toArray();
+        $payload['client_phone'] = $lot->client?->phone;
+
+        return $payload;
     }
 
     /**

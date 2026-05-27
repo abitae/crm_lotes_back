@@ -162,6 +162,7 @@ export default function Reports({
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
         { title: 'Reportes', href: '/inmopro/reports' },
+        { title: 'Ventas', href: '/inmopro/reports/sales' },
     ];
 
     const topRows = useMemo(
@@ -211,13 +212,13 @@ export default function Reports({
         .join(' · ');
 
     const q = buildExportQueryString(view, filters);
-    const pdfUrl = () => `/inmopro/reports/pdf?${q}`;
-    const pdfDownloadUrl = () => `/inmopro/reports/pdf?${buildExportQueryString(view, filters, 'attachment')}`;
-    const csvUrl = () => `/inmopro/reports/csv?${q}`;
+    const pdfUrl = () => `/inmopro/reports/sales/pdf?${q}`;
+    const pdfDownloadUrl = () => `/inmopro/reports/sales/pdf?${buildExportQueryString(view, filters, 'attachment')}`;
+    const csvUrl = () => `/inmopro/reports/sales/csv?${q}`;
 
     const navigateWithFilters = (next: Partial<Pick<Filters, 'start_date' | 'end_date'>>) => {
         router.get(
-            '/inmopro/reports',
+            '/inmopro/reports/sales',
             {
                 view,
                 project_id: filters.project_id ?? undefined,
@@ -265,7 +266,7 @@ export default function Reports({
         const formData = new FormData(event.currentTarget);
 
         router.get(
-            '/inmopro/reports',
+            '/inmopro/reports/sales',
             {
                 view: (formData.get('view') as Filters['view']) || 'projects',
                 project_id: (formData.get('project_id') as string) || undefined,

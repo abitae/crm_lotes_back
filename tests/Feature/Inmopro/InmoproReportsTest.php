@@ -27,10 +27,10 @@ class InmoproReportsTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->get(route('inmopro.reports.index', ['view' => 'projects']))
+            ->get(route('inmopro.reports.sales.index', ['view' => 'projects']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('inmopro/reports')
+                ->component('inmopro/reports/sales')
                 ->where('view', 'projects')
                 ->has('reportSettingsUrl')
                 ->where('rows.0.label', $context['project']->name)
@@ -45,10 +45,10 @@ class InmoproReportsTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->get(route('inmopro.reports.index', ['view' => 'teams']))
+            ->get(route('inmopro.reports.sales.index', ['view' => 'teams']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('inmopro/reports')
+                ->component('inmopro/reports/sales')
                 ->where('view', 'teams')
                 ->where('rows.0.label', $context['team']->name)
                 ->where('rows.0.goal_amount', 80000));
@@ -61,7 +61,7 @@ class InmoproReportsTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->get(route('inmopro.reports.index', [
+            ->get(route('inmopro.reports.sales.index', [
                 'view' => 'advisors',
                 'advisor_id' => $context['advisor']->id,
                 'start_date' => '2026-03-01',
@@ -69,7 +69,7 @@ class InmoproReportsTest extends TestCase
             ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('inmopro/reports')
+                ->component('inmopro/reports/sales')
                 ->where('view', 'advisors')
                 ->where('filters.advisor_id', $context['advisor']->id)
                 ->where('filters.start_date', '2026-03-01')
@@ -77,14 +77,14 @@ class InmoproReportsTest extends TestCase
                 ->where('rows.0.label', $context['advisor']->name));
 
         $this->actingAs($user)
-            ->get(route('inmopro.reports.index', [
+            ->get(route('inmopro.reports.sales.index', [
                 'view' => 'advisors',
                 'start_date' => '2026-04-01',
                 'end_date' => '2026-04-30',
             ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('inmopro/reports')
+                ->component('inmopro/reports/sales')
                 ->where('rows.0.label', $context['advisor']->name)
                 ->where('rows.0.sold_amount', 0)
                 ->where('rows.0.lots_count', 0));
@@ -97,7 +97,7 @@ class InmoproReportsTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->get(route('inmopro.reports.index', ['view' => 'projects']))
+            ->get(route('inmopro.reports.sales.index', ['view' => 'projects']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('filters.start_date', '2026-03-01')
@@ -112,7 +112,7 @@ class InmoproReportsTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->get(route('inmopro.reports.index', ['view' => 'projects']))
+            ->get(route('inmopro.reports.sales.index', ['view' => 'projects']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('summary.goal_amount', 500000)
@@ -126,7 +126,7 @@ class InmoproReportsTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->get(route('inmopro.reports.index', ['view' => 'projects']))
+            ->get(route('inmopro.reports.sales.index', ['view' => 'projects']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('summary.lots_count', 1)
@@ -159,7 +159,7 @@ class InmoproReportsTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->get(route('inmopro.reports.index', ['view' => 'teams']))
+            ->get(route('inmopro.reports.sales.index', ['view' => 'teams']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('view', 'teams')

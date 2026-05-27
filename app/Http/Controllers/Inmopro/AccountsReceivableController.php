@@ -41,6 +41,10 @@ class AccountsReceivableController extends Controller
             $query->where('project_id', $request->integer('project_id'));
         }
 
+        if ($request->filled('lot_status_id')) {
+            $query->where('lot_status_id', $request->integer('lot_status_id'));
+        }
+
         if ($request->filled('status')) {
             $requestedStatus = $request->input('status');
             $query->whereHas('installments', fn ($builder) => $builder->where('status', $requestedStatus));
@@ -96,6 +100,7 @@ class AccountsReceivableController extends Controller
         return Inertia::render('inmopro/accounts-receivable', [
             'lots' => $lots,
             'projects' => Project::query()->active()->orderBy('name')->get(),
+            'lotStatuses' => LotStatus::orderBy('sort_order')->get(['id', 'name', 'code', 'color']),
             'cashAccounts' => CashAccount::where('is_active', true)->orderBy('name')->get(),
             'summary' => [
                 'portfolio' => (float) $lotsCollection->sum('price'),
@@ -104,7 +109,7 @@ class AccountsReceivableController extends Controller
                 'pending' => max(0, $totalScheduled - $totalCollected),
                 'overdueInstallments' => $overdueInstallments,
             ],
-            'filters' => $request->only('project_id', 'status', 'search'),
+            'filters' => $request->only('project_id', 'lot_status_id', 'status', 'search'),
         ]);
     }
 

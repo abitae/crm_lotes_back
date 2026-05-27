@@ -4,7 +4,15 @@ namespace Tests\Feature\Inmopro;
 
 use App\Models\Inmopro\CashAccount;
 use App\Models\Inmopro\Lot;
+use App\Models\Inmopro\LotStatus;
 use App\Models\User;
+use Database\Seeders\Inmopro\AdvisorLevelSeeder;
+use Database\Seeders\Inmopro\AdvisorSeeder;
+use Database\Seeders\Inmopro\ClientSeeder;
+use Database\Seeders\Inmopro\CommissionStatusSeeder;
+use Database\Seeders\Inmopro\LotSeeder;
+use Database\Seeders\Inmopro\LotStatusSeeder;
+use Database\Seeders\Inmopro\ProjectSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -16,13 +24,13 @@ class InmoproAccountsReceivableTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
-        $this->seed(\Database\Seeders\Inmopro\AdvisorLevelSeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\LotStatusSeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\CommissionStatusSeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\ProjectSeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\AdvisorSeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\ClientSeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\LotSeeder::class);
+        $this->seed(AdvisorLevelSeeder::class);
+        $this->seed(LotStatusSeeder::class);
+        $this->seed(CommissionStatusSeeder::class);
+        $this->seed(ProjectSeeder::class);
+        $this->seed(AdvisorSeeder::class);
+        $this->seed(ClientSeeder::class);
+        $this->seed(LotSeeder::class);
     }
 
     public function test_authenticated_users_can_visit_accounts_receivable_index(): void
@@ -103,5 +111,40 @@ class InmoproAccountsReceivableTest extends TestCase
             ->component('inmopro/accounts-receivable')
             ->where('filters.project_id', (string) $lot->project_id)
             ->where('filters.search', $lot->client?->name));
+    }
+
+    public function test_accounts_receivable_can_filter_by_lot_status(): void
+    {
+        $user = User::factory()->create();
+        $lot = Lot::whereNotNull('client_id')->firstOrFail();
+        $statusId = $lot->lot_status_id;
+        $this->actingAs($user);
+
+        $this->get(route('inmopro.accounts-receivable.index', [
+            'lot_status_id' => $statusId,
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('inmopro/accounts-receivable')
+                ->where('filters.lot_status_id', (string) $statusId)
+                ->has('lotStatuses')
+                ->where('lots.data.0.status.id', $statusId));
+
+        $otherStatusId = LotStatus::query()
+            ->where('id', '!=', $statusId)
+            ->whereNotIn('code', [LotStatus::CODE_LIBRE, LotStatus::CODE_PRERESERVA])
+            ->value('id');
+
+        if ($otherStatusId === null) {
+            $this->markTestSkipped('No hay otro estado de lote disponible para contrastar el filtro.');
+        }
+
+        $this->get(route('inmopro.accounts-receivable.index', [
+            'lot_status_id' => $otherStatusId,
+            'search' => $lot->client?->name,
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('lots.data', 0));
     }
 }

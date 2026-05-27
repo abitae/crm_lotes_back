@@ -1,10 +1,12 @@
 import { Link } from '@inertiajs/react';
-import { Eye, Save } from 'lucide-react';
-import { Dispatch, MutableRefObject, SetStateAction, type CSSProperties } from 'react';
+import { Eye, Save, X } from 'lucide-react';
+import { Dispatch, MutableRefObject, SetStateAction, useMemo, useState, type CSSProperties } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import type { Advisor, Client, Lot, LotPayload, LotStatus, Project } from './show-types';
-import { toDateStr } from './show-utils';
+import { compareLotsByBlockAndNumber, filterProjectLots, toDateStr } from './show-utils';
 
 type SearchState<T extends { id: number }> = {
     openKey: string | null;
@@ -94,14 +96,103 @@ export function ProjectLotsTable({
     buildRowPayloadForSave: (lot: Lot) => LotPayload;
     updateLot: (lot: Lot, payload: LotPayload) => void;
 }) {
-    if (!project.lots || project.lots.length === 0) {
+    const [clientDniFilter, setClientDniFilter] = useState('');
+    const [clientNameFilter, setClientNameFilter] = useState('');
+    const [lotStatusFilter, setLotStatusFilter] = useState('');
+
+    const allLots = project.lots ?? [];
+
+    const filteredLots = useMemo(() => {
+        const filtered = filterProjectLots(allLots, {
+            clientDni: clientDniFilter,
+            clientName: clientNameFilter,
+            lotStatusId: lotStatusFilter,
+        });
+
+        return [...filtered].sort(compareLotsByBlockAndNumber);
+    }, [allLots, clientDniFilter, clientNameFilter, lotStatusFilter]);
+
+    const hasActiveFilters = clientDniFilter !== '' || clientNameFilter !== '' || lotStatusFilter !== '';
+
+    const clearFilters = () => {
+        setClientDniFilter('');
+        setClientNameFilter('');
+        setLotStatusFilter('');
+    };
+
+    if (allLots.length === 0) {
         return null;
     }
 
     return (
         <Card className="flex min-h-0 flex-1 flex-col">
-            <CardContent className="flex min-h-0 flex-1 flex-col p-0">
+            <CardContent className="flex min-h-0 flex-1 flex-col gap-0 p-0">
+                <div className="border-b border-border bg-muted/30 px-4 py-3">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                        <div>
+                            <p className="text-sm font-bold text-slate-800">Lotes del proyecto</p>
+                            <p className="text-xs text-slate-500">
+                                Orden: manzana y número. Mostrando {filteredLots.length} de {allLots.length} lote(s).
+                            </p>
+                        </div>
+                        {hasActiveFilters ? (
+                            <Button type="button" variant="outline" size="sm" onClick={clearFilters}>
+                                <X className="mr-1 h-3.5 w-3.5" />
+                                Limpiar filtros
+                            </Button>
+                        ) : null}
+                    </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="space-y-1">
+                            <Label htmlFor="lot-filter-dni" className="text-xs">
+                                DNI cliente
+                            </Label>
+                            <Input
+                                id="lot-filter-dni"
+                                value={clientDniFilter}
+                                onChange={(e) => setClientDniFilter(e.target.value)}
+                                placeholder="Buscar por DNI"
+                                className="h-9 text-sm"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label htmlFor="lot-filter-name" className="text-xs">
+                                Nombre cliente
+                            </Label>
+                            <Input
+                                id="lot-filter-name"
+                                value={clientNameFilter}
+                                onChange={(e) => setClientNameFilter(e.target.value)}
+                                placeholder="Buscar por nombre"
+                                className="h-9 text-sm"
+                            />
+                        </div>
+                        <div className="space-y-1 sm:col-span-2 lg:col-span-1">
+                            <Label htmlFor="lot-filter-status" className="text-xs">
+                                Estado del lote
+                            </Label>
+                            <select
+                                id="lot-filter-status"
+                                value={lotStatusFilter}
+                                onChange={(e) => setLotStatusFilter(e.target.value)}
+                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs"
+                            >
+                                <option value="">Todos los estados</option>
+                                {lotStatuses.map((status) => (
+                                    <option key={status.id} value={status.id}>
+                                        {status.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                </div>
                 <div className="inline-block max-h-[calc(100vh-11rem)] max-w-full overflow-auto">
+                    {filteredLots.length === 0 ? (
+                        <p className="px-4 py-8 text-center text-sm text-slate-500">
+                            Ningún lote coincide con los filtros aplicados.
+                        </p>
+                    ) : (
                     <table className="w-full min-w-[1240px] border-collapse text-xs">
                         <thead className="sticky top-0 z-10 border-b border-border bg-muted">
                             <tr>
@@ -128,7 +219,7 @@ export function ProjectLotsTable({
                             </tr>
                         </thead>
                         <tbody>
-                            {project.lots.map((lot) => {
+                            {filteredLots.map((lot) => {
                                 const isSaving = savingLotId === lot.id;
                                 const statusCode = lot.status?.code ?? 'LIBRE';
                                 const statusColor = lot.status?.color ?? lotStatusColor(statusCode, lotStatuses);
@@ -257,6 +348,7 @@ export function ProjectLotsTable({
                             })}
                         </tbody>
                     </table>
+                    )}
                 </div>
             </CardContent>
         </Card>

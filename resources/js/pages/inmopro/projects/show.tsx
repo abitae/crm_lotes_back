@@ -97,6 +97,18 @@ export default function ProjectsShow({ project, lotStatuses }: PageProps) {
             return value != null && value !== '' ? String(value) : '';
         }
 
+        if (field === 'client_name') {
+            return lot.client_name ?? lot.client?.name ?? '';
+        }
+
+        if (field === 'client_dni') {
+            return lot.client_dni ?? lot.client?.dni ?? '';
+        }
+
+        if (field === 'client_phone') {
+            return lot.client_phone ?? lot.client?.phone ?? '';
+        }
+
         const rawValue = lot[field as keyof Lot];
         return rawValue != null && rawValue !== '' ? String(rawValue) : '';
     };

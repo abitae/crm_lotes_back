@@ -152,6 +152,77 @@ class InmoproLotsTest extends TestCase
         $this->assertSame('2026-03-23', $lot->notarial_transfer_date?->toDateString());
     }
 
+    public function test_updating_lot_phone_only_persists_on_linked_client(): void
+    {
+        $user = User::factory()->create();
+        $transferredId = LotStatus::where('code', LotStatus::CODE_TRANSFERIDO)->value('id');
+        $lot = Lot::query()
+            ->when($transferredId, fn ($q) => $q->where('lot_status_id', '!=', $transferredId))
+            ->whereNotNull('client_id')
+            ->firstOrFail();
+        $client = Client::query()->findOrFail($lot->client_id);
+        $client->update(['phone' => null]);
+        $statusReservado = LotStatus::where('code', 'RESERVADO')->firstOrFail();
+        $this->actingAs($user);
+
+        $this->patch(route('inmopro.lots.update', $lot), [
+            'lot_status_id' => $statusReservado->id,
+            'client_id' => $client->id,
+            'advisor_id' => $lot->advisor_id,
+            'client_name' => $client->name,
+            'client_dni' => $client->dni,
+            'client_phone' => '987654321',
+        ])->assertRedirect();
+
+        $client->refresh();
+        $this->assertSame('987654321', $client->phone);
+    }
+
+    public function test_bulk_update_project_lots_persists_client_phone(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $project = Project::query()->firstOrFail();
+        $statusReservado = LotStatus::where('code', 'RESERVADO')->firstOrFail();
+        $lot = Lot::query()
+            ->where('project_id', $project->id)
+            ->where('lot_status_id', $statusReservado->id)
+            ->whereNotNull('client_id')
+            ->firstOrFail();
+
+        $client = Client::query()->findOrFail($lot->client_id);
+        $client->update(['phone' => null]);
+
+        $this->from(route('inmopro.projects.show', $project))
+            ->put(route('inmopro.projects.lots.bulk-update', $project), [
+                'lots' => [[
+                    'id' => $lot->id,
+                    'lot_status_id' => $statusReservado->id,
+                    'client_id' => $client->id,
+                    'advisor_id' => $lot->advisor_id,
+                    'client_name' => $client->name,
+                    'client_dni' => $client->dni,
+                    'client_phone' => '912345678',
+                    'block' => $lot->block,
+                    'number' => $lot->number,
+                    'area' => $lot->area,
+                    'price' => $lot->price,
+                    'advance' => $lot->advance,
+                    'remaining_balance' => $lot->remaining_balance,
+                    'payment_limit_date' => null,
+                    'operation_number' => null,
+                    'contract_date' => $lot->contract_date?->toDateString(),
+                    'contract_number' => null,
+                    'notarial_transfer_date' => null,
+                    'observations' => $lot->observations,
+                ]],
+            ])
+            ->assertRedirect(route('inmopro.projects.show', $project));
+
+        $this->assertSame('912345678', $client->fresh()->phone);
+    }
+
     public function test_bulk_update_project_lots_persists_multiple_rows(): void
     {
         $user = User::factory()->create();

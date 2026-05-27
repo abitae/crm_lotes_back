@@ -207,6 +207,8 @@ class InmoproLotTransferConfirmationsTest extends TestCase
 
         $lot->update([
             'lot_status_id' => $this->statusIds['TRANSFERIDO'],
+            'advance' => 1500,
+            'remaining_balance' => 8500,
         ]);
 
         $transfer = LotTransferConfirmation::create([
@@ -230,6 +232,12 @@ class InmoproLotTransferConfirmationsTest extends TestCase
             'review_notes' => 'Se valida la evidencia y coincide con la operación.',
             'reviewed_by' => $user->id,
         ]);
+
+        $lot->refresh();
+        $this->assertSame($this->statusIds['TRANSFERIDO'], (int) $lot->lot_status_id);
+        $this->assertSame('10000.00', (string) $lot->advance);
+        $this->assertSame('0.00', (string) $lot->remaining_balance);
+
         $this->assertGreaterThan(
             $countBefore,
             Commission::query()->where('lot_id', $lot->id)->count(),
