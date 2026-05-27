@@ -7,6 +7,7 @@ use App\Http\Requests\Api\v1\Cazador\CancelAttentionTicketRequest;
 use App\Http\Requests\Api\v1\Cazador\StoreAttentionTicketRequest;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\AttentionTicket;
+use App\Models\Inmopro\AttentionTicketType;
 use App\Models\Inmopro\Client;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +20,7 @@ class AttentionTicketController extends Controller
         $advisor = $request->attributes->get('advisor');
 
         $tickets = AttentionTicket::query()
-            ->with(['client', 'project'])
+            ->with(['client', 'project', 'type'])
             ->where('advisor_id', $advisor->id)
             ->orderByRaw('case when scheduled_at is null then 1 else 0 end')
             ->orderByDesc('scheduled_at')
@@ -48,14 +49,17 @@ class AttentionTicketController extends Controller
             ], 422);
         }
 
+        $typeId = $request->integer('attention_ticket_type_id') ?: AttentionTicketType::general()->id;
+
         $ticket = AttentionTicket::create([
             'advisor_id' => $advisor->id,
             'client_id' => $client->id,
             'project_id' => $request->integer('project_id'),
+            'attention_ticket_type_id' => $typeId,
             'status' => 'pendiente',
             'notes' => $request->input('notes'),
             'scheduled_at' => null,
-        ])->load(['client', 'project']);
+        ])->load(['client', 'project', 'type']);
 
         return response()->json([
             'message' => 'Ticket de atención registrado.',
@@ -94,7 +98,7 @@ class AttentionTicketController extends Controller
 
         return response()->json([
             'message' => 'Ticket cancelado correctamente.',
-            'data' => $this->ticketPayload($ticket->fresh(['client', 'project'])),
+            'data' => $this->ticketPayload($ticket->fresh(['client', 'project', 'type'])),
         ]);
     }
 
@@ -104,7 +108,7 @@ class AttentionTicketController extends Controller
         $advisor = $request->attributes->get('advisor');
 
         return AttentionTicket::query()
-            ->with(['client', 'project'])
+            ->with(['client', 'project', 'type'])
             ->whereKey($attentionTicket->id)
             ->where('advisor_id', $advisor->id)
             ->first();
@@ -130,6 +134,13 @@ class AttentionTicketController extends Controller
                 'id' => $ticket->project->id,
                 'name' => $ticket->project->name,
                 'location' => $ticket->project->location,
+            ] : null,
+            'type' => $ticket->type ? [
+                'id' => $ticket->type->id,
+                'name' => $ticket->type->name,
+                'code' => $ticket->type->code,
+                'color' => $ticket->type->color,
+                'allows_overlap' => $ticket->type->allows_overlap,
             ] : null,
         ];
     }

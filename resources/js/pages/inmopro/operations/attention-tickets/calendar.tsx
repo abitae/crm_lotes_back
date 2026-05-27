@@ -14,16 +14,21 @@ type CalendarEvent = {
     id: string;
     title: string;
     start: string;
+    backgroundColor?: string;
+    borderColor?: string;
     url?: string;
-    extendedProps?: { status?: string; advisor?: string; project?: string; client?: string };
+    extendedProps?: { status?: string; advisor?: string; project?: string; client?: string; type?: string };
 };
+type TicketType = { id: number; name: string; code: string; color?: string | null; allows_overlap: boolean };
 
 export default function AttentionTicketsCalendar({
     events,
+    ticketTypes,
     filters,
 }: {
     events: CalendarEvent[];
-    filters: { status?: string };
+    ticketTypes: TicketType[];
+    filters: { status?: string; type_id?: string | null };
 }) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
@@ -38,6 +43,13 @@ export default function AttentionTicketsCalendar({
         realizado: 'Realizado',
         cancelado: 'Cancelado',
     };
+
+    const selectedTypeId = filters.type_id ?? (ticketTypes[0] ? String(ticketTypes[0].id) : '');
+
+    const calendarParams = (next: { status?: string | null; type_id?: string | null } = {}) => ({
+        status: next.status === undefined ? filters.status : (next.status || undefined),
+        type_id: next.type_id === undefined ? (selectedTypeId || undefined) : (next.type_id || undefined),
+    });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -66,12 +78,25 @@ export default function AttentionTicketsCalendar({
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Filtrar por estado</CardTitle>
-                        <CardDescription>Opcional. Recarga el calendario.</CardDescription>
+                        <CardTitle>Calendario por tipo</CardTitle>
+                        <CardDescription>Seleccione un tipo y filtre por estado.</CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-3">
                         <div className="flex flex-wrap gap-2">
-                            <Button variant={!filters.status ? 'secondary' : 'outline'} size="sm" onClick={() => router.get('/inmopro/attention-tickets/calendar')}>
+                            {ticketTypes.map((type) => (
+                                <Button
+                                    key={type.id}
+                                    variant={selectedTypeId === String(type.id) ? 'secondary' : 'outline'}
+                                    size="sm"
+                                    onClick={() => router.get('/inmopro/attention-tickets/calendar', calendarParams({ type_id: String(type.id) }), { preserveState: false })}
+                                >
+                                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: type.color ?? '#64748b' }} />
+                                    {type.name}
+                                </Button>
+                            ))}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <Button variant={!filters.status ? 'secondary' : 'outline'} size="sm" onClick={() => router.get('/inmopro/attention-tickets/calendar', calendarParams({ status: null }), { preserveState: false })}>
                                 Todos
                             </Button>
                             {['pendiente', 'agendado', 'realizado', 'cancelado'].map((status) => (
@@ -79,7 +104,7 @@ export default function AttentionTicketsCalendar({
                                     key={status}
                                     variant={filters.status === status ? 'secondary' : 'outline'}
                                     size="sm"
-                                    onClick={() => router.get('/inmopro/attention-tickets/calendar', { status }, { preserveState: false })}
+                                    onClick={() => router.get('/inmopro/attention-tickets/calendar', calendarParams({ status }), { preserveState: false })}
                                 >
                                     {statusLabels[status] ?? status}
                                 </Button>

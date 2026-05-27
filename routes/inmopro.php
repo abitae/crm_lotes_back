@@ -13,6 +13,7 @@ use App\Http\Controllers\Inmopro\AdvisorReminderController;
 use App\Http\Controllers\Inmopro\AgendaController;
 use App\Http\Controllers\Inmopro\AppBrandingController;
 use App\Http\Controllers\Inmopro\AttentionTicketController;
+use App\Http\Controllers\Inmopro\AttentionTicketTypeController;
 use App\Http\Controllers\Inmopro\CashAccountController;
 use App\Http\Controllers\Inmopro\CityController;
 use App\Http\Controllers\Inmopro\ClientController;
@@ -162,6 +163,9 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::get('attention-tickets/calendar', [AttentionTicketController::class, 'calendar'])->name('attention-tickets.calendar');
         Route::get('attention-tickets/{attention_ticket}/delivery-deed', [AttentionTicketController::class, 'deliveryDeed'])->name('attention-tickets.delivery-deed');
         Route::post('attention-tickets/{attention_ticket}/delivery-deed/mark-signed', [AttentionTicketController::class, 'markDeedSigned'])->name('attention-tickets.delivery-deed.mark-signed');
+        Route::resource('attention-ticket-types', AttentionTicketTypeController::class)
+            ->except(['create', 'edit', 'show'])
+            ->parameters(['attention-ticket-types' => 'attention_ticket_type']);
         Route::resource('attention-tickets', AttentionTicketController::class)->parameters(['attention-tickets' => 'attention_ticket']);
         Route::get('lot-pre-reservations', [LotPreReservationController::class, 'index'])->name('lot-pre-reservations.index');
         Route::post('lot-pre-reservations', [LotPreReservationController::class, 'store'])->name('lot-pre-reservations.store');

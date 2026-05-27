@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Inmopro;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreAttentionTicketRequest extends FormRequest
@@ -15,7 +16,7 @@ class StoreAttentionTicketRequest extends FormRequest
     }
 
     /**
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -23,6 +24,7 @@ class StoreAttentionTicketRequest extends FormRequest
             'advisor_id' => ['required', 'exists:advisors,id'],
             'client_id' => ['required', 'exists:clients,id'],
             'project_id' => ['required', 'exists:projects,id'],
+            'attention_ticket_type_id' => ['required', 'exists:attention_ticket_types,id'],
             'scheduled_at' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];

@@ -16,6 +16,7 @@ class AttentionTicket extends Model
         'client_id',
         'project_id',
         'lot_id',
+        'attention_ticket_type_id',
         'scheduled_at',
         'status',
         'notes',
@@ -61,6 +62,14 @@ class AttentionTicket extends Model
     public function lot(): BelongsTo
     {
         return $this->belongsTo(Lot::class, 'lot_id');
+    }
+
+    /**
+     * @return BelongsTo<AttentionTicketType, $this>
+     */
+    public function type(): BelongsTo
+    {
+        return $this->belongsTo(AttentionTicketType::class, 'attention_ticket_type_id');
     }
 
     /**

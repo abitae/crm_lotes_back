@@ -40,6 +40,7 @@ class DatabaseSeeder extends Seeder
             Inmopro\AdvisorLevelSeeder::class,
             Inmopro\LotStatusSeeder::class,
             Inmopro\CommissionStatusSeeder::class,
+            Inmopro\AttentionTicketTypeSeeder::class,
             Inmopro\ProjectSeeder::class,
             Inmopro\TeamSeeder::class,
             Inmopro\ClientTypeSeeder::class,

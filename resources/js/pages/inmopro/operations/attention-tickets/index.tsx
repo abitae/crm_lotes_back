@@ -23,6 +23,7 @@ import type { BreadcrumbItem } from '@/types';
 type Project = { id: number; name: string; location?: string | null };
 type Client = { id: number; name: string; dni?: string; advisor_id: number; advisor?: { id: number; name: string } | null };
 type Advisor = { id: number; name: string };
+type TicketType = { id: number; name: string; code: string; color?: string | null; allows_overlap: boolean };
 type Lot = { id: number; block: string; number: number } | null;
 type DeliveryDeed = { id: number; printed_at: string | null; signed_at: string | null } | null;
 type TicketItem = {
@@ -34,6 +35,7 @@ type TicketItem = {
     advisor: Advisor | null;
     client: Client | null;
     project: Project | null;
+    type: TicketType | null;
     lot: Lot;
     delivery_deed: DeliveryDeed;
 };
@@ -42,6 +44,7 @@ const initialTicketForm = {
     advisor_id: '',
     client_id: '',
     project_id: '',
+    attention_ticket_type_id: '',
     notes: '',
 };
 
@@ -51,12 +54,14 @@ export default function AttentionTicketsIndex({
     advisors,
     clients,
     projects,
+    ticketTypes,
 }: {
     tickets: { data: TicketItem[]; links: PaginationLink[]; current_page: number; last_page: number };
     filters: { status?: string; create?: string };
     advisors: Advisor[];
     clients: Client[];
     projects: Project[];
+    ticketTypes: TicketType[];
 }) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
@@ -185,6 +190,7 @@ export default function AttentionTicketsIndex({
                                                 <th className="px-4 py-3 text-left font-medium text-slate-600">Solicitud</th>
                                                 <th className="px-4 py-3 text-left font-medium text-slate-600">Agendado para</th>
                                                 <th className="px-4 py-3 text-left font-medium text-slate-600">Estado</th>
+                                                <th className="px-4 py-3 text-left font-medium text-slate-600">Tipo</th>
                                                 <th className="px-4 py-3 text-left font-medium text-slate-600">Vendedor</th>
                                                 <th className="px-4 py-3 text-left font-medium text-slate-600">Cliente</th>
                                                 <th className="px-4 py-3 text-left font-medium text-slate-600">Proyecto</th>
@@ -201,6 +207,14 @@ export default function AttentionTicketsIndex({
                                                         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
                                                             {statusLabels[ticket.status] ?? ticket.status}
                                                         </span>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        {ticket.type ? (
+                                                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                                                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ticket.type.color ?? '#64748b' }} />
+                                                                {ticket.type.name}
+                                                            </span>
+                                                        ) : '-'}
                                                     </td>
                                                     <td className="px-4 py-3 text-slate-700">{ticket.advisor?.name ?? '-'}</td>
                                                     <td className="px-4 py-3 text-slate-700">{ticket.client?.name ?? '-'}</td>
@@ -301,7 +315,7 @@ export default function AttentionTicketsIndex({
                             <InputError message={errors.client_id} />
                         </div>
 
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-1">
                             <Label htmlFor="project_id">Proyecto</Label>
                             <select
                                 id="project_id"
@@ -319,6 +333,25 @@ export default function AttentionTicketsIndex({
                                 ))}
                             </select>
                             <InputError message={errors.project_id} />
+                        </div>
+
+                        <div className="md:col-span-1">
+                            <Label htmlFor="attention_ticket_type_id">Tipo de ticket</Label>
+                            <select
+                                id="attention_ticket_type_id"
+                                value={data.attention_ticket_type_id}
+                                onChange={(event) => setData('attention_ticket_type_id', event.target.value)}
+                                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                required
+                            >
+                                <option value="">Seleccione</option>
+                                {ticketTypes.map((type) => (
+                                    <option key={type.id} value={type.id}>
+                                        {type.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <InputError message={errors.attention_ticket_type_id} />
                         </div>
 
                         <div className="md:col-span-2">

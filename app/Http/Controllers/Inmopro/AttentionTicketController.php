@@ -7,9 +7,11 @@ use App\Http\Requests\Inmopro\StoreAttentionTicketRequest;
 use App\Http\Requests\Inmopro\UpdateAttentionTicketRequest;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\AttentionTicket;
+use App\Models\Inmopro\AttentionTicketType;
 use App\Models\Inmopro\Client;
 use App\Models\Inmopro\DeliveryDeed;
 use App\Models\Inmopro\Project;
+use App\Services\Inmopro\AttentionTicketScheduleValidator;
 use App\Support\AppBrandingResolver;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -19,9 +21,11 @@ use Inertia\Response;
 
 class AttentionTicketController extends Controller
 {
+    public function __construct(private readonly AttentionTicketScheduleValidator $scheduleValidator) {}
+
     public function index(Request $request): Response
     {
-        $query = AttentionTicket::with(['advisor', 'client', 'project', 'lot', 'deliveryDeed'])
+        $query = AttentionTicket::with(['advisor', 'client', 'project', 'lot', 'deliveryDeed', 'type'])
             ->orderByRaw('case when scheduled_at is null then 1 else 0 end')
             ->orderByDesc('scheduled_at')
             ->orderByDesc('created_at');
@@ -41,12 +45,25 @@ class AttentionTicketController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name', 'advisor_id']),
             'projects' => Project::query()->orderBy('name')->get(['id', 'name', 'location']),
+            'ticketTypes' => AttentionTicketType::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'name', 'code', 'color', 'allows_overlap']),
         ]);
     }
 
     public function calendar(Request $request): Response
     {
-        $query = AttentionTicket::with(['advisor', 'client', 'project'])
+        $types = AttentionTicketType::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name', 'code', 'color', 'allows_overlap']);
+
+        $selectedTypeId = $request->integer('type_id') ?: $types->first()?->id;
+
+        $query = AttentionTicket::with(['advisor', 'client', 'project', 'type'])
             ->whereNotNull('scheduled_at')
             ->orderBy('scheduled_at');
 
@@ -54,9 +71,14 @@ class AttentionTicketController extends Controller
             $query->where('status', $request->input('status'));
         }
 
+        if ($selectedTypeId) {
+            $query->where('attention_ticket_type_id', $selectedTypeId);
+        }
+
         $events = $query->get()->map(function (AttentionTicket $ticket): array {
             $start = Carbon::parse($ticket->scheduled_at);
             $end = $start->copy()->addHour();
+            $color = $ticket->type?->color ?? '#64748b';
 
             return [
                 'id' => (string) $ticket->id,
@@ -69,18 +91,25 @@ class AttentionTicketController extends Controller
                 'start' => $start->toIso8601String(),
                 'end' => $end->toIso8601String(),
                 'url' => route('inmopro.attention-tickets.show', $ticket),
+                'backgroundColor' => $color,
+                'borderColor' => $color,
                 'extendedProps' => [
                     'status' => $ticket->status,
                     'advisor' => $ticket->advisor?->name,
                     'project' => $ticket->project?->name,
                     'client' => $ticket->client?->name,
+                    'type' => $ticket->type?->name,
                 ],
             ];
         })->values()->all();
 
         return Inertia::render('inmopro/operations/attention-tickets/calendar', [
             'events' => $events,
-            'filters' => $request->only('status'),
+            'ticketTypes' => $types,
+            'filters' => [
+                ...$request->only('status'),
+                'type_id' => $selectedTypeId ? (string) $selectedTypeId : null,
+            ],
         ]);
     }
 
@@ -97,6 +126,13 @@ class AttentionTicketController extends Controller
         $validated['scheduled_at'] = ! empty($validated['scheduled_at']) ? Carbon::parse($validated['scheduled_at']) : null;
         $validated['status'] = 'pendiente';
 
+        if ($validated['scheduled_at']) {
+            $this->scheduleValidator->ensureCanSchedule(
+                (int) $validated['attention_ticket_type_id'],
+                $validated['scheduled_at'],
+            );
+        }
+
         AttentionTicket::create($validated);
 
         return redirect()->route('inmopro.attention-tickets.index');
@@ -104,7 +140,7 @@ class AttentionTicketController extends Controller
 
     public function show(AttentionTicket $attention_ticket): Response
     {
-        $attention_ticket->load(['advisor', 'client', 'project', 'lot.project', 'lot.client', 'deliveryDeed']);
+        $attention_ticket->load(['advisor', 'client', 'project', 'lot.project', 'lot.client', 'deliveryDeed', 'type']);
 
         return Inertia::render('inmopro/operations/attention-tickets/show', [
             'ticket' => $attention_ticket,
@@ -113,10 +149,16 @@ class AttentionTicketController extends Controller
 
     public function edit(AttentionTicket $attention_ticket): Response
     {
-        $attention_ticket->load(['advisor', 'client', 'project', 'lot.project', 'lot.client']);
+        $attention_ticket->load(['advisor', 'client', 'project', 'lot.project', 'lot.client', 'type']);
 
         return Inertia::render('inmopro/operations/attention-tickets/edit', [
             'ticket' => $attention_ticket,
+            'ticketTypes' => AttentionTicketType::query()
+                ->where('is_active', true)
+                ->orWhereKey($attention_ticket->attention_ticket_type_id)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'name', 'code', 'color', 'allows_overlap']),
         ]);
     }
 
@@ -126,6 +168,11 @@ class AttentionTicketController extends Controller
         $validated['scheduled_at'] = isset($validated['scheduled_at']) && $validated['scheduled_at']
             ? Carbon::parse($validated['scheduled_at'])
             : null;
+        $typeId = (int) ($validated['attention_ticket_type_id'] ?? $attention_ticket->attention_ticket_type_id);
+
+        if ($validated['scheduled_at']) {
+            $this->scheduleValidator->ensureCanSchedule($typeId, $validated['scheduled_at'], $attention_ticket->id);
+        }
 
         $attention_ticket->update($validated);
 

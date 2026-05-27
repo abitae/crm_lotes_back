@@ -14,9 +14,13 @@ type Ticket = {
     status: string;
     notes: string | null;
     scheduled_at: string | null;
+    attention_ticket_type_id: number;
+    type?: TicketType | null;
     client?: { name: string } | null;
     project?: { name: string } | null;
 };
+
+type TicketType = { id: number; name: string; code: string; color?: string | null; allows_overlap: boolean };
 
 function toDateTimeLocal(value?: string | null): string {
     if (!value) {
@@ -34,9 +38,10 @@ function toDateTimeLocal(value?: string | null): string {
     return parsed.toISOString().slice(0, 16);
 }
 
-export default function AttentionTicketsEdit({ ticket }: { ticket: Ticket }) {
+export default function AttentionTicketsEdit({ ticket, ticketTypes }: { ticket: Ticket; ticketTypes: TicketType[] }) {
     const { data, setData, put, processing, errors } = useForm({
         status: ticket.status,
+        attention_ticket_type_id: String(ticket.attention_ticket_type_id),
         scheduled_at: toDateTimeLocal(ticket.scheduled_at),
         notes: ticket.notes ?? '',
     });
@@ -87,6 +92,23 @@ export default function AttentionTicketsEdit({ ticket }: { ticket: Ticket }) {
                                     <option value="cancelado">Cancelado</option>
                                 </select>
                                 <InputError message={errors.status} />
+                            </div>
+                            <div>
+                                <Label htmlFor="attention_ticket_type_id">Tipo de ticket</Label>
+                                <select
+                                    id="attention_ticket_type_id"
+                                    value={data.attention_ticket_type_id}
+                                    onChange={(event) => setData('attention_ticket_type_id', event.target.value)}
+                                    className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                    required
+                                >
+                                    {ticketTypes.map((type) => (
+                                        <option key={type.id} value={type.id}>
+                                            {type.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <InputError message={errors.attention_ticket_type_id} />
                             </div>
                             <div>
                                 <Label htmlFor="scheduled_at">Fecha y hora programada</Label>

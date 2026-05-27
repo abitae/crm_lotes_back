@@ -9,6 +9,7 @@ import type { BreadcrumbItem } from '@/types';
 type Project = { id: number; name: string; location?: string | null };
 type Client = { id: number; name: string; dni?: string; phone?: string };
 type Advisor = { id: number; name: string };
+type TicketType = { id: number; name: string; code: string; color?: string | null; allows_overlap: boolean };
 type Lot = { id: number; block: string; number: number; area?: string; price?: string } | null;
 type DeliveryDeed = { id: number; printed_at: string | null; signed_at: string | null } | null;
 type Ticket = {
@@ -20,6 +21,7 @@ type Ticket = {
     advisor: Advisor | null;
     client: Client | null;
     project: Project | null;
+    type: TicketType | null;
     lot: Lot;
     delivery_deed: DeliveryDeed;
 };
@@ -145,6 +147,15 @@ export default function AttentionTicketsShow({ ticket }: { ticket: Ticket }) {
                         <CardDescription>Estado de la solicitud, agenda y observaciones.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm">
+                        <p>
+                            <span className="font-medium text-slate-600">Tipo:</span>{' '}
+                            {ticket.type ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ticket.type.color ?? '#64748b' }} />
+                                    {ticket.type.name}
+                                </span>
+                            ) : '-'}
+                        </p>
                         <p>
                             <span className="font-medium text-slate-600">Vendedor:</span> {ticket.advisor?.name ?? '-'}
                         </p>

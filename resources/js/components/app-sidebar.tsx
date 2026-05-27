@@ -96,6 +96,7 @@ const managementSections: NavSection[] = [
         icon: FileCheck,
         items: [
             { title: 'Tickets de atención', href: '/inmopro/attention-tickets', icon: FileCheck },
+            { title: 'Tipos de ticket', href: '/inmopro/attention-ticket-types', icon: Tag },
             { title: 'Pre-reservas', href: '/inmopro/lot-pre-reservations', icon: FileCheck },
             { title: 'Transferencias', href: '/inmopro/lot-transfer-confirmations', icon: FileCheck },
             { title: 'Caja y bancos', href: '/inmopro/cash-accounts', icon: Landmark },

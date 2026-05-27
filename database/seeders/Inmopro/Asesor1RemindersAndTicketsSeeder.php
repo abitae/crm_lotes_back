@@ -5,6 +5,7 @@ namespace Database\Seeders\Inmopro;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\AdvisorReminder;
 use App\Models\Inmopro\AttentionTicket;
+use App\Models\Inmopro\AttentionTicketType;
 use App\Models\Inmopro\Client;
 use App\Models\Inmopro\Project;
 use Illuminate\Database\Seeder;
@@ -50,6 +51,7 @@ class Asesor1RemindersAndTicketsSeeder extends Seeder
         }
 
         $project = Project::query()->orderBy('id')->firstOrFail();
+        $ticketType = AttentionTicketType::general();
 
         AdvisorReminder::query()->updateOrCreate(
             [
@@ -86,6 +88,7 @@ class Asesor1RemindersAndTicketsSeeder extends Seeder
             ],
             [
                 'lot_id' => null,
+                'attention_ticket_type_id' => $ticketType->id,
                 'scheduled_at' => null,
                 'status' => 'pendiente',
             ],
