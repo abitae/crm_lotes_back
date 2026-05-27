@@ -17,7 +17,7 @@ class LotReportQueryBuilder
         return Lot::query()->with([
             'project:id,name',
             'status:id,name,code,color',
-            'advisor:id,name,team_id',
+            'advisor:id,name,team_id,personal_quota',
             'advisor.team:id,name,color',
             'client:id,name,phone,dni,client_type_id,registered_by_datero_id',
             'client.type:id,name,code',
