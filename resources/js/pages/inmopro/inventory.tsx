@@ -18,7 +18,7 @@ type Project = { id: number; name: string; blocks: string[] };
 type Lot = {
     id: number;
     block: string;
-    number: number;
+    number: string;
     area: string;
     price: string;
     lot_status_id: number;
@@ -39,6 +39,9 @@ type Lot = {
 };
 type Client = { id: number; name: string; dni: string; phone: string; email?: string };
 type Advisor = { id: number; name: string; email: string; level?: { name: string } };
+
+const compareLotNumbers = (a: string, b: string): number =>
+    a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' });
 
 export default function Inventory({
     projects,
@@ -88,7 +91,7 @@ export default function Inventory({
     const blockGroups = project
         ? project.blocks.map((block) => ({
               block,
-              lots: filteredLots.filter((l) => l.block === block).sort((a, b) => a.number - b.number),
+              lots: filteredLots.filter((l) => l.block === block).sort((a, b) => compareLotNumbers(a.number, b.number)),
           }))
         : [];
 

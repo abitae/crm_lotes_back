@@ -30,7 +30,7 @@ export function compareLotsByBlockAndNumber(a: Lot, b: Lot): number {
         return blockCompare;
     }
 
-    return a.number - b.number;
+    return a.number.localeCompare(b.number, 'es', { numeric: true, sensitivity: 'base' });
 }
 
 export function filterProjectLots(

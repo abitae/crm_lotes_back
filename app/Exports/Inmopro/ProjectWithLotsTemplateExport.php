@@ -32,9 +32,9 @@ class ProjectWithLotsTemplateExport implements FromArray, WithTitle
                 'NRO DE CONTRATO',
                 'PROYECTO',
             ],
-            [1, '', '', 'A', 1, 91.92, 25900, '', 25900, '', '', '', 'LIBRE', '', '', '', 'Villa Norte - Mito'],
-            [2, 'Cliente de ejemplo', '987654321', 'A', 2, 95.73, 26900, 1000, 25900, '', '12345678', '2026-05-30', 'RESERVADO', 'YAPE + EFECTIVO', '2026-05-07', 'CT-001', 'Villa Norte - Mito'],
-            [3, '', '', 'B', 1, 120.83, 33900, '', 33900, '', '', '', 'LIBRE', '', '', '', 'Villa Norte - Mito'],
+            [1, '', '', 'A', '1A', 91.92, 25900, '', 25900, '', '', '', 'LIBRE', '', '', '', 'Villa Norte - Mito'],
+            [2, 'Cliente de ejemplo', '987654321', 'A', '1B', 95.73, 26900, 1000, 25900, '', '12345678', '2026-05-30', 'RESERVADO', 'YAPE + EFECTIVO', '2026-05-07', 'CT-001', 'Villa Norte - Mito'],
+            [3, '', '', 'B', '1', 120.83, 33900, '', 33900, '', '', '', 'LIBRE', '', '', '', 'Villa Norte - Mito'],
         ];
     }
 

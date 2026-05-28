@@ -10,7 +10,7 @@ type Project = { id: number; name: string; location?: string | null };
 type Client = { id: number; name: string; dni?: string; phone?: string };
 type Advisor = { id: number; name: string };
 type TicketType = { id: number; name: string; code: string; color?: string | null; allows_overlap: boolean };
-type Lot = { id: number; block: string; number: number; area?: string; price?: string } | null;
+type Lot = { id: number; block: string; number: string; area?: string; price?: string } | null;
 type DeliveryDeed = { id: number; printed_at: string | null; signed_at: string | null } | null;
 type Ticket = {
     id: number;

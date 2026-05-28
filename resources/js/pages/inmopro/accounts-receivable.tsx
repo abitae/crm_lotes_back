@@ -48,7 +48,7 @@ type LotStatus = {
 type LotItem = {
     id: number;
     block: string;
-    number: number;
+    number: string;
     price: string;
     remaining_balance: string | null;
     total_paid: number;

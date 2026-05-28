@@ -12,7 +12,7 @@ type Advisor = {
     joined_at?: string | null;
     level?: { name: string };
     superior?: { name: string };
-    lots?: Array<{ id: number; block: string; number: number; project?: { name: string } }>;
+    lots?: Array<{ id: number; block: string; number: string; project?: { name: string } }>;
 };
 
 export default function AdvisorsShow({ advisor }: { advisor: Advisor }) {

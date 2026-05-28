@@ -53,7 +53,7 @@ function lotStatusOptionStyle(color?: string): CSSProperties {
     };
 }
 
-function lotRowStyle(statusColor?: string, isSaving: boolean): CSSProperties | undefined {
+function lotRowStyle(statusColor: string | undefined, isSaving: boolean): CSSProperties | undefined {
     if (isSaving) {
         return { backgroundColor: '#fef3c7' };
     }

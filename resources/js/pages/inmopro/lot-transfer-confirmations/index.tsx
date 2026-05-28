@@ -35,7 +35,7 @@ type TransferConfirmation = {
 type LotRow = {
     id: number;
     block: string;
-    number: number;
+    number: string;
     status?: { name: string; code: string; color?: string | null } | null;
     project?: { name: string } | null;
     client?: { name: string; dni?: string | null; phone?: string | null } | null;

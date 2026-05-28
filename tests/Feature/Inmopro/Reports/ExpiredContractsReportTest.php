@@ -22,7 +22,7 @@ class ExpiredContractsReportTest extends TestCase
         Lot::create([
             'project_id' => $project->id,
             'block' => 'A',
-            'number' => 2,
+            'number' => '2',
             'area' => 100,
             'price' => 5000,
             'lot_status_id' => $reserved->id,

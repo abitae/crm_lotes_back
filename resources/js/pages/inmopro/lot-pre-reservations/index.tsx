@@ -24,7 +24,7 @@ type AdvisorOption = { id: number; name: string };
 type AvailableLot = {
     id: number;
     block: string;
-    number: number;
+    number: string;
     project_id: number;
     project?: { name: string } | null;
     status?: { name: string; code: string } | null;
@@ -51,7 +51,7 @@ type PreReservation = {
     lot?: {
         id: number;
         block: string;
-        number: number;
+        number: string;
         project?: { name: string } | null;
         status?: { name: string; code: string } | null;
     } | null;

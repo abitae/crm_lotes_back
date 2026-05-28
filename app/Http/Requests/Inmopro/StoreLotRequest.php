@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Inmopro;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreLotRequest extends FormRequest
@@ -15,14 +16,14 @@ class StoreLotRequest extends FormRequest
     }
 
     /**
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
             'project_id' => ['required', 'exists:projects,id,is_active,1'],
             'block' => ['required', 'string', 'max:10'],
-            'number' => ['required', 'integer', 'min:1'],
+            'number' => ['required', 'string', 'max:20', 'regex:/^[A-Za-z0-9]+$/'],
             'area' => ['nullable', 'numeric', 'min:0'],
             'price' => ['nullable', 'numeric', 'min:0'],
             'lot_status_id' => ['required', 'exists:lot_statuses,id'],

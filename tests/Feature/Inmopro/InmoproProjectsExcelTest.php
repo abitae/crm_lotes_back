@@ -122,7 +122,7 @@ class InmoproProjectsExcelTest extends TestCase
         $this->assertDatabaseHas('lots', [
             'project_id' => $project->id,
             'block' => 'A',
-            'number' => 1,
+            'number' => '1',
             'client_name' => 'Juan Perez',
             'client_dni' => '11223344',
         ]);
@@ -131,6 +131,111 @@ class InmoproProjectsExcelTest extends TestCase
         $this->assertNotNull($client);
         $this->assertSame('999888777', $client->phone);
         $this->assertSame('PROPIO', $client->type()->value('code'));
+    }
+
+    public function test_projects_import_accepts_alphanumeric_lot_numbers(): void
+    {
+        $user = User::factory()->create();
+        $projectType = ProjectType::query()->firstOrFail();
+        $this->actingAs($user);
+
+        $file = $this->makeProjectsExcelFile([
+            [
+                'ITEM',
+                'NOMBRE CLIENTE',
+                'TELEFONO',
+                'MZ',
+                'LOTE',
+                'AREA',
+                'MONTO',
+                'ADELANTO - SEPARACION',
+                'MONTO RESTANTE',
+                'FACTURACIÃ“N',
+                'DNI CLIENTE',
+                'FECHA LIMITE DE PAGO',
+                'ESTADO DE LOTE',
+                'NÂ° DE OPERACIÃ“N S.',
+                'FECHA DE CONTRATO',
+                'NRO DE CONTRATO',
+                'PROYECTO',
+            ],
+            [1, '', '', 'A', '1a', 100, 25000, '', 25000, '', '', '', 'LIBRE', '', '', '', 'Proyecto Lotes Alfanumericos'],
+            [2, '', '', 'A', '1B', 100, 26000, '', 26000, '', '', '', 'LIBRE', '', '', '', 'Proyecto Lotes Alfanumericos'],
+        ]);
+
+        $previewResponse = $this->post(route('inmopro.projects.import-preview'), [
+            'file' => $file,
+            'project_type_id' => $projectType->id,
+            'location' => 'Lima',
+        ]);
+
+        $previewResponse
+            ->assertOk()
+            ->assertJsonPath('can_import', true)
+            ->assertJsonPath('summary.valid', 2)
+            ->assertJsonPath('rows.0.number', '1A')
+            ->assertJsonPath('rows.1.number', '1B');
+
+        $token = $previewResponse->json('token');
+        $this->assertIsString($token);
+
+        $this->post(route('inmopro.projects.import-confirm'), [
+            'token' => $token,
+        ]);
+
+        $project = Project::query()->where('name', 'Proyecto Lotes Alfanumericos')->firstOrFail();
+
+        $this->assertDatabaseHas('lots', [
+            'project_id' => $project->id,
+            'block' => 'A',
+            'number' => '1A',
+        ]);
+        $this->assertDatabaseHas('lots', [
+            'project_id' => $project->id,
+            'block' => 'A',
+            'number' => '1B',
+        ]);
+    }
+
+    public function test_projects_import_detects_duplicate_alphanumeric_lot_numbers_case_insensitively(): void
+    {
+        $user = User::factory()->create();
+        $projectType = ProjectType::query()->firstOrFail();
+        $this->actingAs($user);
+
+        $file = $this->makeProjectsExcelFile([
+            [
+                'ITEM',
+                'NOMBRE CLIENTE',
+                'TELEFONO',
+                'MZ',
+                'LOTE',
+                'AREA',
+                'MONTO',
+                'ADELANTO - SEPARACION',
+                'MONTO RESTANTE',
+                'FACTURACIÃ“N',
+                'DNI CLIENTE',
+                'FECHA LIMITE DE PAGO',
+                'ESTADO DE LOTE',
+                'NÂ° DE OPERACIÃ“N S.',
+                'FECHA DE CONTRATO',
+                'NRO DE CONTRATO',
+                'PROYECTO',
+            ],
+            [1, '', '', 'A', '1A', 100, 25000, '', 25000, '', '', '', 'LIBRE', '', '', '', 'Proyecto Duplicados'],
+            [2, '', '', 'A', '1a', 100, 26000, '', 26000, '', '', '', 'LIBRE', '', '', '', 'Proyecto Duplicados'],
+        ]);
+
+        $this->post(route('inmopro.projects.import-preview'), [
+            'file' => $file,
+            'project_type_id' => $projectType->id,
+            'location' => 'Lima',
+        ])
+            ->assertOk()
+            ->assertJsonPath('can_import', false)
+            ->assertJsonPath('errors.0.field', 'number')
+            ->assertJsonPath('errors.0.received_value', '1A');
     }
 
     public function test_projects_import_updates_existing_client_by_dni(): void

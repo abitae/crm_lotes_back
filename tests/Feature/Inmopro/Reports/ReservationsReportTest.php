@@ -34,7 +34,7 @@ class ReservationsReportTest extends TestCase
             'project_id' => $project->id,
             'advisor_id' => $advisor->id,
             'block' => 'A',
-            'number' => 1,
+            'number' => '1',
             'area' => 100,
             'price' => 10000,
             'lot_status_id' => $reserved->id,

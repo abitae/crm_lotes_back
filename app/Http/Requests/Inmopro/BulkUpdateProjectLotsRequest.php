@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Inmopro;
 
 use App\Models\Inmopro\Project;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,7 +15,7 @@ class BulkUpdateProjectLotsRequest extends FormRequest
     }
 
     /**
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -43,7 +44,7 @@ class BulkUpdateProjectLotsRequest extends FormRequest
             'lots.*.notarial_transfer_date' => ['nullable', 'date'],
             'lots.*.observations' => ['nullable', 'string', 'max:1000'],
             'lots.*.block' => ['sometimes', 'string', 'max:10'],
-            'lots.*.number' => ['sometimes', 'integer', 'min:1'],
+            'lots.*.number' => ['sometimes', 'string', 'max:20', 'regex:/^[A-Za-z0-9]+$/'],
             'lots.*.area' => ['nullable', 'numeric', 'min:0'],
             'lots.*.price' => ['nullable', 'numeric', 'min:0'],
         ];

@@ -118,7 +118,7 @@ class FunctionalTestingSeeder extends Seeder
             [
                 'project_id' => $project->id,
                 'block' => $block,
-                'number' => 900,
+                'number' => '900',
             ],
             [
                 'area' => 120,

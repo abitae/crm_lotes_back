@@ -73,7 +73,7 @@ export default function LotsCreate({ projects, project, lotStatuses, clients, ad
         transform((formData) => ({
             ...formData,
             project_id: Number(formData.project_id),
-            number: Number(formData.number) || 0,
+            number: formData.number.trim().toUpperCase(),
             lot_status_id: Number(formData.lot_status_id),
             client_id: formData.client_id === '' ? null : Number(formData.client_id),
             advisor_id: formData.advisor_id === '' ? null : Number(formData.advisor_id),

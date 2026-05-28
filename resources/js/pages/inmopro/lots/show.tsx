@@ -8,7 +8,7 @@ import type { BreadcrumbItem } from '@/types';
 type Lot = {
     id: number;
     block: string;
-    number: number;
+    number: string;
     area?: string;
     price?: string;
     client_name?: string;

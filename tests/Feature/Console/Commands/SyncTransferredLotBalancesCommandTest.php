@@ -36,7 +36,7 @@ class SyncTransferredLotBalancesCommandTest extends TestCase
         $transferredLot = Lot::create([
             'project_id' => $project->id,
             'block' => 'A',
-            'number' => 1,
+            'number' => '1',
             'area' => 120,
             'price' => 50000,
             'lot_status_id' => $transferredStatus->id,
@@ -46,7 +46,7 @@ class SyncTransferredLotBalancesCommandTest extends TestCase
         $reservedLot = Lot::create([
             'project_id' => $project->id,
             'block' => 'A',
-            'number' => 2,
+            'number' => '2',
             'area' => 100,
             'price' => 30000,
             'lot_status_id' => $reservedStatus->id,
@@ -92,7 +92,7 @@ class SyncTransferredLotBalancesCommandTest extends TestCase
         Lot::create([
             'project_id' => $project->id,
             'block' => 'A',
-            'number' => 1,
+            'number' => '1',
             'area' => 120,
             'price' => 50000,
             'lot_status_id' => $transferredStatus->id,

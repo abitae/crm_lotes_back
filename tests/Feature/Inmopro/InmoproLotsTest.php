@@ -50,6 +50,50 @@ class InmoproLotsTest extends TestCase
         $response->assertInertia(fn ($page) => $page->component('inmopro/inventory')->has('lots'));
     }
 
+    public function test_authenticated_users_can_create_lot_with_alphanumeric_number(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::query()->firstOrFail();
+        $statusLibre = LotStatus::query()->where('code', LotStatus::CODE_LIBRE)->firstOrFail();
+        $this->actingAs($user);
+
+        $response = $this->post(route('inmopro.lots.store'), [
+            'project_id' => $project->id,
+            'block' => 'A',
+            'number' => '1a',
+            'area' => 100,
+            'price' => 25000,
+            'lot_status_id' => $statusLibre->id,
+        ]);
+
+        $response->assertRedirect(route('inmopro.lots.index', ['project_id' => $project->id]));
+        $this->assertDatabaseHas('lots', [
+            'project_id' => $project->id,
+            'block' => 'A',
+            'number' => '1A',
+        ]);
+    }
+
+    public function test_lot_number_rejects_spaces_and_symbols(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::query()->firstOrFail();
+        $statusLibre = LotStatus::query()->where('code', LotStatus::CODE_LIBRE)->firstOrFail();
+        $this->actingAs($user);
+
+        $this->from(route('inmopro.lots.create'))
+            ->post(route('inmopro.lots.store'), [
+                'project_id' => $project->id,
+                'block' => 'A',
+                'number' => '1 A',
+                'area' => 100,
+                'price' => 25000,
+                'lot_status_id' => $statusLibre->id,
+            ])
+            ->assertRedirect(route('inmopro.lots.create'))
+            ->assertSessionHasErrors('number');
+    }
+
     public function test_authenticated_users_can_update_lot_status(): void
     {
         $user = User::factory()->create();

@@ -198,7 +198,7 @@ class InmoproActiveFlagsTest extends TestCase
         Lot::query()->create([
             'project_id' => $activeProject->id,
             'block' => 'A',
-            'number' => 1,
+            'number' => '1',
             'area' => 100,
             'price' => 100000,
             'lot_status_id' => $reservedStatusId,
@@ -208,7 +208,7 @@ class InmoproActiveFlagsTest extends TestCase
         Lot::query()->create([
             'project_id' => $inactiveProject->id,
             'block' => 'B',
-            'number' => 1,
+            'number' => '1',
             'area' => 100,
             'price' => 200000,
             'lot_status_id' => $reservedStatusId,

@@ -10,7 +10,7 @@ import type { BreadcrumbItem } from '@/types';
 type Lot = {
     id: number;
     block: string;
-    number: number;
+    number: string;
     price: string;
     advance?: string;
     remaining_balance?: string;

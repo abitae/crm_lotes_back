@@ -226,7 +226,7 @@ class InmoproReportsTest extends TestCase
             'project_id' => $project->id,
             'advisor_id' => $advisor->id,
             'block' => 'A',
-            'number' => 1,
+            'number' => '1',
             'area' => 100,
             'price' => 25000,
             'advance' => 5000,

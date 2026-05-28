@@ -6,7 +6,7 @@ import { formatDateTime } from '@/lib/date';
 type Project = { id: number; name: string; location?: string };
 type Client = { id: number; name: string; dni?: string; phone?: string };
 type Advisor = { id: number; name: string };
-type Lot = { id: number; block: string; number: number; area?: string; price?: string; project?: Project; client?: Client | null };
+type Lot = { id: number; block: string; number: string; area?: string; price?: string; project?: Project; client?: Client | null };
 type Ticket = {
     id: number;
     scheduled_at: string;

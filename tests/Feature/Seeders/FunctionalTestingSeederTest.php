@@ -40,7 +40,7 @@ class FunctionalTestingSeederTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'qa.funcional@crm-lotes.test']);
         $this->assertDatabaseHas('dateros', ['username' => 'datero_funcional', 'dni' => '45987654']);
         $this->assertDatabaseHas('clients', ['dni' => '40001111', 'name' => 'Cliente QA Cazador']);
-        $this->assertTrue(Lot::query()->where('number', 900)->whereHas('status', fn ($q) => $q->where('code', 'LIBRE'))->exists());
+        $this->assertTrue(Lot::query()->where('number', '900')->whereHas('status', fn ($q) => $q->where('code', 'LIBRE'))->exists());
 
         $user = User::query()->where('email', 'qa.funcional@crm-lotes.test')->firstOrFail();
         $this->assertTrue($user->hasRole('super-admin'));

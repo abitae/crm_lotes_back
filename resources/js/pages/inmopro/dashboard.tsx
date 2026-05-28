@@ -31,7 +31,7 @@ export default function InmoproDashboard({
     recentReservations: Array<{
         id: number;
         block: string;
-        number: number;
+        number: string;
         price: string;
         project?: { name: string };
         client?: { name: string };

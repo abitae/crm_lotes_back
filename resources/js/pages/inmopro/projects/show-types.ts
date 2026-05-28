@@ -14,7 +14,7 @@ export type ProjectAsset = {
 export type Lot = {
     id: number;
     block: string;
-    number: number;
+    number: string;
     area?: string | number;
     price?: string | number;
     status?: LotStatus | null;
@@ -62,7 +62,7 @@ export type LotPayload = {
     notarial_transfer_date?: string | null;
     observations?: string | null;
     block?: string;
-    number?: number;
+    number?: string;
     area?: number | null;
     price?: number | null;
 };

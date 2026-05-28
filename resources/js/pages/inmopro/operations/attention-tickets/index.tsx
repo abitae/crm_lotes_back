@@ -25,7 +25,7 @@ type Project = { id: number; name: string; location?: string | null };
 type Client = { id: number; name: string; dni?: string; advisor_id: number; advisor?: { id: number; name: string } | null };
 type Advisor = { id: number; name: string };
 type TicketType = { id: number; name: string; code: string; color?: string | null; allows_overlap: boolean };
-type Lot = { id: number; block: string; number: number } | null;
+type Lot = { id: number; block: string; number: string } | null;
 type DeliveryDeed = { id: number; printed_at: string | null; signed_at: string | null } | null;
 type TicketItem = {
     id: number;

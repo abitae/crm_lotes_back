@@ -35,7 +35,7 @@ class InmoproProjectShowTest extends TestCase
         Lot::query()->create([
             'project_id' => $project->id,
             'block' => 'B',
-            'number' => 2,
+            'number' => '2',
             'area' => 100,
             'price' => 10000,
             'lot_status_id' => $libreId,
@@ -43,7 +43,7 @@ class InmoproProjectShowTest extends TestCase
         Lot::query()->create([
             'project_id' => $project->id,
             'block' => 'A',
-            'number' => 10,
+            'number' => '10',
             'area' => 100,
             'price' => 10000,
             'lot_status_id' => $libreId,
@@ -51,7 +51,15 @@ class InmoproProjectShowTest extends TestCase
         Lot::query()->create([
             'project_id' => $project->id,
             'block' => 'A',
-            'number' => 2,
+            'number' => '1A',
+            'area' => 100,
+            'price' => 10000,
+            'lot_status_id' => $libreId,
+        ]);
+        Lot::query()->create([
+            'project_id' => $project->id,
+            'block' => 'A',
+            'number' => '2',
             'area' => 100,
             'price' => 10000,
             'lot_status_id' => $libreId,
@@ -62,12 +70,14 @@ class InmoproProjectShowTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('inmopro/projects/show')
-                ->has('project.lots', 3)
+                ->has('project.lots', 4)
                 ->where('project.lots.0.block', 'A')
-                ->where('project.lots.0.number', 2)
+                ->where('project.lots.0.number', '1A')
                 ->where('project.lots.1.block', 'A')
-                ->where('project.lots.1.number', 10)
-                ->where('project.lots.2.block', 'B')
-                ->where('project.lots.2.number', 2));
+                ->where('project.lots.1.number', '2')
+                ->where('project.lots.2.block', 'A')
+                ->where('project.lots.2.number', '10')
+                ->where('project.lots.3.block', 'B')
+                ->where('project.lots.3.number', '2'));
     }
 }

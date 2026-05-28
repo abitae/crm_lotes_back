@@ -432,11 +432,23 @@ class ProjectController extends Controller
                 ->all(),
             'lots' => $includeLots
                 ? $project->lots
+                    ->sort(fn (Lot $first, Lot $second): int => $this->compareLotsByBlockAndNumber($first, $second))
                     ->map(fn (Lot $lot) => $this->lotPayload($lot))
                     ->values()
                     ->all()
                 : [],
         ];
+    }
+
+    private function compareLotsByBlockAndNumber(Lot $first, Lot $second): int
+    {
+        $blockCompare = strnatcasecmp($first->block, $second->block);
+
+        if ($blockCompare !== 0) {
+            return $blockCompare;
+        }
+
+        return strnatcasecmp($first->number, $second->number);
     }
 
     /**

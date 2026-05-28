@@ -9,7 +9,7 @@ import type { BreadcrumbItem } from '@/types';
 type Lot = {
     id: number;
     block: string;
-    number: number;
+    number: string;
     project?: { name: string } | null;
     status?: { name: string; code: string } | null;
     client?: { name: string; dni?: string | null; phone?: string | null } | null;

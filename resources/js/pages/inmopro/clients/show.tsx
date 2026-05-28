@@ -13,7 +13,7 @@ type Client = {
     type?: { name: string; color?: string };
     city?: { name: string; department?: string | null };
     advisor?: { name: string; team?: { name: string } | null };
-    lots?: Array<{ id: number; block: string; number: number; project?: { name: string }; status?: { code: string } }>;
+    lots?: Array<{ id: number; block: string; number: string; project?: { name: string }; status?: { code: string } }>;
 };
 
 export default function ClientsShow({ client }: { client: Client }) {

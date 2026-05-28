@@ -12,7 +12,7 @@ type Commission = {
     percentage: string;
     type: string;
     date: string;
-    lot?: { block: string; number: number; project?: { name: string } };
+    lot?: { block: string; number: string; project?: { name: string } };
     advisor?: { name: string; level?: { name: string } };
     status?: { code: string; name: string };
 };

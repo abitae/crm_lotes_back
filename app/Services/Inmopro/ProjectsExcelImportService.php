@@ -180,7 +180,7 @@ class ProjectsExcelImportService
             }
 
             $block = $this->cellStringByField($cells, $headerMap, 'block');
-            $number = $this->parseIntegerByField($cells, $headerMap, 'number');
+            $number = $this->normalizeLotNumberByField($cells, $headerMap, 'number');
             $area = $this->parseDecimalByField($cells, $headerMap, 'area');
             $price = $this->parseDecimalByField($cells, $headerMap, 'price');
             $advance = $this->parseDecimalByField($cells, $headerMap, 'advance');
@@ -211,7 +211,7 @@ class ProjectsExcelImportService
                     $excelRow,
                     'number',
                     $this->fieldHasValue($cells, $headerMap, 'number')
-                        ? 'El numero de lote debe ser un valor numerico entero.'
+                        ? 'El numero de lote debe ser alfanumerico, sin espacios ni simbolos.'
                         : 'El numero de lote es obligatorio.',
                     $this->cellRawByField($cells, $headerMap, 'number')
                 );
@@ -281,7 +281,7 @@ class ProjectsExcelImportService
                             $lotKey,
                             $seenLots[$lotKey]
                         ),
-                        (string) $number
+                        $number
                     );
                 } else {
                     $seenLots[$lotKey] = $excelRow;
@@ -760,6 +760,23 @@ class ProjectsExcelImportService
      * @param  array<int, mixed>  $cells
      * @param  array<string, int>  $headerMap
      */
+    private function normalizeLotNumberByField(array $cells, array $headerMap, string $field): ?string
+    {
+        $value = $this->cellStringByField($cells, $headerMap, $field);
+
+        if ($value === null) {
+            return null;
+        }
+
+        $normalized = mb_strtoupper(trim($value));
+
+        return preg_match('/^[A-Z0-9]{1,20}$/', $normalized) === 1 ? $normalized : null;
+    }
+
+    /**
+     * @param  array<int, mixed>  $cells
+     * @param  array<string, int>  $headerMap
+     */
     private function parseDecimalByField(array $cells, array $headerMap, string $field): ?float
     {
         if (! isset($headerMap[$field])) {
@@ -780,17 +797,6 @@ class ProjectsExcelImportService
         $normalized = str_replace([' ', ','], ['', '.'], trim((string) $value));
 
         return is_numeric($normalized) ? round((float) $normalized, 2) : null;
-    }
-
-    /**
-     * @param  array<int, mixed>  $cells
-     * @param  array<string, int>  $headerMap
-     */
-    private function parseIntegerByField(array $cells, array $headerMap, string $field): ?int
-    {
-        $value = $this->parseDecimalByField($cells, $headerMap, $field);
-
-        return $value === null ? null : (int) round($value);
     }
 
     /**

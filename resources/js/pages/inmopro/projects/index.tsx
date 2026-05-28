@@ -48,7 +48,7 @@ type ImportPreviewRow = {
     excel_row: number;
     item: string | null;
     block: string | null;
-    number: number | null;
+    number: string | null;
     area: number | null;
     price: number | null;
     client_name: string | null;

@@ -100,6 +100,10 @@ class LotPersistService
      */
     public function normalizeLotFields(array $validated): array
     {
+        if (array_key_exists('number', $validated) && $validated['number'] !== null) {
+            $validated['number'] = mb_strtoupper(trim((string) $validated['number']));
+        }
+
         $validated = $this->normalizeLotDateFields($validated);
 
         $price = array_key_exists('price', $validated) && $validated['price'] !== null

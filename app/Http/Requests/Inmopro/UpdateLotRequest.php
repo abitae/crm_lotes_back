@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Inmopro;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateLotRequest extends FormRequest
@@ -15,7 +16,7 @@ class UpdateLotRequest extends FormRequest
     }
 
     /**
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -35,7 +36,7 @@ class UpdateLotRequest extends FormRequest
             'notarial_transfer_date' => ['nullable', 'date'],
             'observations' => ['nullable', 'string', 'max:1000'],
             'block' => ['sometimes', 'string', 'max:10'],
-            'number' => ['sometimes', 'integer', 'min:1'],
+            'number' => ['sometimes', 'string', 'max:20', 'regex:/^[A-Za-z0-9]+$/'],
             'area' => ['nullable', 'numeric', 'min:0'],
             'price' => ['nullable', 'numeric', 'min:0'],
         ];
