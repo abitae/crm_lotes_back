@@ -14,6 +14,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { formatDateTime } from '@/lib/date';
@@ -69,6 +70,9 @@ export default function AttentionTicketsIndex({
         { title: 'Tickets de atención', href: '/inmopro/attention-tickets' },
     ];
     const [createOpen, setCreateOpen] = useState(filters.create === '1');
+    const [advisorSearch, setAdvisorSearch] = useState('');
+    const [clientSearch, setClientSearch] = useState('');
+    const [projectSearch, setProjectSearch] = useState('');
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm(initialTicketForm);
 
     const statusLabels: Record<string, string> = {
@@ -78,9 +82,24 @@ export default function AttentionTicketsIndex({
         cancelado: 'Cancelado',
     };
 
-    const visibleClients = data.advisor_id
+    const normalizedAdvisorSearch = advisorSearch.trim().toLowerCase();
+    const normalizedClientSearch = clientSearch.trim().toLowerCase();
+    const normalizedProjectSearch = projectSearch.trim().toLowerCase();
+
+    const visibleAdvisors = advisors.filter((advisor) => advisor.name.toLowerCase().includes(normalizedAdvisorSearch));
+    const visibleClients = (data.advisor_id
         ? clients.filter((client) => String(client.advisor_id) === data.advisor_id)
-        : clients;
+        : clients
+    ).filter((client) => {
+        const label = `${client.name} ${client.dni ?? ''} ${client.advisor?.name ?? ''}`;
+
+        return label.toLowerCase().includes(normalizedClientSearch);
+    });
+    const visibleProjects = projects.filter((project) => {
+        const label = `${project.name} ${project.location ?? ''}`;
+
+        return label.toLowerCase().includes(normalizedProjectSearch);
+    });
 
     const openCreateModal = () => {
         clearErrors();
@@ -90,6 +109,9 @@ export default function AttentionTicketsIndex({
     const closeCreateModal = () => {
         setCreateOpen(false);
         reset();
+        setAdvisorSearch('');
+        setClientSearch('');
+        setProjectSearch('');
         clearErrors();
 
         if (filters.create === '1') {
@@ -264,6 +286,12 @@ export default function AttentionTicketsIndex({
                     <form onSubmit={submitCreateTicket} className="grid gap-4 md:grid-cols-2">
                         <div className="md:col-span-1">
                             <Label htmlFor="advisor_id">Vendedor</Label>
+                            <Input
+                                value={advisorSearch}
+                                onChange={(event) => setAdvisorSearch(event.target.value)}
+                                placeholder="Buscar asesor"
+                                className="mt-1"
+                            />
                             <select
                                 id="advisor_id"
                                 value={data.advisor_id}
@@ -282,11 +310,11 @@ export default function AttentionTicketsIndex({
                                         setData('client_id', '');
                                     }
                                 }}
-                                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                 required
                             >
                                 <option value="">Seleccione</option>
-                                {advisors.map((advisor) => (
+                                {visibleAdvisors.map((advisor) => (
                                     <option key={advisor.id} value={advisor.id}>
                                         {advisor.name}
                                     </option>
@@ -297,11 +325,17 @@ export default function AttentionTicketsIndex({
 
                         <div className="md:col-span-1">
                             <Label htmlFor="client_id">Cliente</Label>
+                            <Input
+                                value={clientSearch}
+                                onChange={(event) => setClientSearch(event.target.value)}
+                                placeholder="Buscar cliente"
+                                className="mt-1"
+                            />
                             <select
                                 id="client_id"
                                 value={data.client_id}
                                 onChange={(event) => setData('client_id', event.target.value)}
-                                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                 required
                             >
                                 <option value="">Seleccione</option>
@@ -317,15 +351,20 @@ export default function AttentionTicketsIndex({
 
                         <div className="md:col-span-1">
                             <Label htmlFor="project_id">Proyecto</Label>
+                            <Input
+                                value={projectSearch}
+                                onChange={(event) => setProjectSearch(event.target.value)}
+                                placeholder="Buscar proyecto"
+                                className="mt-1"
+                            />
                             <select
                                 id="project_id"
                                 value={data.project_id}
                                 onChange={(event) => setData('project_id', event.target.value)}
-                                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                required
+                                className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                             >
-                                <option value="">Seleccione</option>
-                                {projects.map((project) => (
+                                <option value="">Sin proyecto</option>
+                                {visibleProjects.map((project) => (
                                     <option key={project.id} value={project.id}>
                                         {project.name}
                                         {project.location ? ` · ${project.location}` : ''}

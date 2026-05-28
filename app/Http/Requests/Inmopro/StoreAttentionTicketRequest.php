@@ -23,7 +23,7 @@ class StoreAttentionTicketRequest extends FormRequest
         return [
             'advisor_id' => ['required', 'exists:advisors,id'],
             'client_id' => ['required', 'exists:clients,id'],
-            'project_id' => ['required', 'exists:projects,id'],
+            'project_id' => ['nullable', 'exists:projects,id'],
             'attention_ticket_type_id' => ['required', 'exists:attention_ticket_types,id'],
             'scheduled_at' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:1000'],

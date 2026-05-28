@@ -124,6 +124,33 @@ class InmoproAttentionTicketsTest extends TestCase
         ]);
     }
 
+    public function test_authenticated_users_can_create_attention_ticket_without_project(): void
+    {
+        $user = User::factory()->create();
+        $client = Client::query()->whereNotNull('advisor_id')->firstOrFail();
+        $advisor = Advisor::findOrFail($client->advisor_id);
+        $type = AttentionTicketType::general();
+        $this->actingAs($user);
+
+        $response = $this->post(route('inmopro.attention-tickets.store'), [
+            'advisor_id' => $advisor->id,
+            'client_id' => $client->id,
+            'project_id' => null,
+            'attention_ticket_type_id' => $type->id,
+            'notes' => 'Solicitud sin proyecto asignado',
+        ]);
+
+        $response->assertRedirect(route('inmopro.attention-tickets.index'));
+        $this->assertDatabaseHas('attention_tickets', [
+            'advisor_id' => $advisor->id,
+            'client_id' => $client->id,
+            'project_id' => null,
+            'attention_ticket_type_id' => $type->id,
+            'status' => 'pendiente',
+            'notes' => 'Solicitud sin proyecto asignado',
+        ]);
+    }
+
     public function test_authenticated_users_can_schedule_attention_ticket_from_admin(): void
     {
         $user = User::factory()->create();
