@@ -61,6 +61,20 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($key);
         });
 
+        RateLimiter::for('ai-cazador', function (Request $request) {
+            $advisor = $request->attributes->get('advisor');
+            $key = $advisor ? 'advisor:'.$advisor->id : (string) $request->ip();
+
+            return Limit::perMinute((int) config('openai_cazador.rate_limit', 8))->by($key);
+        });
+
+        RateLimiter::for('ai-cazador-knowledge', function (Request $request) {
+            $advisor = $request->attributes->get('advisor');
+            $key = $advisor ? 'advisor:'.$advisor->id : (string) $request->ip();
+
+            return Limit::perMinute((int) config('openai_cazador.knowledge_rate_limit', 60))->by($key);
+        });
+
         RateLimiter::for('cazador-login', function (Request $request) {
             return Limit::perMinute(10)->by($request->ip());
         });

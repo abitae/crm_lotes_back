@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\v1\Datero\ProfileController as DateroProfileControl
 use App\Http\Controllers\Api\v1\Web\WebController;
 use Illuminate\Support\Facades\Route;
 
+require __DIR__.'/openai-cazador.php';
+
 Route::prefix('v1/web')->name('api.v1.web.')->middleware('throttle:120,1')->group(function (): void {
     Route::get('projects', [WebController::class, 'index'])->name('projects.index');
     Route::get('projects/{project}', [WebController::class, 'show'])->name('projects.show');

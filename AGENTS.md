@@ -10,6 +10,14 @@
 - En **API Cazador**, los **recordatorios** (`ReminderController`) solo aplican a clientes del asesor con tipo **`PROPIO`** (misma regla que tickets de atención y pre-reservas).
 - **DNI** y **teléfono** de cliente son **únicos en todo el sistema** al crear o actualizar (Inmopro web y API Cazador). Si hay conflicto, el mensaje indica el vendedor que registró al cliente existente (`ClientDuplicateRegistrationChecker`).
 
+=== .ai/openai-cazador rules ===
+
+# Módulo OpenAI Cazador
+
+- Asistente y API de catálogo para la app Cazador viven en `app/OpenAi/` (ver `.ai/guidelines/openai-cazador.md`).
+- Solo proyectos activos y lotes de catálogo; sin PII de clientes en payloads ni tools.
+- Feature flag `OPENAI_CAZADOR_ENABLED`; rutas bajo `/api/v1/cazador/openai` con `throttle:ai-cazador` y `throttle:ai-cazador-knowledge`.
+
 === .ai/laravel-ai-and-testing rules ===
 
 # Laravel AI SDK en este proyecto

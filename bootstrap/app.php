@@ -3,6 +3,7 @@
 use App\Http\Middleware\AuthenticateAdvisorApiToken;
 use App\Http\Middleware\AuthenticateDateroApiToken;
 use App\Http\Middleware\EnsureInmoproRoutePermission;
+use App\Http\Middleware\EnsureOpenAiCazadorEnabled;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -30,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'advisor.api' => AuthenticateAdvisorApiToken::class,
             'datero.api' => AuthenticateDateroApiToken::class,
+            'openai.cazador' => EnsureOpenAiCazadorEnabled::class,
             'inmopro.permission' => EnsureInmoproRoutePermission::class,
             'rbac.super-admin' => EnsureUserIsSuperAdmin::class,
         ]);
