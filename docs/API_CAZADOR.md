@@ -9,6 +9,8 @@ Análisis de arquitectura y reglas de negocio: [ANALISIS_API_CAZADOR.md](./ANALI
 
 Prompt maestro para Cursor (app **React Native** contra este API): [PROMPT_CURSOR_REACT_NATIVE_CAZADOR.md](./PROMPT_CURSOR_REACT_NATIVE_CAZADOR.md).
 
+Módulo **OpenAI** (asistente de catálogo + chat): [API_CAZADOR_OPENAI.md](./API_CAZADOR_OPENAI.md).
+
 API y prompt para la app móvil de **dateros** (captadores): [API_DATERO.md](./API_DATERO.md) y [PROMPT_CURSOR_REACT_NATIVE_DATERO.md](./PROMPT_CURSOR_REACT_NATIVE_DATERO.md).
 
 Base path:
@@ -655,83 +657,9 @@ Detalle de lote.
 
 ## OpenAI (catálogo y chat)
 
-Módulo separado bajo el prefijo `/openai`. Requiere el mismo `Authorization: Bearer {token}` que el resto del API.
+Documentación completa para la app móvil: **[API_CAZADOR_OPENAI.md](./API_CAZADOR_OPENAI.md)** (endpoints, tipos TS, flujo de chat, errores y checklist).
 
-Configuración en el servidor: `config/openai_cazador.php` y variables `OPENAI_*` en `.env` (ver `.env.example`). Si `OPENAI_CAZADOR_ENABLED=false`, las rutas responden `503`.
-
-### API de conocimiento (prefetch / contexto)
-
-Base: `/openai/knowledge` — throttle `ai-cazador-knowledge` (por defecto 60 req/min por asesor).
-
-Solo expone **proyectos activos** y **lotes de catálogo** sin datos de clientes ni asesores.
-
-#### GET `/openai/knowledge/projects`
-Lista resumida de proyectos activos (`id`, `name`, `location`, `total_lots`, `lots_count`, `images_count`, `documents_count`).
-
-#### GET `/openai/knowledge/projects/{project}`
-Detalle: `blocks`, `assets`, `images`, `documents` con `download_url` absoluta (misma descarga que `GET /projects/{project}/assets/{asset}/download`).
-
-#### GET `/openai/knowledge/lots`
-Query opcionales: `project_id`, `search`, `available_only` (default `true` → solo estado `LIBRE`).
-
-Payload de lote (sin `client` ni `advisor`):
-
-```json
-{
-  "id": 1,
-  "block": "A",
-  "number": 1,
-  "area": "105.00",
-  "price": "30000.00",
-  "project": {
-    "id": 1,
-    "name": "Villa Norte - Mito",
-    "location": "Mito"
-  },
-  "status": {
-    "id": 1,
-    "name": "Libre",
-    "code": "LIBRE"
-  },
-  "can_pre_reserve": true
-}
-```
-
-#### GET `/openai/knowledge/lots/{lot}`
-Detalle de un lote del catálogo (mismas reglas: proyecto activo; por defecto solo `LIBRE`).
-
-### POST `/openai/chat`
-Asistente de catálogo (OpenAI vía Laravel AI). Throttle `ai-cazador` (por defecto 8 req/min por asesor).
-
-Request:
-
-```json
-{
-  "message": "¿Qué proyectos hay en Huancayo y lotes libres?",
-  "conversation_id": "550e8400-e29b-41d4-a716-446655440000"
-}
-```
-
-- `message` — obligatorio, máx. `OPENAI_CAZADOR_MAX_MESSAGE_LENGTH` (default 2000).
-- `conversation_id` — opcional UUID; si se omite, el servidor genera uno y lo devuelve.
-
-Response `200`:
-
-```json
-{
-  "reply": "Texto del asistente en español.",
-  "conversation_id": "550e8400-e29b-41d4-a716-446655440000"
-}
-```
-
-El agente consulta el catálogo mediante tools internas (proyectos y lotes disponibles). No envía datos de clientes a OpenAI.
-
-Errores:
-
-- `401` sin token.
-- `422` validación del mensaje.
-- `429` rate limit.
-- `503` módulo deshabilitado.
+Resumen: prefijo `/openai`, mismo Bearer que Cazador. Knowledge (proyectos/lotes sin PII) + `POST /openai/chat`. Rate limits: chat 8/min, knowledge 60/min. `503` si el módulo está deshabilitado.
 
 ## Pre-reservas
 

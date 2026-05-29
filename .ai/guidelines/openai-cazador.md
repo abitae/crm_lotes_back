@@ -8,4 +8,4 @@
 - Agente: `CazadorCatalogAssistant` con tools `ListActiveProjectsTool`, `GetProjectDetailTool`, `SearchAvailableLotsTool`.
 - Rate limits: `throttle:ai-cazador` (chat), `throttle:ai-cazador-knowledge` (lecturas).
 - Tests: `tests/Feature/OpenAi/Cazador/`, siempre `CazadorCatalogAssistant::fake()` para el chat.
-- Documentación API: `docs/API_CAZADOR.md` sección OpenAI.
+- Documentación API: `docs/API_CAZADOR.md` sección OpenAI; guía app móvil: `docs/API_CAZADOR_OPENAI.md`.

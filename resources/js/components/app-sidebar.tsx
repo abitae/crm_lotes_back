@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
+    Bot,
     Building2,
     Calendar,
     ChevronRight,
@@ -115,6 +116,11 @@ const managementSections: NavSection[] = [
         label: 'Sistema',
         icon: Palette,
         items: [{ title: 'Personalización', href: '/inmopro/branding', icon: Palette }],
+    },
+    {
+        label: 'Inteligencia artificial',
+        icon: Bot,
+        items: [{ title: 'OpenAI Cazador', href: '/inmopro/openai-cazador', icon: Bot }],
     },
 ];
 

@@ -1,6 +1,6 @@
 # Prompt maestro para Cursor: aplicación React Native (API Cazador)
 
-**Uso:** copia este archivo completo (o por secciones) en el chat de Cursor al crear un **nuevo repositorio o carpeta** de app móvil. La fuente de verdad del contrato HTTP es [API_CAZADOR.md](./API_CAZADOR.md); el contexto de arquitectura backend está en [ANALISIS_API_CAZADOR.md](./ANALISIS_API_CAZADOR.md).
+**Uso:** copia este archivo completo (o por secciones) en el chat de Cursor al crear un **nuevo repositorio o carpeta** de app móvil. La fuente de verdad del contrato HTTP es [API_CAZADOR.md](./API_CAZADOR.md); el módulo **OpenAI** (asistente de catálogo) está en [API_CAZADOR_OPENAI.md](./API_CAZADOR_OPENAI.md). El contexto de arquitectura backend está en [ANALISIS_API_CAZADOR.md](./ANALISIS_API_CAZADOR.md).
 
 **Ajustes del equipo:** los valores de stack (Expo, NativeWind, etc.) son **recomendados por defecto**. Sustitúyelos al inicio del proyecto si estándar interno es otro.
 
@@ -33,7 +33,8 @@ Eres un desarrollador senior en **React Native** y **TypeScript**. Debes:
   5. Tickets de atención (crear, listar, cancelar)  
   6. Catálogo: proyectos y lotes; **mis lotes** por estado (`GET my-lots`)  
   7. Pre-reserva con **imagen** del voucher (multipart)  
-  8. Logout  
+  8. **Asistente OpenAI** de catálogo (`POST openai/chat`; ver [API_CAZADOR_OPENAI.md](./API_CAZADOR_OPENAI.md))  
+  9. Logout  
 
 La **aprobación** de pre-reservas y la **agenda** de tickets se gestionan en el panel web Inmopro; la app solo refleja estados devueltos por el API.
 
@@ -106,6 +107,11 @@ Prefijo real: **`/api/v1/cazador`** (Laravel monta `api.php` bajo `/api`).
 | GET | `lots` | Bearer | `project_id`, `search`, `available_only` (default **true**) | — |
 | GET | `lots/{id}` | Bearer | — | — |
 | POST | `lots/{id}/pre-reservations` | Bearer | `id` en URL = lote | **multipart** (ver 6.6) |
+| GET | `openai/knowledge/projects` | Bearer | Catálogo IA — ver [API_CAZADOR_OPENAI.md](./API_CAZADOR_OPENAI.md) | — |
+| GET | `openai/knowledge/projects/{id}` | Bearer | Detalle proyecto (sin PII) | — |
+| GET | `openai/knowledge/lots` | Bearer | `project_id`, `search`, `available_only` (default true) | — |
+| GET | `openai/knowledge/lots/{id}` | Bearer | Detalle lote catálogo | — |
+| POST | `openai/chat` | Bearer | Throttle 8/min; 503 si IA deshabilitada | JSON: `message` (req), `conversation_id` (opt UUID) |
 
 ---
 

@@ -29,6 +29,7 @@ use App\Http\Controllers\Inmopro\LotPreReservationController;
 use App\Http\Controllers\Inmopro\LotStatusController;
 use App\Http\Controllers\Inmopro\LotTransferConfirmationController;
 use App\Http\Controllers\Inmopro\MembershipTypeController;
+use App\Http\Controllers\Inmopro\OpenAiCazadorConfigController;
 use App\Http\Controllers\Inmopro\ProcessDiagramsController;
 use App\Http\Controllers\Inmopro\ProjectController;
 use App\Http\Controllers\Inmopro\ProjectTypeController;
@@ -160,6 +161,8 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::put('report-settings', [ReportSalesConfigController::class, 'update'])->name('report-settings.update');
         Route::get('branding', [AppBrandingController::class, 'edit'])->name('branding.edit');
         Route::put('branding', [AppBrandingController::class, 'update'])->name('branding.update');
+        Route::get('openai-cazador', [OpenAiCazadorConfigController::class, 'edit'])->name('openai-cazador.edit');
+        Route::put('openai-cazador', [OpenAiCazadorConfigController::class, 'update'])->name('openai-cazador.update');
         Route::get('attention-tickets/calendar', [AttentionTicketController::class, 'calendar'])->name('attention-tickets.calendar');
         Route::get('attention-tickets/{attention_ticket}/delivery-deed', [AttentionTicketController::class, 'deliveryDeed'])->name('attention-tickets.delivery-deed');
         Route::post('attention-tickets/{attention_ticket}/delivery-deed/mark-signed', [AttentionTicketController::class, 'markDeedSigned'])->name('attention-tickets.delivery-deed.mark-signed');

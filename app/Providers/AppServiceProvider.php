@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Support\AppBrandingResolver;
+use App\Support\OpenAiCazadorConfigResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -31,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        OpenAiCazadorConfigResolver::applyRuntimeConfig();
         $this->configureRateLimiting();
         $this->configureViewComposers();
     }
