@@ -517,6 +517,52 @@ Lista proyectos.
 ### GET `/projects/{project}`
 Detalle de proyecto.
 
+### GET `/projects/{project}/assets/{asset}/download`
+Descarga o visualización del asset con autenticación Bearer (uso en la app del asesor).
+
+### POST `/projects/{project}/assets/share-links`
+Genera URLs públicas temporales para compartir imágenes o documentos (p. ej. WhatsApp). Throttle: 60 req/min por asesor.
+
+Request:
+
+```json
+{
+  "asset_ids": [9, 10]
+}
+```
+
+| Campo | Reglas |
+|-------|--------|
+| `asset_ids` | Obligatorio; array no vacío; máx. 20; cada ID debe ser un asset **activo** del `{project}` |
+
+Response `200`:
+
+```json
+{
+  "data": [
+    {
+      "id": 9,
+      "share_url": "https://example.test/api/v1/cazador/shared/assets/9?expires=1717000000&signature=...",
+      "expires_at": "2026-05-29T12:00:00+00:00"
+    }
+  ]
+}
+```
+
+Errores: `401` sin token; `404` proyecto inexistente o inactivo; `422` validación o asset de otro proyecto.
+
+TTL configurable: `CAZADOR_ASSET_SHARE_TTL_HOURS` (default 48 h). Ver `config/cazador.php`.
+
+### GET `/shared/assets/{asset}` (público, URL firmada)
+Sin Bearer. La `share_url` incluye `expires` y `signature` (ruta firmada de Laravel).
+
+- Imágenes y PDF: `Content-Disposition: inline`
+- Otros documentos: `attachment`
+- `403` firma inválida o enlace expirado
+- `404` asset inactivo o archivo no encontrado
+
+`GET /projects/.../download` sigue requiriendo Bearer (sin cambios).
+
 ## Lotes
 
 ### GET `/my-lots`

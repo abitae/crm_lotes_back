@@ -9,8 +9,10 @@ use App\Http\Controllers\Api\v1\Cazador\DateroController;
 use App\Http\Controllers\Api\v1\Cazador\LotController;
 use App\Http\Controllers\Api\v1\Cazador\PreReservationController;
 use App\Http\Controllers\Api\v1\Cazador\ProfileController;
+use App\Http\Controllers\Api\v1\Cazador\ProjectAssetShareLinkController;
 use App\Http\Controllers\Api\v1\Cazador\ProjectController;
 use App\Http\Controllers\Api\v1\Cazador\ReminderController;
+use App\Http\Controllers\Api\v1\Cazador\SharedProjectAssetController;
 use App\Http\Controllers\Api\v1\Datero\AuthController as DateroAuthController;
 use App\Http\Controllers\Api\v1\Datero\CityController as DateroCityController;
 use App\Http\Controllers\Api\v1\Datero\ClientController as DateroClientController;
@@ -30,6 +32,10 @@ Route::prefix('v1/cazador')->name('api.v1.cazador.')->group(function (): void {
     Route::post('auth/login', [AuthController::class, 'login'])
         ->middleware('throttle:cazador-login')
         ->name('auth.login');
+
+    Route::get('shared/assets/{asset}', [SharedProjectAssetController::class, 'show'])
+        ->middleware('signed')
+        ->name('shared-assets.show');
 
     Route::middleware('advisor.api')->group(function (): void {
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
@@ -63,6 +69,9 @@ Route::prefix('v1/cazador')->name('api.v1.cazador.')->group(function (): void {
         Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
         Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
         Route::get('projects/{project}/assets/{asset}/download', [ProjectController::class, 'downloadAsset'])->name('projects.assets.download');
+        Route::post('projects/{project}/assets/share-links', [ProjectAssetShareLinkController::class, 'store'])
+            ->middleware('throttle:cazador-share-links')
+            ->name('projects.assets.share-links');
         Route::get('my-lots', [LotController::class, 'indexMine'])->name('my-lots.index');
         Route::get('lots', [LotController::class, 'index'])->name('lots.index');
         Route::get('lots/{lot}', [LotController::class, 'show'])->name('lots.show');
