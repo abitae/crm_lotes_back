@@ -35,6 +35,7 @@ type ProjectEditForm = {
     is_active: boolean;
     image_files: File[];
     document_files: File[];
+    document_titles: string[];
     _method?: 'put';
 };
 
@@ -57,6 +58,7 @@ export default function ProjectsEdit({
         is_active: project.is_active ?? true,
         image_files: [],
         document_files: [],
+        document_titles: [],
     });
 
     const existingImages = useMemo(
@@ -103,6 +105,21 @@ export default function ProjectsEdit({
         const next = blocksList.filter((b) => b !== letter);
         setBlocksList(next);
         setData('blocks', next);
+    };
+
+    const handleDocumentFilesChange = (files: File[]) => {
+        setData((current) => ({
+            ...current,
+            document_files: files,
+            document_titles: files.map((file, index) => {
+                const existing = current.document_titles[index]?.trim();
+                if (existing) {
+                    return existing;
+                }
+
+                return file.name.replace(/\.[^.]+$/, '');
+            }),
+        }));
     };
 
     const submit = (e: FormEvent) => {
@@ -232,10 +249,32 @@ export default function ProjectsEdit({
                             type="file"
                             multiple
                             accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                            onChange={(e) => setData('document_files', Array.from(e.target.files ?? []))}
+                            onChange={(e) => handleDocumentFilesChange(Array.from(e.target.files ?? []))}
                             className="mt-1"
                         />
                         <InputError message={errors.document_files || errors['document_files.0']} />
+                        {data.document_files.length > 0 && (
+                            <div className="mt-3 space-y-3">
+                                {data.document_files.map((file, index) => (
+                                    <div key={`${file.name}-${index}`} className="rounded-lg border border-slate-200 p-3">
+                                        <p className="mb-2 truncate text-xs text-slate-500">{file.name}</p>
+                                        <Label htmlFor={`document_title_${index}`}>Nombre del documento</Label>
+                                        <Input
+                                            id={`document_title_${index}`}
+                                            value={data.document_titles[index] ?? ''}
+                                            onChange={(e) => {
+                                                const titles = [...data.document_titles];
+                                                titles[index] = e.target.value;
+                                                setData('document_titles', titles);
+                                            }}
+                                            className="mt-1"
+                                            required
+                                        />
+                                        <InputError message={errors[`document_titles.${index}`] || errors.document_titles} />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {existingImages.length > 0 && (

@@ -2,14 +2,15 @@
 
 namespace App\Http\Requests\Inmopro;
 
+use App\Http\Requests\Inmopro\Concerns\ValidatesProjectAssetUploads;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateProjectRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
+    use ValidatesProjectAssetUploads;
+
     public function authorize(): bool
     {
         return true;
@@ -28,10 +29,20 @@ class UpdateProjectRequest extends FormRequest
             'blocks' => ['nullable', 'array'],
             'blocks.*' => ['string', 'max:10'],
             'is_active' => ['nullable', 'boolean'],
-            'image_files' => ['nullable', 'array'],
-            'image_files.*' => ['file', 'image', 'max:10240'],
-            'document_files' => ['nullable', 'array'],
-            'document_files.*' => ['file', 'mimes:pdf,doc,docx,xls,xlsx,ppt,pptx', 'max:15360'],
+            ...$this->projectAssetUploadRules(),
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return $this->projectAssetUploadMessages();
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $this->validateProjectDocumentTitlesCount($validator);
     }
 }

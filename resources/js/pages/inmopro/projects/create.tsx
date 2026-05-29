@@ -17,6 +17,7 @@ type ProjectCreateForm = {
     is_active: boolean;
     image_files: File[];
     document_files: File[];
+    document_titles: string[];
 };
 
 export default function ProjectsCreate({ projectTypes }: { projectTypes: Array<{ id: number; name: string; code: string }> }) {
@@ -31,6 +32,7 @@ export default function ProjectsCreate({ projectTypes }: { projectTypes: Array<{
             is_active: true,
             image_files: [],
             document_files: [],
+            document_titles: [],
         });
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -53,6 +55,21 @@ export default function ProjectsCreate({ projectTypes }: { projectTypes: Array<{
         const next = blocks.filter((b) => b !== letter);
         setBlocks(next);
         setData('blocks', next);
+    };
+
+    const handleDocumentFilesChange = (files: File[]) => {
+        setData((current) => ({
+            ...current,
+            document_files: files,
+            document_titles: files.map((file, index) => {
+                const existing = current.document_titles[index]?.trim();
+                if (existing) {
+                    return existing;
+                }
+
+                return file.name.replace(/\.[^.]+$/, '');
+            }),
+        }));
     };
 
     const submit = (e: FormEvent) => {
@@ -181,10 +198,32 @@ export default function ProjectsCreate({ projectTypes }: { projectTypes: Array<{
                             type="file"
                             multiple
                             accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                            onChange={(e) => setData('document_files', Array.from(e.target.files ?? []))}
+                            onChange={(e) => handleDocumentFilesChange(Array.from(e.target.files ?? []))}
                             className="mt-1"
                         />
                         <InputError message={errors.document_files || errors['document_files.0']} />
+                        {data.document_files.length > 0 && (
+                            <div className="mt-3 space-y-3">
+                                {data.document_files.map((file, index) => (
+                                    <div key={`${file.name}-${index}`} className="rounded-lg border border-slate-200 p-3">
+                                        <p className="mb-2 truncate text-xs text-slate-500">{file.name}</p>
+                                        <Label htmlFor={`document_title_${index}`}>Nombre del documento</Label>
+                                        <Input
+                                            id={`document_title_${index}`}
+                                            value={data.document_titles[index] ?? ''}
+                                            onChange={(e) => {
+                                                const titles = [...data.document_titles];
+                                                titles[index] = e.target.value;
+                                                setData('document_titles', titles);
+                                            }}
+                                            className="mt-1"
+                                            required
+                                        />
+                                        <InputError message={errors[`document_titles.${index}`] || errors.document_titles} />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                     <Button type="submit" disabled={processing}>
                         Guardar

@@ -15,6 +15,7 @@ use App\Models\Inmopro\Project;
 use App\Models\Inmopro\ProjectAsset;
 use App\Models\Inmopro\ProjectType;
 use App\Services\Inmopro\LotPersistService;
+use App\Services\Inmopro\ProjectAssetStorageService;
 use App\Services\Inmopro\ProjectsExcelImportService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -33,7 +34,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ProjectController extends Controller
 {
     public function __construct(
-        private LotPersistService $lotPersistService
+        private LotPersistService $lotPersistService,
+        private ProjectAssetStorageService $projectAssetStorage,
     ) {}
 
     public function index(Request $request): Response
@@ -347,7 +349,7 @@ class ProjectController extends Controller
      */
     private function projectData(array $validated): array
     {
-        unset($validated['image_files'], $validated['document_files']);
+        unset($validated['image_files'], $validated['document_files'], $validated['document_titles']);
 
         if (array_key_exists('is_active', $validated)) {
             $validated['is_active'] = (bool) $validated['is_active'];
@@ -370,25 +372,35 @@ class ProjectController extends Controller
             $this->createAsset($project, $file, 'image', $nextSortOrder++);
         }
 
-        foreach (($request->file('document_files') ?? []) as $file) {
+        foreach (($request->file('document_files') ?? []) as $index => $file) {
             if (! $file instanceof UploadedFile) {
                 continue;
             }
 
-            $this->createAsset($project, $file, 'document', $nextSortOrder++);
+            $title = trim((string) ($request->input('document_titles')[$index] ?? ''));
+
+            $this->createAsset($project, $file, 'document', $nextSortOrder++, $title);
         }
     }
 
-    private function createAsset(Project $project, UploadedFile $file, string $kind, int $sortOrder): void
-    {
-        $directory = sprintf('projects/%d/%ss', $project->id, $kind);
-        $storedPath = $file->store($directory, ProjectAsset::storageDisk());
+    private function createAsset(
+        Project $project,
+        UploadedFile $file,
+        string $kind,
+        int $sortOrder,
+        ?string $documentTitle = null,
+    ): void {
+        $stored = $this->projectAssetStorage->store($project, $file, $kind);
+
+        $title = $kind === 'document'
+            ? (string) $documentTitle
+            : pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
 
         $project->assets()->create([
             'kind' => $kind,
-            'title' => pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME),
-            'file_name' => $file->getClientOriginalName(),
-            'file_path' => $storedPath,
+            'title' => $title,
+            'file_name' => $stored['file_name'],
+            'file_path' => $stored['file_path'],
             'mime_type' => $file->getClientMimeType() ?: 'application/octet-stream',
             'file_size' => $file->getSize() ?: 0,
             'sort_order' => $sortOrder,

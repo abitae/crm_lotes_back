@@ -6,10 +6,8 @@ use App\Models\Inmopro\Project;
 use App\Models\Inmopro\ProjectAsset;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProjectAssetShareService
 {
@@ -57,22 +55,20 @@ class ProjectAssetShareService
 
     public function fileExists(ProjectAsset $asset): bool
     {
-        $path = $this->normalizedFilePath($asset);
-
-        if ($path === '') {
+        if ($asset->path === '') {
             return false;
         }
 
-        $disk = Storage::disk(ProjectAsset::storageDisk());
-
-        if ($disk->exists($path)) {
+        if (Storage::disk($asset->disk)->exists($asset->path)) {
             return true;
         }
 
-        // Respaldo: ruta absoluta en disco public (Windows / symlinks)
-        $absolute = storage_path('app/public/'.$path);
+        // Respaldo local cuando el disco public apunta a storage/app/public
+        if ($asset->disk === 'public') {
+            return is_file(storage_path('app/public/'.$asset->path));
+        }
 
-        return is_file($absolute);
+        return false;
     }
 
     /**
@@ -98,46 +94,6 @@ class ProjectAssetShareService
         ];
     }
 
-    public function streamSharedAsset(ProjectAsset $asset): StreamedResponse
-    {
-        abort_unless($asset->is_active, 404, 'Recurso no encontrado.');
-
-        if (! $this->fileExists($asset)) {
-            Log::warning('cazador.shared_asset.file_missing', [
-                'asset_id' => $asset->id,
-                'project_id' => $asset->project_id,
-                'file_path' => $asset->file_path,
-            ]);
-
-            abort(404, 'Archivo no encontrado.');
-        }
-
-        $disk = ProjectAsset::storageDisk();
-        $path = $this->normalizedFilePath($asset);
-        $disposition = $this->contentDisposition($asset);
-
-        return Storage::disk($disk)->download(
-            $path,
-            $asset->file_name,
-            [
-                'Content-Type' => $asset->mime_type,
-                'Content-Disposition' => $disposition,
-                'Cache-Control' => 'private, max-age=3600',
-            ],
-        );
-    }
-
-    private function normalizedFilePath(ProjectAsset $asset): string
-    {
-        return ltrim(str_replace('\\', '/', (string) $asset->file_path), '/');
-    }
-
-    /**
-     * @template T
-     *
-     * @param  callable(): T  $callback
-     * @return T
-     */
     private function withShareUrlRoot(callable $callback): mixed
     {
         $root = config('cazador.asset_share_url_root');
@@ -154,19 +110,5 @@ class ProjectAssetShareService
         } finally {
             URL::forceRootUrl($previous);
         }
-    }
-
-    private function contentDisposition(ProjectAsset $asset): string
-    {
-        $filename = addcslashes($asset->file_name, '"\\');
-        $mime = strtolower((string) $asset->mime_type);
-
-        $inline = $asset->kind === 'image'
-            || str_starts_with($mime, 'image/')
-            || $mime === 'application/pdf';
-
-        $type = $inline ? 'inline' : 'attachment';
-
-        return "{$type}; filename=\"{$filename}\"";
     }
 }

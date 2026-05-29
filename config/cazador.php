@@ -18,4 +18,6 @@ return [
     */
     'asset_share_url_root' => env('CAZADOR_ASSET_SHARE_URL_ROOT'),
 
+    'project_asset_disk' => env('CAZADOR_PROJECT_ASSET_DISK', 'public'),
+
 ];

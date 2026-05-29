@@ -2,6 +2,7 @@
 
 namespace App\Models\Inmopro;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -9,7 +10,7 @@ class ProjectAsset extends Model
 {
     public static function storageDisk(): string
     {
-        return 'public';
+        return (string) config('cazador.project_asset_disk', 'public');
     }
 
     /**
@@ -37,6 +38,22 @@ class ProjectAsset extends Model
             'sort_order' => 'integer',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * Disco de storage (alias de file_path para servir/descargar).
+     */
+    protected function disk(): Attribute
+    {
+        return Attribute::get(fn (): string => static::storageDisk());
+    }
+
+    /**
+     * Ruta relativa dentro del disco (columna file_path normalizada).
+     */
+    protected function path(): Attribute
+    {
+        return Attribute::get(fn (): string => ltrim(str_replace('\\', '/', (string) $this->file_path), '/'));
     }
 
     /**
