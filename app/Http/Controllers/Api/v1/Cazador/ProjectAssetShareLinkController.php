@@ -35,6 +35,19 @@ class ProjectAssetShareLinkController extends Controller
             ], 422);
         }
 
+        $missingFiles = $this->shareService->missingFileAssetIds($assets);
+
+        if ($missingFiles !== []) {
+            return response()->json([
+                'message' => 'Uno o más archivos no están disponibles en el almacenamiento.',
+                'errors' => [
+                    'asset_ids' => [
+                        'Los siguientes assets no tienen archivo en disco: '.implode(', ', $missingFiles).'.',
+                    ],
+                ],
+            ], 422);
+        }
+
         $expiresAt = now()->addHours($this->shareService->ttlHours());
 
         $assetsById = $assets->keyBy('id');

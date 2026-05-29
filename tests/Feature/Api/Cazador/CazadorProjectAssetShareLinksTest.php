@@ -195,6 +195,30 @@ class CazadorProjectAssetShareLinksTest extends TestCase
         $this->get($shareUrl)->assertNotFound();
     }
 
+    public function test_share_links_rejects_assets_without_file_on_disk(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $project = Project::query()->firstOrFail();
+        $asset = ProjectAsset::create([
+            'project_id' => $project->id,
+            'kind' => 'image',
+            'title' => 'Sin archivo',
+            'file_name' => 'missing.png',
+            'file_path' => 'projects/'.$project->id.'/images/missing.png',
+            'mime_type' => 'image/png',
+            'file_size' => 100,
+            'sort_order' => 99,
+            'is_active' => true,
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
+            ->postJson(route('api.v1.cazador.projects.assets.share-links', $project), [
+                'asset_ids' => [$asset->id],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['asset_ids']);
+    }
+
     public function test_protected_download_still_requires_authentication(): void
     {
         Storage::fake('public');
