@@ -2,6 +2,8 @@ import { Head, router, usePage } from '@inertiajs/react';
 import {
     Banknote,
     Building2,
+    ChevronDown,
+    ChevronUp,
     Download,
     FileText,
     ImageIcon,
@@ -133,6 +135,8 @@ function ProjectAssetPanel({
     images: ProjectAsset[];
     documents: ProjectAsset[];
 }) {
+    const [isOpen, setIsOpen] = useState(false);
+
     if (images.length === 0 && documents.length === 0) {
         return null;
     }
@@ -185,7 +189,7 @@ function ProjectAssetPanel({
 
     return (
         <section className="rounded-2xl bg-white p-4 shadow-[0_20px_40px_rgba(0,27,68,0.06)] dark:border dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p className="text-xs font-black tracking-[0.2em] text-slate-500 uppercase dark:text-slate-400">
                         Archivos del proyecto
@@ -194,36 +198,52 @@ function ProjectAssetPanel({
                         Material comercial y documentos
                     </h2>
                 </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {images.length + documents.length} archivo(s)
-                </p>
-            </div>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                <div className="space-y-2">
-                    <p className="text-xs font-bold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                        Imágenes
+                <div className="flex items-center gap-3">
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {images.length + documents.length} archivo(s)
                     </p>
-                    {images.length > 0 ? (
-                        images.map(renderAsset)
-                    ) : (
-                        <p className="rounded-xl bg-[#f5f3f3] px-3 py-4 text-sm text-slate-500 dark:bg-slate-900 dark:text-slate-400">
-                            Sin imágenes registradas.
-                        </p>
-                    )}
-                </div>
-                <div className="space-y-2">
-                    <p className="text-xs font-bold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                        Documentos
-                    </p>
-                    {documents.length > 0 ? (
-                        documents.map(renderAsset)
-                    ) : (
-                        <p className="rounded-xl bg-[#f5f3f3] px-3 py-4 text-sm text-slate-500 dark:bg-slate-900 dark:text-slate-400">
-                            Sin documentos registrados.
-                        </p>
-                    )}
+                    <button
+                        type="button"
+                        className="inline-flex items-center gap-2 rounded-xl bg-[#f5f3f3] px-3 py-2 text-xs font-bold text-[#001b44] transition hover:bg-slate-200 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                        onClick={() => setIsOpen((value) => !value)}
+                    >
+                        {isOpen ? (
+                            <ChevronUp className="h-4 w-4" />
+                        ) : (
+                            <ChevronDown className="h-4 w-4" />
+                        )}
+                        {isOpen ? 'Minimizar' : 'Maximizar'}
+                    </button>
                 </div>
             </div>
+            {isOpen && (
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                    <div className="space-y-2">
+                        <p className="text-xs font-bold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                            Imágenes
+                        </p>
+                        {images.length > 0 ? (
+                            images.map(renderAsset)
+                        ) : (
+                            <p className="rounded-xl bg-[#f5f3f3] px-3 py-4 text-sm text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                                Sin imágenes registradas.
+                            </p>
+                        )}
+                    </div>
+                    <div className="space-y-2">
+                        <p className="text-xs font-bold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                            Documentos
+                        </p>
+                        {documents.length > 0 ? (
+                            documents.map(renderAsset)
+                        ) : (
+                            <p className="rounded-xl bg-[#f5f3f3] px-3 py-4 text-sm text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                                Sin documentos registrados.
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )}
         </section>
     );
 }

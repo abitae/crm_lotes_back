@@ -11,6 +11,8 @@ use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
 use App\Services\Inmopro\LotPersistService;
+use App\Services\Inmopro\ProjectLocationMapsResolver;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -22,7 +24,8 @@ use Mpdf\Mpdf;
 class LotController extends Controller
 {
     public function __construct(
-        private LotPersistService $lotPersistService
+        private LotPersistService $lotPersistService,
+        private ProjectLocationMapsResolver $locationMapsResolver,
     ) {}
 
     public function index(Request $request): Response
@@ -32,7 +35,10 @@ class LotController extends Controller
 
         if (! $project) {
             return Inertia::render('inmopro/inventory', [
-                'projects' => $this->activeProjects()->get(),
+                'projects' => $this->activeProjects()
+                    ->get()
+                    ->map(fn (Project $project): array => $this->projectPayload($project))
+                    ->values(),
                 'project' => null,
                 'lots' => [],
                 'lotStatuses' => LotStatus::orderBy('sort_order')->get(),
@@ -47,14 +53,17 @@ class LotController extends Controller
             ->orderBy('number')
             ->get();
 
-        $projects = $this->activeProjects()->get();
+        $projects = $this->activeProjects()
+            ->get()
+            ->map(fn (Project $project): array => $this->projectPayload($project))
+            ->values();
         $lotStatuses = LotStatus::orderBy('sort_order')->get();
         $clients = Client::orderBy('name')->get(['id', 'name', 'dni', 'phone', 'email']);
         $advisors = Advisor::with('level')->orderBy('name')->get();
 
         return Inertia::render('inmopro/inventory', [
             'projects' => $projects,
-            'project' => $project,
+            'project' => $this->projectPayload($project),
             'lots' => $lots,
             'lotStatuses' => $lotStatuses,
             'clients' => $clients,
@@ -179,9 +188,9 @@ class LotController extends Controller
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<Project>
+     * @return Builder<Project>
      */
-    private function activeProjects()
+    private function activeProjects(): Builder
     {
         return Project::query()->active()->orderBy('name');
     }
@@ -196,5 +205,20 @@ class LotController extends Controller
         }
 
         return $this->activeProjects()->first();
+    }
+
+    /**
+     * @return array{id:int,name:string,location:string|null,maps_url:string|null,location_label:string|null,blocks:list<string>}
+     */
+    private function projectPayload(Project $project): array
+    {
+        return [
+            'id' => $project->id,
+            'name' => $project->name,
+            'location' => $project->location,
+            'maps_url' => $this->locationMapsResolver->resolveMapsUrl($project->location),
+            'location_label' => $this->locationMapsResolver->displayLabel($project->location),
+            'blocks' => array_values($project->blocks ?? []),
+        ];
     }
 }

@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Eye, Save, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye, Save, X } from 'lucide-react';
 import {
     Dispatch,
     MutableRefObject,
@@ -133,6 +133,7 @@ export function ProjectLotsTable({
     const [clientDniFilter, setClientDniFilter] = useState('');
     const [clientNameFilter, setClientNameFilter] = useState('');
     const [lotStatusFilter, setLotStatusFilter] = useState('');
+    const [isOpen, setIsOpen] = useState(false);
 
     const allLots = project.lots ?? [];
 
@@ -179,614 +180,685 @@ export function ProjectLotsTable({
                                 lote(s).
                             </p>
                         </div>
-                        {hasActiveFilters ? (
+                        <div className="flex flex-wrap items-center gap-2">
                             <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
                                 className="rounded-xl border-transparent bg-[#f5f3f3] shadow-none dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-                                onClick={clearFilters}
+                                onClick={() => setIsOpen((value) => !value)}
                             >
-                                <X className="mr-1 h-3.5 w-3.5" />
-                                Limpiar filtros
+                                {isOpen ? (
+                                    <ChevronUp className="mr-1 h-3.5 w-3.5" />
+                                ) : (
+                                    <ChevronDown className="mr-1 h-3.5 w-3.5" />
+                                )}
+                                {isOpen ? 'Minimizar' : 'Maximizar'}
                             </Button>
-                        ) : null}
-                    </div>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <div className="space-y-1">
-                            <Label htmlFor="lot-filter-dni" className="text-xs">
-                                DNI cliente
-                            </Label>
-                            <Input
-                                id="lot-filter-dni"
-                                value={clientDniFilter}
-                                onChange={(e) =>
-                                    setClientDniFilter(e.target.value)
-                                }
-                                placeholder="Buscar por DNI"
-                                className="h-10 rounded-xl border-transparent bg-[#f5f3f3] text-sm shadow-none focus-visible:ring-[#224583]/20 dark:bg-slate-900 dark:text-slate-100 dark:text-slate-400 dark:placeholder:text-slate-500 dark:focus-visible:ring-sky-400/30"
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <Label
-                                htmlFor="lot-filter-name"
-                                className="text-xs"
-                            >
-                                Nombre cliente
-                            </Label>
-                            <Input
-                                id="lot-filter-name"
-                                value={clientNameFilter}
-                                onChange={(e) =>
-                                    setClientNameFilter(e.target.value)
-                                }
-                                placeholder="Buscar por nombre"
-                                className="h-10 rounded-xl border-transparent bg-[#f5f3f3] text-sm shadow-none focus-visible:ring-[#224583]/20 dark:bg-slate-900 dark:text-slate-100 dark:text-slate-400 dark:placeholder:text-slate-500 dark:focus-visible:ring-sky-400/30"
-                            />
-                        </div>
-                        <div className="space-y-1 sm:col-span-2 lg:col-span-1">
-                            <Label
-                                htmlFor="lot-filter-status"
-                                className="text-xs"
-                            >
-                                Estado del lote
-                            </Label>
-                            <select
-                                id="lot-filter-status"
-                                value={lotStatusFilter}
-                                onChange={(e) =>
-                                    setLotStatusFilter(e.target.value)
-                                }
-                                className="h-10 w-full rounded-xl border-transparent bg-[#f5f3f3] px-3 text-sm shadow-none outline-none focus:ring-2 focus:ring-[#224583]/20 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-sky-400/30"
-                            >
-                                <option value="">Todos los estados</option>
-                                {lotStatuses.map((status) => (
-                                    <option key={status.id} value={status.id}>
-                                        {status.name}
-                                    </option>
-                                ))}
-                            </select>
+                            {hasActiveFilters ? (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="rounded-xl border-transparent bg-[#f5f3f3] shadow-none dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                                    onClick={clearFilters}
+                                >
+                                    <X className="mr-1 h-3.5 w-3.5" />
+                                    Limpiar filtros
+                                </Button>
+                            ) : null}
                         </div>
                     </div>
-                </div>
-                <div className="inline-block max-h-[calc(100vh-11rem)] max-w-full overflow-auto bg-white dark:bg-slate-950">
-                    {filteredLots.length === 0 ? (
-                        <p className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
-                            Ningún lote coincide con los filtros aplicados.
-                        </p>
-                    ) : (
-                        <table className="w-full min-w-[1240px] border-separate border-spacing-y-1 text-xs [&_tbody_td]:border-0 [&_tbody_td]:px-3 [&_tbody_td]:py-2 [&_tbody_tr]:shadow-[0_8px_18px_rgba(0,27,68,0.035)] dark:[&_tbody_tr]:shadow-none">
-                            <thead className="sticky top-0 z-10 bg-[#f5f3f3] dark:bg-slate-900">
-                                <tr>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        Manzana
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        Número
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        Área
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        Precio
-                                    </th>
-                                    <th
-                                        className={`px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400 ${statusColumnClass}`}
-                                    >
-                                        Estado
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        Nombre cliente
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        DNI
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        Teléfono
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        Asesor
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        Adelanto
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        Monto rest.
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        F. limite
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        N° op.
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        F. contrato
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        Nº contrato
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        F. escritura
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        Observ.
-                                    </th>
-                                    <th className="px-4 py-3 text-center text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                        Acciones
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredLots.map((lot) => {
-                                    const isSaving = savingLotId === lot.id;
-                                    const statusCode =
-                                        lot.status?.code ?? 'LIBRE';
-                                    const statusColor =
-                                        lot.status?.color ??
-                                        lotStatusColor(statusCode, lotStatuses);
-                                    const availableStatuses =
-                                        lotStatuses.filter(
-                                            (status) =>
-                                                status.code !== 'TRANSFERIDO' ||
-                                                status.id === lot.status?.id,
-                                        );
-                                    const canEdit =
-                                        statusCode === 'RESERVADO' ||
-                                        statusCode === 'TRANSFERIDO';
-
-                                    return (
-                                        <tr
-                                            key={lot.id}
-                                            style={lotRowStyle(
-                                                statusColor,
-                                                isSaving,
-                                            )}
+                    {isOpen && (
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <div className="space-y-1">
+                                <Label
+                                    htmlFor="lot-filter-dni"
+                                    className="text-xs"
+                                >
+                                    DNI cliente
+                                </Label>
+                                <Input
+                                    id="lot-filter-dni"
+                                    value={clientDniFilter}
+                                    onChange={(e) =>
+                                        setClientDniFilter(e.target.value)
+                                    }
+                                    placeholder="Buscar por DNI"
+                                    className="h-10 rounded-xl border-transparent bg-[#f5f3f3] text-sm shadow-none focus-visible:ring-[#224583]/20 dark:bg-slate-900 dark:text-slate-100 dark:text-slate-400 dark:placeholder:text-slate-500 dark:focus-visible:ring-sky-400/30"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label
+                                    htmlFor="lot-filter-name"
+                                    className="text-xs"
+                                >
+                                    Nombre cliente
+                                </Label>
+                                <Input
+                                    id="lot-filter-name"
+                                    value={clientNameFilter}
+                                    onChange={(e) =>
+                                        setClientNameFilter(e.target.value)
+                                    }
+                                    placeholder="Buscar por nombre"
+                                    className="h-10 rounded-xl border-transparent bg-[#f5f3f3] text-sm shadow-none focus-visible:ring-[#224583]/20 dark:bg-slate-900 dark:text-slate-100 dark:text-slate-400 dark:placeholder:text-slate-500 dark:focus-visible:ring-sky-400/30"
+                                />
+                            </div>
+                            <div className="space-y-1 sm:col-span-2 lg:col-span-1">
+                                <Label
+                                    htmlFor="lot-filter-status"
+                                    className="text-xs"
+                                >
+                                    Estado del lote
+                                </Label>
+                                <select
+                                    id="lot-filter-status"
+                                    value={lotStatusFilter}
+                                    onChange={(e) =>
+                                        setLotStatusFilter(e.target.value)
+                                    }
+                                    className="h-10 w-full rounded-xl border-transparent bg-[#f5f3f3] px-3 text-sm shadow-none outline-none focus:ring-2 focus:ring-[#224583]/20 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-sky-400/30"
+                                >
+                                    <option value="">Todos los estados</option>
+                                    {lotStatuses.map((status) => (
+                                        <option
+                                            key={status.id}
+                                            value={status.id}
                                         >
-                                            <td className="border border-border px-1 py-0.5 align-middle text-slate-700 dark:text-slate-200">
-                                                {lot.block}
-                                            </td>
-                                            <td className="border border-border px-1 py-0.5 align-middle text-slate-700 tabular-nums dark:text-slate-200">
-                                                {lot.number}
-                                            </td>
-                                            <td className="border border-border px-1 py-0.5 align-middle">
-                                                <input
-                                                    type="number"
-                                                    min={0}
-                                                    step={0.01}
-                                                    value={getCellValue(
-                                                        lot,
-                                                        'area',
-                                                    )}
-                                                    disabled={
-                                                        isSaving || !canEdit
-                                                    }
-                                                    onChange={(e) =>
-                                                        setCellEdit(
+                                            {status.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    )}
+                </div>
+                {isOpen && (
+                    <div className="inline-block max-h-[calc(100vh-11rem)] max-w-full overflow-auto bg-white dark:bg-slate-950">
+                        {filteredLots.length === 0 ? (
+                            <p className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                                Ningún lote coincide con los filtros aplicados.
+                            </p>
+                        ) : (
+                            <table className="w-full min-w-[1240px] border-separate border-spacing-y-1 text-xs [&_tbody_td]:border-0 [&_tbody_td]:px-3 [&_tbody_td]:py-2 [&_tbody_tr]:shadow-[0_8px_18px_rgba(0,27,68,0.035)] dark:[&_tbody_tr]:shadow-none">
+                                <thead className="sticky top-0 z-10 bg-[#f5f3f3] dark:bg-slate-900">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            Manzana
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            Número
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            Área
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            Precio
+                                        </th>
+                                        <th
+                                            className={`px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400 ${statusColumnClass}`}
+                                        >
+                                            Estado
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            Nombre cliente
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            DNI
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            Teléfono
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            Asesor
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            Adelanto
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            Monto rest.
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            F. limite
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            N° op.
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            F. contrato
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            Nº contrato
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            F. escritura
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            Observ.
+                                        </th>
+                                        <th className="px-4 py-3 text-center text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                            Acciones
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredLots.map((lot) => {
+                                        const isSaving = savingLotId === lot.id;
+                                        const statusCode =
+                                            lot.status?.code ?? 'LIBRE';
+                                        const statusColor =
+                                            lot.status?.color ??
+                                            lotStatusColor(
+                                                statusCode,
+                                                lotStatuses,
+                                            );
+                                        const availableStatuses =
+                                            lotStatuses.filter(
+                                                (status) =>
+                                                    status.code !==
+                                                        'TRANSFERIDO' ||
+                                                    status.id ===
+                                                        lot.status?.id,
+                                            );
+                                        const canEdit =
+                                            statusCode === 'RESERVADO' ||
+                                            statusCode === 'TRANSFERIDO';
+
+                                        return (
+                                            <tr
+                                                key={lot.id}
+                                                style={lotRowStyle(
+                                                    statusColor,
+                                                    isSaving,
+                                                )}
+                                            >
+                                                <td className="border border-border px-1 py-0.5 align-middle text-slate-700 dark:text-slate-200">
+                                                    {lot.block}
+                                                </td>
+                                                <td className="border border-border px-1 py-0.5 align-middle text-slate-700 tabular-nums dark:text-slate-200">
+                                                    {lot.number}
+                                                </td>
+                                                <td className="border border-border px-1 py-0.5 align-middle">
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        step={0.01}
+                                                        value={getCellValue(
                                                             lot,
                                                             'area',
-                                                            e.target.value
-                                                                ? Number(
-                                                                      e.target
-                                                                          .value,
-                                                                  )
-                                                                : null,
-                                                        )
-                                                    }
-                                                    className={inputClass}
-                                                    style={{ minWidth: '4rem' }}
-                                                />
-                                            </td>
-                                            <td className="border border-border px-1 py-0.5 align-middle">
-                                                <input
-                                                    type="number"
-                                                    min={0}
-                                                    step={0.01}
-                                                    value={getCellValue(
-                                                        lot,
-                                                        'price',
-                                                    )}
-                                                    disabled={
-                                                        isSaving || !canEdit
-                                                    }
-                                                    onChange={(e) =>
-                                                        setCellEdit(
-                                                            lot,
-                                                            'price',
-                                                            e.target.value
-                                                                ? Number(
-                                                                      e.target
-                                                                          .value,
-                                                                  )
-                                                                : null,
-                                                        )
-                                                    }
-                                                    className={inputClass}
-                                                    style={{ minWidth: '5rem' }}
-                                                />
-                                            </td>
-                                            <td
-                                                className={`border border-border px-2 py-1 align-middle ${statusColumnClass}`}
-                                            >
-                                                <div className="flex items-center gap-1.5">
-                                                    <span
-                                                        className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white/80"
-                                                        style={{
-                                                            backgroundColor:
-                                                                statusColor ??
-                                                                '#94a3b8',
-                                                        }}
-                                                        title={
-                                                            lot.status?.name ??
-                                                            statusCode
+                                                        )}
+                                                        disabled={
+                                                            isSaving || !canEdit
                                                         }
-                                                    />
-                                                    <select
-                                                        value={
-                                                            lot.status?.id ?? ''
-                                                        }
-                                                        disabled={isSaving}
                                                         onChange={(e) =>
-                                                            updateLot(
+                                                            setCellEdit(
                                                                 lot,
-                                                                buildPayload(
-                                                                    lot,
-                                                                    {
-                                                                        lot_status_id:
-                                                                            Number(
-                                                                                e
-                                                                                    .target
-                                                                                    .value,
-                                                                            ),
-                                                                    },
-                                                                ),
+                                                                'area',
+                                                                e.target.value
+                                                                    ? Number(
+                                                                          e
+                                                                              .target
+                                                                              .value,
+                                                                      )
+                                                                    : null,
                                                             )
                                                         }
-                                                        className={
-                                                            statusSelectClass
-                                                        }
-                                                        style={lotStatusSelectStyle(
-                                                            statusColor,
+                                                        className={inputClass}
+                                                        style={{
+                                                            minWidth: '4rem',
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="border border-border px-1 py-0.5 align-middle">
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        step={0.01}
+                                                        value={getCellValue(
+                                                            lot,
+                                                            'price',
                                                         )}
-                                                        title={
-                                                            lot.status?.name ??
-                                                            'Estado del lote'
+                                                        disabled={
+                                                            isSaving || !canEdit
                                                         }
-                                                    >
-                                                        {availableStatuses.map(
-                                                            (status) => (
-                                                                <option
-                                                                    key={
-                                                                        status.id
-                                                                    }
-                                                                    value={
-                                                                        status.id
-                                                                    }
-                                                                    style={lotStatusOptionStyle(
-                                                                        status.color,
-                                                                    )}
-                                                                >
-                                                                    {
-                                                                        status.name
-                                                                    }
-                                                                </option>
-                                                            ),
-                                                        )}
-                                                    </select>
-                                                </div>
-                                            </td>
-                                            <ClientLookupCell
-                                                lot={lot}
-                                                field="client_name"
-                                                searchKey={`${lot.id}_client_name`}
-                                                getCellValue={getCellValue}
-                                                setCellEdit={setCellEdit}
-                                                clientSearch={clientSearch}
-                                                advisorSearch={advisorSearch}
-                                                isSaving={isSaving}
-                                                canEdit={canEdit}
-                                                clientJustSelectedRef={
-                                                    clientJustSelectedRef
-                                                }
-                                                placeholder="Buscar por nombre"
-                                                width="8rem"
-                                            />
-                                            <ClientLookupCell
-                                                lot={lot}
-                                                field="client_dni"
-                                                searchKey={`${lot.id}_client_dni`}
-                                                getCellValue={getCellValue}
-                                                setCellEdit={setCellEdit}
-                                                clientSearch={clientSearch}
-                                                advisorSearch={advisorSearch}
-                                                isSaving={isSaving}
-                                                canEdit={canEdit}
-                                                clientJustSelectedRef={
-                                                    clientJustSelectedRef
-                                                }
-                                                placeholder="Buscar por DNI"
-                                                width="6rem"
-                                            />
-                                            <td className="border border-border px-1 py-0.5 align-middle">
-                                                <input
-                                                    type="text"
-                                                    value={getCellValue(
-                                                        lot,
-                                                        'client_phone',
-                                                    )}
-                                                    disabled={
-                                                        isSaving || !canEdit
+                                                        onChange={(e) =>
+                                                            setCellEdit(
+                                                                lot,
+                                                                'price',
+                                                                e.target.value
+                                                                    ? Number(
+                                                                          e
+                                                                              .target
+                                                                              .value,
+                                                                      )
+                                                                    : null,
+                                                            )
+                                                        }
+                                                        className={inputClass}
+                                                        style={{
+                                                            minWidth: '5rem',
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td
+                                                    className={`border border-border px-2 py-1 align-middle ${statusColumnClass}`}
+                                                >
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span
+                                                            className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white/80"
+                                                            style={{
+                                                                backgroundColor:
+                                                                    statusColor ??
+                                                                    '#94a3b8',
+                                                            }}
+                                                            title={
+                                                                lot.status
+                                                                    ?.name ??
+                                                                statusCode
+                                                            }
+                                                        />
+                                                        <select
+                                                            value={
+                                                                lot.status
+                                                                    ?.id ?? ''
+                                                            }
+                                                            disabled={isSaving}
+                                                            onChange={(e) =>
+                                                                updateLot(
+                                                                    lot,
+                                                                    buildPayload(
+                                                                        lot,
+                                                                        {
+                                                                            lot_status_id:
+                                                                                Number(
+                                                                                    e
+                                                                                        .target
+                                                                                        .value,
+                                                                                ),
+                                                                        },
+                                                                    ),
+                                                                )
+                                                            }
+                                                            className={
+                                                                statusSelectClass
+                                                            }
+                                                            style={lotStatusSelectStyle(
+                                                                statusColor,
+                                                            )}
+                                                            title={
+                                                                lot.status
+                                                                    ?.name ??
+                                                                'Estado del lote'
+                                                            }
+                                                        >
+                                                            {availableStatuses.map(
+                                                                (status) => (
+                                                                    <option
+                                                                        key={
+                                                                            status.id
+                                                                        }
+                                                                        value={
+                                                                            status.id
+                                                                        }
+                                                                        style={lotStatusOptionStyle(
+                                                                            status.color,
+                                                                        )}
+                                                                    >
+                                                                        {
+                                                                            status.name
+                                                                        }
+                                                                    </option>
+                                                                ),
+                                                            )}
+                                                        </select>
+                                                    </div>
+                                                </td>
+                                                <ClientLookupCell
+                                                    lot={lot}
+                                                    field="client_name"
+                                                    searchKey={`${lot.id}_client_name`}
+                                                    getCellValue={getCellValue}
+                                                    setCellEdit={setCellEdit}
+                                                    clientSearch={clientSearch}
+                                                    advisorSearch={
+                                                        advisorSearch
                                                     }
-                                                    onChange={(e) =>
-                                                        setCellEdit(
+                                                    isSaving={isSaving}
+                                                    canEdit={canEdit}
+                                                    clientJustSelectedRef={
+                                                        clientJustSelectedRef
+                                                    }
+                                                    placeholder="Buscar por nombre"
+                                                    width="8rem"
+                                                />
+                                                <ClientLookupCell
+                                                    lot={lot}
+                                                    field="client_dni"
+                                                    searchKey={`${lot.id}_client_dni`}
+                                                    getCellValue={getCellValue}
+                                                    setCellEdit={setCellEdit}
+                                                    clientSearch={clientSearch}
+                                                    advisorSearch={
+                                                        advisorSearch
+                                                    }
+                                                    isSaving={isSaving}
+                                                    canEdit={canEdit}
+                                                    clientJustSelectedRef={
+                                                        clientJustSelectedRef
+                                                    }
+                                                    placeholder="Buscar por DNI"
+                                                    width="6rem"
+                                                />
+                                                <td className="border border-border px-1 py-0.5 align-middle">
+                                                    <input
+                                                        type="text"
+                                                        value={getCellValue(
                                                             lot,
                                                             'client_phone',
-                                                            e.target.value,
-                                                        )
+                                                        )}
+                                                        disabled={
+                                                            isSaving || !canEdit
+                                                        }
+                                                        onChange={(e) =>
+                                                            setCellEdit(
+                                                                lot,
+                                                                'client_phone',
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        className={inputClass}
+                                                        style={{
+                                                            minWidth: '6rem',
+                                                        }}
+                                                        placeholder="Opcional"
+                                                    />
+                                                </td>
+                                                <AdvisorLookupCell
+                                                    lot={lot}
+                                                    advisorSearch={
+                                                        advisorSearch
                                                     }
-                                                    className={inputClass}
-                                                    style={{ minWidth: '6rem' }}
-                                                    placeholder="Opcional"
+                                                    clientSearch={clientSearch}
+                                                    advisorSearchTerm={
+                                                        advisorSearchTerm
+                                                    }
+                                                    setAdvisorSearchTerm={
+                                                        setAdvisorSearchTerm
+                                                    }
+                                                    getCellValue={getCellValue}
+                                                    setCellEdit={setCellEdit}
+                                                    isSaving={isSaving}
+                                                    canEdit={canEdit}
                                                 />
-                                            </td>
-                                            <AdvisorLookupCell
-                                                lot={lot}
-                                                advisorSearch={advisorSearch}
-                                                clientSearch={clientSearch}
-                                                advisorSearchTerm={
-                                                    advisorSearchTerm
-                                                }
-                                                setAdvisorSearchTerm={
-                                                    setAdvisorSearchTerm
-                                                }
-                                                getCellValue={getCellValue}
-                                                setCellEdit={setCellEdit}
-                                                isSaving={isSaving}
-                                                canEdit={canEdit}
-                                            />
-                                            <td className="border border-border px-1 py-0.5 align-middle">
-                                                <input
-                                                    type="number"
-                                                    min={0}
-                                                    step={0.01}
-                                                    value={getCellValue(
-                                                        lot,
-                                                        'advance',
-                                                    )}
-                                                    disabled={
-                                                        isSaving || !canEdit
-                                                    }
-                                                    onChange={(e) =>
-                                                        setCellEdit(
+                                                <td className="border border-border px-1 py-0.5 align-middle">
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        step={0.01}
+                                                        value={getCellValue(
                                                             lot,
                                                             'advance',
-                                                            e.target.value
-                                                                ? Number(
-                                                                      e.target
-                                                                          .value,
+                                                        )}
+                                                        disabled={
+                                                            isSaving || !canEdit
+                                                        }
+                                                        onChange={(e) =>
+                                                            setCellEdit(
+                                                                lot,
+                                                                'advance',
+                                                                e.target.value
+                                                                    ? Number(
+                                                                          e
+                                                                              .target
+                                                                              .value,
+                                                                      )
+                                                                    : null,
+                                                            )
+                                                        }
+                                                        className={inputClass}
+                                                        style={{
+                                                            minWidth: '5rem',
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="border border-border px-1 py-0.5 align-middle">
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        step={0.01}
+                                                        value={getCellValue(
+                                                            lot,
+                                                            'remaining_balance',
+                                                        )}
+                                                        disabled
+                                                        className={inputClass}
+                                                        style={{
+                                                            minWidth: '5rem',
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="border border-border px-1 py-0.5 align-middle">
+                                                    <input
+                                                        type="date"
+                                                        value={
+                                                            getCellValue(
+                                                                lot,
+                                                                'payment_limit_date',
+                                                            )
+                                                                ? toDateStr(
+                                                                      getCellValue(
+                                                                          lot,
+                                                                          'payment_limit_date',
+                                                                      ),
                                                                   )
-                                                                : null,
-                                                        )
-                                                    }
-                                                    className={inputClass}
-                                                    style={{ minWidth: '5rem' }}
-                                                />
-                                            </td>
-                                            <td className="border border-border px-1 py-0.5 align-middle">
-                                                <input
-                                                    type="number"
-                                                    min={0}
-                                                    step={0.01}
-                                                    value={getCellValue(
-                                                        lot,
-                                                        'remaining_balance',
-                                                    )}
-                                                    disabled
-                                                    className={inputClass}
-                                                    style={{ minWidth: '5rem' }}
-                                                />
-                                            </td>
-                                            <td className="border border-border px-1 py-0.5 align-middle">
-                                                <input
-                                                    type="date"
-                                                    value={
-                                                        getCellValue(
-                                                            lot,
-                                                            'payment_limit_date',
-                                                        )
-                                                            ? toDateStr(
-                                                                  getCellValue(
-                                                                      lot,
-                                                                      'payment_limit_date',
-                                                                  ),
-                                                              )
-                                                            : ''
-                                                    }
-                                                    disabled={
-                                                        isSaving || !canEdit
-                                                    }
-                                                    onChange={(e) =>
-                                                        setCellEdit(
-                                                            lot,
-                                                            'payment_limit_date',
-                                                            e.target.value ||
-                                                                null,
-                                                        )
-                                                    }
-                                                    className={inputClass}
-                                                    style={{ minWidth: '7rem' }}
-                                                />
-                                            </td>
-                                            <td className="border border-border px-1 py-0.5 align-middle">
-                                                <input
-                                                    type="text"
-                                                    value={getCellValue(
-                                                        lot,
-                                                        'operation_number',
-                                                    )}
-                                                    disabled={
-                                                        isSaving || !canEdit
-                                                    }
-                                                    onChange={(e) =>
-                                                        setCellEdit(
+                                                                : ''
+                                                        }
+                                                        disabled={
+                                                            isSaving || !canEdit
+                                                        }
+                                                        onChange={(e) =>
+                                                            setCellEdit(
+                                                                lot,
+                                                                'payment_limit_date',
+                                                                e.target
+                                                                    .value ||
+                                                                    null,
+                                                            )
+                                                        }
+                                                        className={inputClass}
+                                                        style={{
+                                                            minWidth: '7rem',
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="border border-border px-1 py-0.5 align-middle">
+                                                    <input
+                                                        type="text"
+                                                        value={getCellValue(
                                                             lot,
                                                             'operation_number',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    className={inputClass}
-                                                    style={{ minWidth: '5rem' }}
-                                                />
-                                            </td>
-                                            <td className="border border-border px-1 py-0.5 align-middle">
-                                                <input
-                                                    type="date"
-                                                    value={
-                                                        getCellValue(
-                                                            lot,
-                                                            'contract_date',
-                                                        )
-                                                            ? toDateStr(
-                                                                  getCellValue(
-                                                                      lot,
-                                                                      'contract_date',
-                                                                  ),
-                                                              )
-                                                            : ''
-                                                    }
-                                                    disabled={
-                                                        isSaving || !canEdit
-                                                    }
-                                                    onChange={(e) =>
-                                                        setCellEdit(
-                                                            lot,
-                                                            'contract_date',
-                                                            e.target.value ||
-                                                                null,
-                                                        )
-                                                    }
-                                                    className={inputClass}
-                                                    style={{ minWidth: '7rem' }}
-                                                />
-                                            </td>
-                                            <td className="border border-border px-1 py-0.5 align-middle">
-                                                <input
-                                                    type="text"
-                                                    value={getCellValue(
-                                                        lot,
-                                                        'contract_number',
-                                                    )}
-                                                    disabled={
-                                                        isSaving || !canEdit
-                                                    }
-                                                    onChange={(e) =>
-                                                        setCellEdit(
+                                                        )}
+                                                        disabled={
+                                                            isSaving || !canEdit
+                                                        }
+                                                        onChange={(e) =>
+                                                            setCellEdit(
+                                                                lot,
+                                                                'operation_number',
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        className={inputClass}
+                                                        style={{
+                                                            minWidth: '5rem',
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="border border-border px-1 py-0.5 align-middle">
+                                                    <input
+                                                        type="date"
+                                                        value={
+                                                            getCellValue(
+                                                                lot,
+                                                                'contract_date',
+                                                            )
+                                                                ? toDateStr(
+                                                                      getCellValue(
+                                                                          lot,
+                                                                          'contract_date',
+                                                                      ),
+                                                                  )
+                                                                : ''
+                                                        }
+                                                        disabled={
+                                                            isSaving || !canEdit
+                                                        }
+                                                        onChange={(e) =>
+                                                            setCellEdit(
+                                                                lot,
+                                                                'contract_date',
+                                                                e.target
+                                                                    .value ||
+                                                                    null,
+                                                            )
+                                                        }
+                                                        className={inputClass}
+                                                        style={{
+                                                            minWidth: '7rem',
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="border border-border px-1 py-0.5 align-middle">
+                                                    <input
+                                                        type="text"
+                                                        value={getCellValue(
                                                             lot,
                                                             'contract_number',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    className={inputClass}
-                                                    style={{ minWidth: '6rem' }}
-                                                />
-                                            </td>
-                                            <td className="border border-border px-1 py-0.5 align-middle">
-                                                <input
-                                                    type="date"
-                                                    value={
-                                                        getCellValue(
-                                                            lot,
-                                                            'notarial_transfer_date',
-                                                        )
-                                                            ? toDateStr(
-                                                                  getCellValue(
-                                                                      lot,
-                                                                      'notarial_transfer_date',
-                                                                  ),
-                                                              )
-                                                            : ''
-                                                    }
-                                                    disabled={
-                                                        isSaving || !canEdit
-                                                    }
-                                                    onChange={(e) =>
-                                                        setCellEdit(
-                                                            lot,
-                                                            'notarial_transfer_date',
-                                                            e.target.value ||
-                                                                null,
-                                                        )
-                                                    }
-                                                    className={inputClass}
-                                                    style={{ minWidth: '7rem' }}
-                                                />
-                                            </td>
-                                            <td className="border border-border px-1 py-0.5 align-middle">
-                                                <input
-                                                    type="text"
-                                                    value={getCellValue(
-                                                        lot,
-                                                        'observations',
-                                                    )}
-                                                    disabled={
-                                                        isSaving || !canEdit
-                                                    }
-                                                    onChange={(e) =>
-                                                        setCellEdit(
+                                                        )}
+                                                        disabled={
+                                                            isSaving || !canEdit
+                                                        }
+                                                        onChange={(e) =>
+                                                            setCellEdit(
+                                                                lot,
+                                                                'contract_number',
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        className={inputClass}
+                                                        style={{
+                                                            minWidth: '6rem',
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="border border-border px-1 py-0.5 align-middle">
+                                                    <input
+                                                        type="date"
+                                                        value={
+                                                            getCellValue(
+                                                                lot,
+                                                                'notarial_transfer_date',
+                                                            )
+                                                                ? toDateStr(
+                                                                      getCellValue(
+                                                                          lot,
+                                                                          'notarial_transfer_date',
+                                                                      ),
+                                                                  )
+                                                                : ''
+                                                        }
+                                                        disabled={
+                                                            isSaving || !canEdit
+                                                        }
+                                                        onChange={(e) =>
+                                                            setCellEdit(
+                                                                lot,
+                                                                'notarial_transfer_date',
+                                                                e.target
+                                                                    .value ||
+                                                                    null,
+                                                            )
+                                                        }
+                                                        className={inputClass}
+                                                        style={{
+                                                            minWidth: '7rem',
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="border border-border px-1 py-0.5 align-middle">
+                                                    <input
+                                                        type="text"
+                                                        value={getCellValue(
                                                             lot,
                                                             'observations',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    className={inputClass}
-                                                    style={{ minWidth: '8rem' }}
-                                                    title={
-                                                        lot.observations ?? ''
-                                                    }
-                                                />
-                                            </td>
-                                            <td className="border border-border px-1 py-0.5 align-middle">
-                                                <div className="flex items-center justify-center gap-0.5">
-                                                    {canEdit && (
+                                                        )}
+                                                        disabled={
+                                                            isSaving || !canEdit
+                                                        }
+                                                        onChange={(e) =>
+                                                            setCellEdit(
+                                                                lot,
+                                                                'observations',
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        className={inputClass}
+                                                        style={{
+                                                            minWidth: '8rem',
+                                                        }}
+                                                        title={
+                                                            lot.observations ??
+                                                            ''
+                                                        }
+                                                    />
+                                                </td>
+                                                <td className="border border-border px-1 py-0.5 align-middle">
+                                                    <div className="flex items-center justify-center gap-0.5">
+                                                        {canEdit && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6"
+                                                                disabled={
+                                                                    isSaving
+                                                                }
+                                                                onClick={() =>
+                                                                    updateLot(
+                                                                        lot,
+                                                                        buildRowPayloadForSave(
+                                                                            lot,
+                                                                        ),
+                                                                    )
+                                                                }
+                                                                title="Guardar cambios"
+                                                            >
+                                                                <Save className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        )}
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
                                                             className="h-6 w-6"
-                                                            disabled={isSaving}
-                                                            onClick={() =>
-                                                                updateLot(
-                                                                    lot,
-                                                                    buildRowPayloadForSave(
-                                                                        lot,
-                                                                    ),
-                                                                )
-                                                            }
-                                                            title="Guardar cambios"
+                                                            asChild
                                                         >
-                                                            <Save className="h-3.5 w-3.5" />
+                                                            <Link
+                                                                href={`/inmopro/lots/${lot.id}`}
+                                                                title="Ver detalle"
+                                                            >
+                                                                <Eye className="h-3.5 w-3.5" />
+                                                            </Link>
                                                         </Button>
-                                                    )}
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-6 w-6"
-                                                        asChild
-                                                    >
-                                                        <Link
-                                                            href={`/inmopro/lots/${lot.id}`}
-                                                            title="Ver detalle"
-                                                        >
-                                                            <Eye className="h-3.5 w-3.5" />
-                                                        </Link>
-                                                    </Button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                )}
             </CardContent>
         </Card>
     );

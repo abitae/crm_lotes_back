@@ -1,8 +1,20 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
-import { Search, MapPin, UserPlus, Info, Eye, Pencil, FileDown } from 'lucide-react';
-import { formatDate } from '@/lib/date';
-import AppLayout from '@/layouts/app-layout';
+﻿import { Head, Link, router } from '@inertiajs/react';
+import {
+    Banknote,
+    Building2,
+    ExternalLink,
+    FileDown,
+    Info,
+    MapPin,
+    Pencil,
+    Ruler,
+    Search,
+    UserRound,
+    type LucideIcon,
+} from 'lucide-react';
+import { type ReactNode, useState } from 'react';
+import { ProjectLocationLink } from '@/components/inmopro/project-location-link';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -10,11 +22,19 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { formatDate } from '@/lib/date';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 type LotStatus = { id: number; name: string; code: string; color: string };
-type Project = { id: number; name: string; blocks: string[] };
+type Project = {
+    id: number;
+    name: string;
+    blocks: string[];
+    location?: string | null;
+    maps_url?: string | null;
+    location_label?: string | null;
+};
 type Lot = {
     id: number;
     block: string;
@@ -32,460 +52,784 @@ type Lot = {
     operation_number?: string;
     contract_date?: string;
     contract_number?: string;
+    notarial_transfer_date?: string;
     observations?: string;
     status: LotStatus;
     client?: { id: number; name: string };
     advisor?: { id: number; name: string };
 };
-type Client = { id: number; name: string; dni: string; phone: string; email?: string };
-type Advisor = { id: number; name: string; email: string; level?: { name: string } };
+
+const currencyFormatter = new Intl.NumberFormat('es-PE', {
+    currency: 'PEN',
+    maximumFractionDigits: 0,
+    style: 'currency',
+});
+
+const numberFormatter = new Intl.NumberFormat('es-PE', {
+    maximumFractionDigits: 1,
+});
 
 const compareLotNumbers = (a: string, b: string): number =>
     a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' });
+
+function formatMoney(value?: string): string {
+    if (value == null || value === '') {
+        return 'â€”';
+    }
+
+    return currencyFormatter.format(Number(value));
+}
+
+function formatArea(value?: string): string {
+    if (value == null || value === '') {
+        return 'â€”';
+    }
+
+    return `${numberFormatter.format(Number(value))} mÂ²`;
+}
+
+function isLikelyUrl(value?: string | null): boolean {
+    return Boolean(value && /^https?:\/\//i.test(value));
+}
+
+function googleMapsEmbedUrl(
+    location?: string | null,
+    mapsUrl?: string | null,
+    projectName?: string,
+): string | null {
+    const source = mapsUrl || location;
+
+    if (!source) {
+        return null;
+    }
+
+    const fallbackQuery =
+        location && !isLikelyUrl(location) ? location : projectName;
+
+    try {
+        const url = new URL(source);
+
+        if (
+            url.hostname.includes('google.') ||
+            url.hostname === 'maps.google.com'
+        ) {
+            const query =
+                url.searchParams.get('query') || url.searchParams.get('q');
+
+            if (query) {
+                return `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+            }
+
+            if (url.pathname.includes('/maps')) {
+                const placeMatch = url.pathname.match(/\/maps\/place\/([^/]+)/);
+
+                if (placeMatch?.[1]) {
+                    return `https://www.google.com/maps?q=${encodeURIComponent(decodeURIComponent(placeMatch[1].replace(/\+/g, ' ')))}&output=embed`;
+                }
+
+                url.searchParams.set('output', 'embed');
+
+                return url.toString();
+            }
+        }
+    } catch {
+        // Las ubicaciones en texto o coordenadas se resuelven abajo.
+    }
+
+    if (!isLikelyUrl(source)) {
+        return `https://www.google.com/maps?q=${encodeURIComponent(source)}&output=embed`;
+    }
+
+    if (fallbackQuery) {
+        return `https://www.google.com/maps?q=${encodeURIComponent(fallbackQuery)}&output=embed`;
+    }
+
+    return `https://www.google.com/maps?q=${encodeURIComponent(source)}&output=embed`;
+}
+
+function uniqueBlocks(project: Project, lots: Lot[]): string[] {
+    const fromProject = project.blocks ?? [];
+    const fromLots = Array.from(new Set(lots.map((lot) => lot.block)));
+
+    return (fromProject.length > 0 ? fromProject : fromLots).sort((a, b) =>
+        a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' }),
+    );
+}
 
 export default function Inventory({
     projects,
     project,
     lots,
     lotStatuses,
-    clients,
-    advisors,
 }: {
     projects: Project[];
     project: Project | null;
     lots: Lot[];
     lotStatuses: LotStatus[];
-    clients: Client[];
-    advisors: Advisor[];
 }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedLot, setSelectedLot] = useState<Lot | null>(null);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
-    const freeCount = lots.filter((lot) => lot.status.code === 'LIBRE').length;
-    const preReservedCount = lots.filter((lot) => lot.status.code === 'PRERESERVA').length;
-    const reservedCount = lots.filter((lot) => lot.status.code === 'RESERVADO').length;
-    const transferredCount = lots.filter((lot) => lot.status.code === 'TRANSFERIDO').length;
-    const installmentsCount = lots.filter((lot) => lot.status.code === 'CUOTAS').length;
 
-    const formatMoney = (v: string | undefined) => (v != null && v !== '' ? Number(v).toLocaleString('es') : '—');
+    const freeCount = lots.filter((lot) => lot.status.code === 'LIBRE').length;
+    const preReservedCount = lots.filter(
+        (lot) => lot.status.code === 'PRERESERVA',
+    ).length;
+    const reservedCount = lots.filter(
+        (lot) => lot.status.code === 'RESERVADO',
+    ).length;
+    const transferredCount = lots.filter(
+        (lot) => lot.status.code === 'TRANSFERIDO',
+    ).length;
+    const installmentsCount = lots.filter(
+        (lot) => lot.status.code === 'CUOTAS',
+    ).length;
+    const salesProgress =
+        lots.length > 0
+            ? Math.round(((transferredCount + installmentsCount) / lots.length) * 100)
+            : 0;
+    const mapEmbedUrl = project
+        ? googleMapsEmbedUrl(project.location, project.maps_url, project.name)
+        : null;
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
         { title: 'Inventario', href: '/inmopro/lots' },
     ];
 
-    const getStatusColor = (statusId: number) => {
-        const status = lotStatuses.find((s) => s.id === statusId);
-        if (!status) return 'bg-slate-200';
-
-        return 'hover:brightness-95';
-    };
-
     const filteredLots = lots.filter(
-        (l) =>
-            l.id.toString().includes(searchTerm) ||
-            l.number.toString().includes(searchTerm) ||
-            l.block.toLowerCase().includes(searchTerm.toLowerCase())
+        (lot) =>
+            lot.id.toString().includes(searchTerm) ||
+            lot.number.toString().includes(searchTerm) ||
+            lot.block.toLowerCase().includes(searchTerm.toLowerCase()),
     );
 
     const blockGroups = project
-        ? project.blocks.map((block) => ({
+        ? uniqueBlocks(project, filteredLots).map((block) => ({
               block,
-              lots: filteredLots.filter((l) => l.block === block).sort((a, b) => compareLotNumbers(a.number, b.number)),
+              lots: filteredLots
+                  .filter((lot) => lot.block === block)
+                  .sort((a, b) => compareLotNumbers(a.number, b.number)),
           }))
         : [];
+
+    const openLotSheet = (lot: Lot) => {
+        setSelectedLot(lot);
+        setDetailModalOpen(true);
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inventario - Inmopro" />
-            <div className="flex h-full flex-col gap-8 p-4 lg:flex-row">
-                <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-border bg-card text-card-foreground p-6 shadow-sm">
-                    {projects.length > 0 && (
-                        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end">
-                            <div className="flex-1">
-                                <label className="mb-2 block text-xs font-bold uppercase text-slate-500">
-                                    Proyecto
-                                </label>
-                                <select
-                                    value={project?.id ?? ''}
-                                    onChange={(e) => {
-                                        const id = e.target.value;
-                                        router.get('/inmopro/lots', id ? { project_id: id } : {});
-                                    }}
-                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500"
-                                >
-                                    {projects.map((p) => (
-                                        <option key={p.id} value={p.id}>
-                                            {p.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    )}
-                    {project && (
-                        <>
-                            <div className="mb-6 grid gap-4 md:grid-cols-5 xl:grid-cols-6">
-                                <InventoryMetric label="Lotes" value={String(lots.length)} />
-                                <InventoryMetric label="Libres" value={String(freeCount)} tone="emerald" />
-                                <InventoryMetric label="Pre-reserva" value={String(preReservedCount)} tone="sky" />
-                                <InventoryMetric label="Reservados" value={String(reservedCount)} tone="amber" />
-                                <InventoryMetric label="Transferidos" value={String(transferredCount)} tone="slate" />
-                                <InventoryMetric label="Cuotas" value={String(installmentsCount)} tone="violet" />
-                            </div>
-                            <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-                                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-tight text-slate-400">
-                                    {lotStatuses.map((s) => (
-                                        <div key={s.id} className="flex items-center gap-1.5">
-                                            <div
-                                                className="h-3 w-3 rounded"
-                                                style={{ backgroundColor: s.color }}
-                                            />
-                                            <span>{s.name}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                                <a
-                                    href={`/inmopro/lots/export-pdf?project_id=${project.id}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 rounded-xl border border-input bg-background px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-                                >
-                                    <FileDown className="h-4 w-4" />
-                                    Exportar PDF
-                                </a>
-                            </div>
-                            <div className="mb-8 flex flex-col gap-4 sm:flex-row">
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Buscar por número o manzana..."
-                                        className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 outline-none transition-all focus:border-emerald-500 focus:ring-emerald-500"
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                    />
-                                </div>
-                                <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-tight text-slate-400">
-                                    {lotStatuses.map((s) => (
-                                        <div key={s.id} className="flex items-center gap-1.5">
-                                            <div
-                                                className="h-3 w-3 rounded"
-                                                style={{ backgroundColor: s.color }}
-                                            />
-                                            <span>{s.name}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="flex-1 space-y-10 overflow-y-auto pr-2">
-                                {blockGroups.map(
-                                    ({ block, lots: blockLots }) =>
-                                        blockLots.length > 0 && (
-                                            <section key={block} className="space-y-4">
-                                                <div className="flex items-center gap-3 border-b border-slate-100 pb-2">
-                                                    <div className="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">
-                                                        MANZANA {block}
-                                                    </div>
-                                                    <span className="text-xs font-medium uppercase tracking-widest text-slate-400">
-                                                        {blockLots.length} Lotes
-                                                    </span>
-                                                </div>
-                                                <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-10 md:grid-cols-14 lg:grid-cols-18">
-                                                    {blockLots.map((lot) => (
-                                                        <button
-                                                            key={lot.id}
-                                                            type="button"
-                                                            onClick={() => setSelectedLot(lot)}
-                                                            className={`aspect-square flex flex-col items-center justify-center rounded-md p-0.5 text-white shadow-sm transition-all hover:scale-105 active:scale-95 ${getStatusColor(lot.lot_status_id)} ${selectedLot?.id === lot.id ? 'z-10 ring-2 ring-emerald-400 ring-offset-1' : ''}`}
-                                                            style={{ backgroundColor: lot.status.color || '#cbd5e1' }}
-                                                        >
-                                                            <span className="text-[10px] font-black leading-none">
-                                                                {lot.number}
-                                                            </span>
-                                                            <span className="text-[7px] font-bold uppercase opacity-80">
-                                                                {lot.area}m²
-                                                            </span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </section>
-                                        )
-                                )}
-                            </div>
-                        </>
-                    )}
-                    {!project && (
-                        <div className="flex flex-1 items-center justify-center text-slate-500">
-                            <p>Seleccione un proyecto desde la barra superior.</p>
-                        </div>
-                    )}
-                </div>
 
-                <div className="w-full shrink-0 lg:w-96">
-                    {selectedLot ? (
-                        <div className="sticky top-8 overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm">
-                            <div
-                                className="h-2"
-                                style={{
-                                    backgroundColor:
-                                        lotStatuses.find((s) => s.id === selectedLot.lot_status_id)?.color ??
-                                        '#94a3b8',
-                                }}
-                            />
-                            <div className="p-6">
-                                <div className="mb-6">
-                                    <h3 className="text-2xl font-black leading-tight text-slate-800">
-                                        Lote {selectedLot.number}
-                                    </h3>
-                                    <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">
-                                        Manzana {selectedLot.block} • {project?.name}
+            <div className="min-h-full bg-[#fbf9f8] p-4 text-slate-950 md:p-6 dark:bg-slate-950 dark:text-white">
+                <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 xl:flex-row">
+                    <main className="min-w-0 flex-1 space-y-6">
+                        <section className="overflow-hidden rounded-2xl border border-white/70 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+                            <div className="flex flex-col gap-5 border-b border-slate-100 p-5 md:flex-row md:items-end md:justify-between dark:border-slate-800">
+                                <div className="min-w-0">
+                                    <p className="text-xs font-black tracking-[0.22em] text-emerald-600 uppercase dark:text-emerald-300">
+                                        Inventario comercial
                                     </p>
-                                </div>
-                                <div className="mb-8 grid grid-cols-2 gap-4">
-                                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                                        <p className="mb-1 text-[10px] font-bold uppercase text-slate-400">
-                                            Precio
-                                        </p>
-                                        <p className="text-lg font-black text-slate-800">
-                                            S/ {Number(selectedLot.price).toLocaleString()}
-                                        </p>
-                                    </div>
-                                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                                        <p className="mb-1 text-[10px] font-bold uppercase text-slate-400">
-                                            Área
-                                        </p>
-                                        <p className="text-lg font-black text-slate-800">
-                                            {selectedLot.area} m²
-                                        </p>
-                                    </div>
-                                </div>
-                                {(selectedLot.client_id || selectedLot.client_name) ? (
-                                    <div className="mb-8 space-y-4">
-                                        <h4 className="flex items-center gap-2 border-b border-slate-100 pb-2 text-xs font-black uppercase tracking-widest text-slate-900">
-                                            <UserPlus className="h-4 w-4 text-emerald-500" />
-                                            Asignación (solo si se reserva)
-                                        </h4>
-                                        <div className="space-y-3 rounded-xl bg-slate-50 p-4">
-                                            <div>
-                                                <p className="text-[10px] font-bold uppercase text-slate-400">
-                                                    Nombre cliente
-                                                </p>
-                                                <p className="text-sm font-bold text-slate-800">
-                                                    {selectedLot.client_name ?? selectedLot.client?.name ?? '-'}
-                                                </p>
-                                            </div>
-                                            {selectedLot.client_dni && (
-                                                <div>
-                                                    <p className="text-[10px] font-bold uppercase text-slate-400">
-                                                        DNI cliente
-                                                    </p>
-                                                    <p className="text-sm font-bold text-slate-800">{selectedLot.client_dni}</p>
-                                                </div>
-                                            )}
-                                            <div>
-                                                <p className="text-[10px] font-bold uppercase text-slate-400">
-                                                    Asesor
-                                                </p>
-                                                <p className="text-sm font-bold text-slate-800">
-                                                    {selectedLot.advisor?.name ?? '-'}
-                                                </p>
-                                            </div>
-                                            {(selectedLot.advance != null || selectedLot.remaining_balance != null) && (
-                                                <div className="grid grid-cols-2 gap-2 border-t border-slate-200 pt-3">
-                                                    <div>
-                                                        <p className="text-[10px] font-bold uppercase text-slate-400">Adelanto</p>
-                                                        <p className="text-sm font-bold text-slate-800">
-                                                            S/ {Number(selectedLot.advance || 0).toLocaleString()}
-                                                        </p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[10px] font-bold uppercase text-slate-400">Monto restante</p>
-                                                        <p className="text-sm font-bold text-slate-800">
-                                                            S/ {Number(selectedLot.remaining_balance || 0).toLocaleString()}
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                    <h1 className="mt-2 truncate text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+                                        {project?.name ?? 'Seleccione un proyecto'}
+                                    </h1>
+                                    {project && (
+                                        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                                            <span className="inline-flex items-center gap-1.5">
+                                                <Building2 className="h-4 w-4" />
+                                                {project.blocks?.length ?? 0} manzanas
+                                            </span>
+                                            <span>{lots.length} lotes registrados</span>
+                                            {project.maps_url && (
+                                                <ProjectLocationLink
+                                                    location={project.location}
+                                                    maps_url={project.maps_url}
+                                                    location_label={
+                                                        project.location_label
+                                                    }
+                                                    className="font-bold text-emerald-700 dark:text-emerald-300"
+                                                />
                                             )}
                                         </div>
-                                    </div>
-                                ) : (
-                                    <div className="mb-8 rounded-xl border border-emerald-100 bg-emerald-50 p-4">
-                                        <p className="flex items-start gap-2 text-xs font-medium text-emerald-700">
-                                            <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                                            Lote disponible. Puede reservar o transferir.
-                                        </p>
-                                    </div>
-                                )}
-                                <div>
-                                    <Button
-                                        variant="outline"
-                                        className="w-full"
-                                        onClick={() => setDetailModalOpen(true)}
-                                    >
-                                        <Eye className="h-4 w-4" />
-                                        Ver detalle
-                                    </Button>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                    {projects.length > 0 && (
+                                        <select
+                                            value={project?.id ?? ''}
+                                            onChange={(event) => {
+                                                const id = event.target.value;
+
+                                                router.get(
+                                                    '/inmopro/lots',
+                                                    id ? { project_id: id } : {},
+                                                );
+                                            }}
+                                            className="min-w-64 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:ring-emerald-500/20"
+                                        >
+                                            {projects.map((item) => (
+                                                <option
+                                                    key={item.id}
+                                                    value={item.id}
+                                                >
+                                                    {item.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+
+                                    {project && (
+                                        <a
+                                            href={`/inmopro/lots/export-pdf?project_id=${project.id}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#001b44] px-4 py-2 text-sm font-black text-white transition hover:bg-[#002f6f] dark:bg-emerald-500 dark:text-slate-950 dark:hover:bg-emerald-400"
+                                        >
+                                            <FileDown className="h-4 w-4" />
+                                            Exportar PDF
+                                        </a>
+                                    )}
                                 </div>
                             </div>
+
+                            {project ? (
+                                <div className="space-y-6 p-5">
+                                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+                                        <InventoryMetric
+                                            label="Lotes"
+                                            value={String(lots.length)}
+                                        />
+                                        <InventoryMetric
+                                            label="Libres"
+                                            value={String(freeCount)}
+                                            tone="emerald"
+                                        />
+                                        <InventoryMetric
+                                            label="Pre-reserva"
+                                            value={String(preReservedCount)}
+                                            tone="sky"
+                                        />
+                                        <InventoryMetric
+                                            label="Reservados"
+                                            value={String(reservedCount)}
+                                            tone="amber"
+                                        />
+                                        <InventoryMetric
+                                            label="Transferidos"
+                                            value={String(transferredCount)}
+                                            tone="blue"
+                                        />
+                                        <InventoryMetric
+                                            label="Avance"
+                                            value={`${salesProgress}%`}
+                                            tone="violet"
+                                        />
+                                    </div>
+
+                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                        <div className="relative min-w-0 flex-1">
+                                            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar por lote o manzana..."
+                                                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pr-4 pl-10 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500 dark:focus:ring-emerald-500/20"
+                                                value={searchTerm}
+                                                onChange={(event) =>
+                                                    setSearchTerm(
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center gap-3 text-xs font-black tracking-wide text-slate-500 uppercase dark:text-slate-400">
+                                            {lotStatuses.map((status) => (
+                                                <div
+                                                    key={status.id}
+                                                    className="flex items-center gap-1.5"
+                                                >
+                                                    <span
+                                                        className="h-3 w-3 rounded"
+                                                        style={{
+                                                            backgroundColor:
+                                                                status.color,
+                                                        }}
+                                                    />
+                                                    <span>{status.name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="max-h-[64vh] space-y-8 overflow-y-auto pr-1">
+                                        {blockGroups.map(
+                                            ({ block, lots: blockLots }) =>
+                                                blockLots.length > 0 && (
+                                                    <section
+                                                        key={block}
+                                                        className="space-y-4"
+                                                    >
+                                                        <div className="flex items-center gap-3 border-b border-slate-100 pb-2 dark:border-slate-800">
+                                                            <div className="rounded-full bg-[#001b44] px-3 py-1 text-xs font-black text-white dark:bg-emerald-500 dark:text-slate-950">
+                                                                MANZANA {block}
+                                                            </div>
+                                                            <span className="text-xs font-bold tracking-[0.18em] text-slate-400 uppercase dark:text-slate-500">
+                                                                {blockLots.length}{' '}
+                                                                lotes
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-[repeat(auto-fill,minmax(46px,1fr))] gap-2">
+                                                            {blockLots.map(
+                                                                (lot) => (
+                                                                    <button
+                                                                        key={
+                                                                            lot.id
+                                                                        }
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            openLotSheet(
+                                                                                lot,
+                                                                            )
+                                                                        }
+                                                                        className={`aspect-square rounded-lg p-1 text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:outline-none dark:focus:ring-offset-slate-950 ${
+                                                                            selectedLot?.id ===
+                                                                            lot.id
+                                                                                ? 'ring-2 ring-emerald-400 ring-offset-2 dark:ring-offset-slate-950'
+                                                                                : ''
+                                                                        }`}
+                                                                        style={{
+                                                                            backgroundColor:
+                                                                                lot
+                                                                                    .status
+                                                                                    .color ||
+                                                                                '#64748b',
+                                                                        }}
+                                                                    >
+                                                                        <span className="block text-[11px] font-black leading-none">
+                                                                            {
+                                                                                lot.number
+                                                                            }
+                                                                        </span>
+                                                                        <span className="mt-1 block truncate text-[8px] font-bold opacity-85">
+                                                                            {
+                                                                                lot.area
+                                                                            }
+                                                                            mÂ²
+                                                                        </span>
+                                                                    </button>
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                    </section>
+                                                ),
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex min-h-[420px] items-center justify-center p-10 text-center text-slate-500 dark:text-slate-400">
+                                    Seleccione un proyecto para ver el inventario.
+                                </div>
+                            )}
+                        </section>
+                    </main>
+
+                    <aside className="w-full shrink-0 xl:w-[430px]">
+                        <div className="sticky top-6 space-y-5">
+                            <ProjectMapCard
+                                project={project}
+                                mapEmbedUrl={mapEmbedUrl}
+                            />
+
+                            <SelectedLotSummary
+                                lot={selectedLot}
+                                project={project}
+                                onOpen={() => setDetailModalOpen(true)}
+                            />
                         </div>
-                    ) : (
-                        <div className="flex h-[500px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 p-10 text-center">
-                            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm">
-                                <MapPin className="h-8 w-8 text-slate-300" />
-                            </div>
-                            <h4 className="mb-2 font-black uppercase tracking-tight text-slate-800">
-                                Mapa Interactivo
-                            </h4>
-                            <p className="mx-auto max-w-[200px] text-sm leading-relaxed text-slate-400">
-                                Seleccione un lote para ver su ficha.
-                            </p>
-                        </div>
-                    )}
+                    </aside>
                 </div>
             </div>
 
-            <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
-                <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto sm:max-w-2xl">
-                    {selectedLot && (
-                        <>
-                            <DialogHeader>
-                                <DialogTitle>
-                                    Lote {selectedLot.block}-{selectedLot.number}
-                                </DialogTitle>
-                                <p className="text-sm text-slate-500">{project?.name}</p>
-                            </DialogHeader>
-                            <div className="space-y-6 py-2">
-                                <div className="grid gap-6 sm:grid-cols-2">
-                                    <div>
-                                        <h3 className="mb-3 font-bold text-slate-700">Identificación</h3>
-                                        <dl className="space-y-2 text-sm">
-                                            <div>
-                                                <dt className="text-slate-500">Estado</dt>
-                                                <dd>
-                                                    <span
-                                                        className="inline-block rounded-full px-2 py-0.5 text-xs font-medium text-white"
-                                                        style={{
-                                                            backgroundColor:
-                                                                lotStatuses.find((s) => s.id === selectedLot.lot_status_id)?.color ?? '#94a3b8',
-                                                        }}
-                                                    >
-                                                        {lotStatuses.find((s) => s.id === selectedLot.lot_status_id)?.name ?? '—'}
-                                                    </span>
-                                                </dd>
-                                            </div>
-                                            <div>
-                                                <dt className="text-slate-500">Área (m²)</dt>
-                                                <dd className="font-medium">{selectedLot.area ?? '—'}</dd>
-                                            </div>
-                                            <div>
-                                                <dt className="text-slate-500">Precio</dt>
-                                                <dd className="font-medium">{formatMoney(selectedLot.price)}</dd>
-                                            </div>
-                                        </dl>
-                                    </div>
-                                    <div>
-                                        <h3 className="mb-3 font-bold text-slate-700">Finanzas / Reserva</h3>
-                                        <dl className="space-y-2 text-sm">
-                                            <div>
-                                                <dt className="text-slate-500">Adelanto</dt>
-                                                <dd className="font-medium">{formatMoney(selectedLot.advance)}</dd>
-                                            </div>
-                                            <div>
-                                                <dt className="text-slate-500">Monto restante</dt>
-                                                <dd className="font-medium">{formatMoney(selectedLot.remaining_balance)}</dd>
-                                            </div>
-                                            <div>
-                                                <dt className="text-slate-500">Fecha límite de pago</dt>
-                                                <dd className="font-medium">{formatDate(selectedLot.payment_limit_date)}</dd>
-                                            </div>
-                                            <div>
-                                                <dt className="text-slate-500">N° operación / Contrato</dt>
-                                                <dd className="font-medium">
-                                                    {selectedLot.operation_number ?? '—'} / {selectedLot.contract_number ?? '—'}
-                                                </dd>
-                                            </div>
-                                            <div>
-                                                <dt className="text-slate-500">Fecha de contrato</dt>
-                                                <dd className="font-medium">{formatDate(selectedLot.contract_date)}</dd>
-                                            </div>
-                                        </dl>
-                                    </div>
-                                </div>
-                                <div className="border-t border-slate-200 pt-4">
-                                    <h3 className="mb-3 font-bold text-slate-700">Asignaciones</h3>
-                                    <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                                        <div>
-                                            <dt className="text-slate-500">Cliente</dt>
-                                            <dd className="font-medium">
-                                                {selectedLot.client_id || selectedLot.client_name ? (
-                                                    selectedLot.client?.id ? (
-                                                        <Link
-                                                            href={`/inmopro/clients/${selectedLot.client.id}`}
-                                                            className="text-emerald-600 hover:underline"
-                                                            onClick={() => setDetailModalOpen(false)}
-                                                        >
-                                                            {selectedLot.client_name ?? selectedLot.client.name}
-                                                        </Link>
-                                                    ) : (
-                                                        <span>{selectedLot.client_name ?? selectedLot.client?.name ?? '—'}</span>
-                                                    )
-                                                ) : (
-                                                    '—'
-                                                )}
-                                            </dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-slate-500">DNI</dt>
-                                            <dd className="font-medium">{selectedLot.client_dni ?? '—'}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-slate-500">Asesor</dt>
-                                            <dd className="font-medium">
-                                                {selectedLot.advisor_id ? (
-                                                    selectedLot.advisor?.id ? (
-                                                        <Link
-                                                            href={`/inmopro/advisors/${selectedLot.advisor.id}`}
-                                                            className="text-emerald-600 hover:underline"
-                                                            onClick={() => setDetailModalOpen(false)}
-                                                        >
-                                                            {selectedLot.advisor.name}
-                                                        </Link>
-                                                    ) : (
-                                                        <span>{selectedLot.advisor?.name ?? '—'}</span>
-                                                    )
-                                                ) : (
-                                                    '—'
-                                                )}
-                                            </dd>
-                                        </div>
-                                    </dl>
-                                </div>
-                                {selectedLot.observations && (
-                                    <div className="border-t border-slate-200 pt-4">
-                                        <h3 className="mb-2 font-bold text-slate-700">Observaciones</h3>
-                                        <p className="whitespace-pre-wrap text-sm text-slate-600">{selectedLot.observations}</p>
-                                    </div>
-                                )}
-                            </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setDetailModalOpen(false)}>
-                                    Cerrar
-                                </Button>
-                                <Button asChild>
-                                    <Link href={`/inmopro/lots/${selectedLot.id}/edit`}>
-                                        <Pencil className="h-4 w-4" />
-                                        Editar
-                                    </Link>
-                                </Button>
-                            </DialogFooter>
-                        </>
-                    )}
-                </DialogContent>
-            </Dialog>
+            <LotDetailDialog
+                open={detailModalOpen}
+                onOpenChange={setDetailModalOpen}
+                lot={selectedLot}
+                project={project}
+                lotStatuses={lotStatuses}
+            />
         </AppLayout>
     );
 }
+
+function ProjectMapCard({
+    project,
+    mapEmbedUrl,
+}: {
+    project: Project | null;
+    mapEmbedUrl: string | null;
+}) {
+    return (
+        <section className="overflow-hidden rounded-2xl border border-white/70 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+            <div className="flex items-start justify-between gap-4 p-5">
+                <div>
+                    <p className="text-xs font-black tracking-[0.22em] text-emerald-600 uppercase dark:text-emerald-300">
+                        Mapa del proyecto
+                    </p>
+                    <h2 className="mt-2 text-xl font-black text-slate-950 dark:text-white">
+                        UbicaciÃ³n en Google Maps
+                    </h2>
+                </div>
+                <div className="rounded-xl bg-emerald-50 p-3 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                    <MapPin className="h-5 w-5" />
+                </div>
+            </div>
+
+            <div className="relative mx-5 h-[320px] overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-950">
+                {mapEmbedUrl ? (
+                    <iframe
+                        src={mapEmbedUrl}
+                        title={`Mapa de ${project?.name ?? 'proyecto'}`}
+                        className="absolute inset-0 h-full w-full border-0"
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                    />
+                ) : (
+                    <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+                        <MapPin className="mb-4 h-9 w-9 text-slate-300 dark:text-slate-700" />
+                        <p className="font-black text-slate-700 dark:text-slate-200">
+                            Sin ubicaciÃ³n registrada
+                        </p>
+                        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                            Agregue coordenadas o una ubicaciÃ³n al proyecto para
+                            mostrar el mapa.
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            <div className="p-5">
+                {project?.maps_url ? (
+                    <ProjectLocationLink
+                        location={project.location}
+                        maps_url={project.maps_url}
+                        location_label={project.location_label}
+                        className="font-black text-emerald-700 dark:text-emerald-300"
+                    />
+                ) : (
+                    <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                        El mapa aparecerÃ¡ cuando el proyecto tenga ubicaciÃ³n.
+                    </p>
+                )}
+            </div>
+        </section>
+    );
+}
+
+function SelectedLotSummary({
+    lot,
+    project,
+    onOpen,
+}: {
+    lot: Lot | null;
+    project: Project | null;
+    onOpen: () => void;
+}) {
+    if (!lot) {
+        return (
+            <section className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-6 text-center dark:border-slate-800 dark:bg-slate-900/70">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-950 dark:text-slate-600">
+                    <Info className="h-6 w-6" />
+                </div>
+                <p className="font-black text-slate-800 dark:text-slate-100">
+                    Seleccione un lote
+                </p>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                    Al presionar un lote se abrirÃ¡ su ficha completa.
+                </p>
+            </section>
+        );
+    }
+
+    return (
+        <section className="overflow-hidden rounded-2xl border border-white/70 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.08)] dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+            <div
+                className="h-2"
+                style={{ backgroundColor: lot.status.color || '#64748b' }}
+            />
+            <div className="space-y-5 p-5">
+                <div>
+                    <p className="text-xs font-black tracking-[0.22em] text-slate-400 uppercase dark:text-slate-500">
+                        Ãšltima ficha consultada
+                    </p>
+                    <h3 className="mt-2 text-2xl font-black text-slate-950 dark:text-white">
+                        Lote {lot.block}-{lot.number}
+                    </h3>
+                    <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                        {project?.name}
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                    <MiniStat label="Precio" value={formatMoney(lot.price)} />
+                    <MiniStat label="Ãrea" value={formatArea(lot.area)} />
+                </div>
+
+                <Button
+                    type="button"
+                    className="w-full bg-[#001b44] font-black text-white hover:bg-[#002f6f] dark:bg-emerald-500 dark:text-slate-950 dark:hover:bg-emerald-400"
+                    onClick={onOpen}
+                >
+                    Ver ficha
+                    <ExternalLink className="h-4 w-4" />
+                </Button>
+            </div>
+        </section>
+    );
+}
+
+function LotDetailDialog({
+    open,
+    onOpenChange,
+    lot,
+    project,
+    lotStatuses,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    lot: Lot | null;
+    project: Project | null;
+    lotStatuses: LotStatus[];
+}) {
+    const status = lotStatuses.find((item) => item.id === lot?.lot_status_id);
+    const clientName = lot?.client_name ?? lot?.client?.name ?? null;
+    const advisorName = lot?.advisor?.name ?? null;
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="flex max-h-[94vh] w-[min(100vw-1rem,82rem)] max-w-none flex-col overflow-hidden border-slate-200 bg-white p-0 dark:border-slate-800 dark:bg-slate-950">
+                {lot && (
+                    <>
+                        <div className="shrink-0 border-b border-slate-100 bg-[#fbf9f8] p-5 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+                            <DialogHeader className="space-y-4">
+                                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                    <div>
+                                        <p className="text-xs font-black tracking-[0.22em] text-emerald-600 uppercase dark:text-emerald-300">
+                                            Ficha del lote
+                                        </p>
+                                        <DialogTitle className="mt-2 text-3xl font-black text-slate-950 dark:text-white">
+                                            Lote {lot.block}-{lot.number}
+                                        </DialogTitle>
+                                        <p className="mt-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                                            {project?.name}
+                                        </p>
+                                        <div className="mt-4 flex flex-wrap gap-2 text-xs font-black uppercase tracking-wide">
+                                            <span className="rounded-full bg-white px-3 py-1 text-slate-600 shadow-sm dark:bg-slate-950 dark:text-slate-300">
+                                                Manzana {lot.block}
+                                            </span>
+                                            <span className="rounded-full bg-white px-3 py-1 text-slate-600 shadow-sm dark:bg-slate-950 dark:text-slate-300">
+                                                Lote {lot.number}
+                                            </span>
+                                            {clientName && (
+                                                <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                                                    Cliente asignado
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <span
+                                        className="inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-black tracking-wide text-white uppercase"
+                                        style={{
+                                            backgroundColor:
+                                                status?.color ?? '#64748b',
+                                        }}
+                                    >
+                                        {status?.name ?? 'Sin estado'}
+                                    </span>
+                                </div>
+                            </DialogHeader>
+                        </div>
+
+                        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5 sm:p-6">
+                            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                                <FichaMetric
+                                    icon={Banknote}
+                                    label="Precio"
+                                    value={formatMoney(lot.price)}
+                                />
+                                <FichaMetric
+                                    icon={Ruler}
+                                    label="Ãrea"
+                                    value={formatArea(lot.area)}
+                                />
+                                <FichaMetric
+                                    icon={Banknote}
+                                    label="Adelanto"
+                                    value={formatMoney(lot.advance)}
+                                />
+                                <FichaMetric
+                                    icon={Banknote}
+                                    label="Saldo"
+                                    value={formatMoney(lot.remaining_balance)}
+                                />
+                            </div>
+
+                            <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+                                <FichaPanel title="Datos del lote">
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <DetailRow label="Proyecto">
+                                            {project?.name ?? 'â€”'}
+                                        </DetailRow>
+                                        <DetailRow label="Estado">
+                                            <span
+                                                className="inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-black text-white"
+                                                style={{
+                                                    backgroundColor:
+                                                        status?.color ??
+                                                        '#64748b',
+                                                }}
+                                            >
+                                                {status?.name ?? 'Sin estado'}
+                                            </span>
+                                        </DetailRow>
+                                        <DetailRow label="Manzana">
+                                            {lot.block}
+                                        </DetailRow>
+                                        <DetailRow label="NÃºmero">
+                                            {lot.number}
+                                        </DetailRow>
+                                        <DetailRow label="Ãrea">
+                                            {formatArea(lot.area)}
+                                        </DetailRow>
+                                        <DetailRow label="Precio">
+                                            {formatMoney(lot.price)}
+                                        </DetailRow>
+                                    </div>
+                                </FichaPanel>
+
+                                <FichaPanel title="Resumen comercial">
+                                    <div className="space-y-3">
+                                        <DetailRow label="Adelanto">
+                                            {formatMoney(lot.advance)}
+                                        </DetailRow>
+                                        <DetailRow label="Saldo por cobrar">
+                                            {formatMoney(lot.remaining_balance)}
+                                        </DetailRow>
+                                        <DetailRow label="Avance">
+                                            {Number(lot.price || 0) > 0
+                                                ? `${Math.round((Number(lot.advance || 0) / Number(lot.price)) * 100)}% pagado`
+                                                : 'â€”'}
+                                        </DetailRow>
+                                    </div>
+                                </FichaPanel>
+                            </div>
+
+                            <div className="grid gap-5 xl:grid-cols-2">
+                                <FichaPanel title="Cliente y asesor">
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <DetailRow label="Cliente">
+                                            {lot.client_id || clientName ? (
+                                                lot.client?.id ? (
+                                                    <Link
+                                                        href={`/inmopro/clients/${lot.client.id}`}
+                                                        className="font-black text-emerald-700 hover:underline dark:text-emerald-300"
+                                                        onClick={() =>
+                                                            onOpenChange(false)
+                                                        }
+                                                    >
+                                                        {clientName}
+                                                    </Link>
+                                                ) : (
+                                                    clientName ?? 'â€”'
+                                                )
+                                            ) : (
+                                                'â€”'
+                                            )}
+                                        </DetailRow>
+                                        <DetailRow label="DNI">
+                                            {lot.client_dni ?? 'â€”'}
+                                        </DetailRow>
+                                        <DetailRow label="Asesor">
+                                            {lot.advisor_id &&
+                                            lot.advisor?.id ? (
+                                                <Link
+                                                    href={`/inmopro/advisors/${lot.advisor.id}`}
+                                                    className="font-black text-emerald-700 hover:underline dark:text-emerald-300"
+                                                    onClick={() =>
+                                                        onOpenChange(false)
+                                                    }
+                                                >
+                                                    {advisorName}
+                                                </Link>
+                                            ) : (
+                                                advisorName ?? 'â€”'
+                                            )}
+                                        </DetailRow>
+                                    </div>
+                                </FichaPanel>
+
+                                <FichaPanel title="OperaciÃ³n y contrato">
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <DetailRow label="Fecha lÃ­mite de pago">
+                                            {formatDate(
+                                                lot.payment_limit_date,
+                                            )}
+                                        </DetailRow>
+                                        <DetailRow label="NÂ° operaciÃ³n">
+                                            {lot.operation_number ?? 'â€”'}
+                                        </DetailRow>
+                                        <DetailRow label="Fecha de contrato">
+                                            {formatDate(lot.contract_date)}
+                                        </DetailRow>
+                                        <DetailRow label="NÂ° contrato">
+                                            {lot.contract_number ?? 'â€”'}
+                                        </DetailRow>
+                                        <DetailRow label="Transferencia notarial">
+                                            {formatDate(
+                                                lot.notarial_transfer_date,
+                                            )}
+                                        </DetailRow>
+                                    </div>
+                                </FichaPanel>
+                            </div>
+
+                            <FichaPanel title="Observaciones">
+                                <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-950">
+                                    <p className="min-h-24 whitespace-pre-wrap text-sm leading-6 font-medium text-slate-700 dark:text-slate-300">
+                                        {lot.observations ||
+                                            'Sin observaciones registradas.'}
+                                    </p>
+                                </div>
+                            </FichaPanel>
+                        </div>
+
+                        <DialogFooter className="shrink-0 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:px-6 dark:border-slate-800 dark:bg-slate-900">
+                            <Button
+                                variant="outline"
+                                onClick={() => onOpenChange(false)}
+                            >
+                                Cerrar
+                            </Button>
+                            <Button
+                                asChild
+                                className="bg-[#001b44] font-black text-white hover:bg-[#002f6f] dark:bg-emerald-500 dark:text-slate-950 dark:hover:bg-emerald-400"
+                            >
+                                <Link href={`/inmopro/lots/${lot.id}/edit`}>
+                                    <Pencil className="h-4 w-4" />
+                                    Editar lote
+                                </Link>
+                            </Button>
+                        </DialogFooter>
+                    </>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 
 function InventoryMetric({
     label,
@@ -494,21 +838,98 @@ function InventoryMetric({
 }: {
     label: string;
     value: string;
-    tone?: 'blue' | 'emerald' | 'amber' | 'slate' | 'sky' | 'violet';
+    tone?: 'blue' | 'emerald' | 'amber' | 'sky' | 'violet';
 }) {
     const tones = {
-        blue: 'text-blue-600',
-        emerald: 'text-emerald-600',
-        sky: 'text-sky-600',
-        amber: 'text-amber-600',
-        slate: 'text-slate-700',
-        violet: 'text-violet-600',
+        blue: 'text-blue-700 dark:text-blue-300',
+        emerald: 'text-emerald-700 dark:text-emerald-300',
+        sky: 'text-sky-700 dark:text-sky-300',
+        amber: 'text-amber-700 dark:text-amber-300',
+        violet: 'text-violet-700 dark:text-violet-300',
     };
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-            <p className={`mt-2 text-2xl font-black ${tones[tone]}`}>{value}</p>
+        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+            <p className="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase dark:text-slate-500">
+                {label}
+            </p>
+            <p className={`mt-2 text-2xl font-black ${tones[tone]}`}>
+                {value}
+            </p>
+        </div>
+    );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+            <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase dark:text-slate-500">
+                {label}
+            </p>
+            <p className="mt-1 text-base font-black text-slate-950 dark:text-white">
+                {value}
+            </p>
+        </div>
+    );
+}
+
+function FichaMetric({
+    icon: Icon,
+    label,
+    value,
+}: {
+    icon: LucideIcon;
+    label: string;
+    value: string;
+}) {
+    return (
+        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm dark:bg-slate-950 dark:text-emerald-300">
+                <Icon className="h-5 w-5" />
+            </div>
+            <p className="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase dark:text-slate-500">
+                {label}
+            </p>
+            <p className="mt-2 text-xl font-black text-slate-950 dark:text-white">
+                {value}
+            </p>
+        </div>
+    );
+}
+
+function FichaPanel({
+    title,
+    children,
+}: {
+    title: string;
+    children: ReactNode;
+}) {
+    return (
+        <section className="rounded-2xl border border-slate-100 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="mb-4 flex items-center gap-2 text-xs font-black tracking-[0.2em] text-slate-500 uppercase dark:text-slate-400">
+                <UserRound className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+                {title}
+            </h3>
+            <div className="space-y-3">{children}</div>
+        </section>
+    );
+}
+
+function DetailRow({
+    label,
+    children,
+}: {
+    label: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="flex flex-col gap-1 rounded-xl bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between dark:bg-slate-950">
+            <dt className="text-xs font-black tracking-wide text-slate-400 uppercase dark:text-slate-500">
+                {label}
+            </dt>
+            <dd className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                {children}
+            </dd>
         </div>
     );
 }

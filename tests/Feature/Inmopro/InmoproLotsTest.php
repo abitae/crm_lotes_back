@@ -43,11 +43,17 @@ class InmoproLotsTest extends TestCase
     public function test_authenticated_users_can_visit_lots_index(): void
     {
         $user = User::factory()->create();
+        $project = Project::query()->firstOrFail();
+        $project->update(['location' => '-12.069872155122834, -75.21095243577143']);
         $this->actingAs($user);
 
-        $response = $this->get(route('inmopro.lots.index'));
+        $response = $this->get(route('inmopro.lots.index', ['project_id' => $project->id]));
         $response->assertOk();
-        $response->assertInertia(fn ($page) => $page->component('inmopro/inventory')->has('lots'));
+        $response->assertInertia(fn ($page) => $page
+            ->component('inmopro/inventory')
+            ->has('lots')
+            ->where('project.maps_url', 'https://www.google.com/maps/search/?api=1&query=-12.069872155122834%2C%20-75.21095243577143')
+            ->where('project.location_label', 'Abrir en Google Maps'));
     }
 
     public function test_authenticated_users_can_create_lot_with_alphanumeric_number(): void
