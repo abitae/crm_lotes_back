@@ -58,6 +58,12 @@ class KnowledgeApiTest extends TestCase
         $ids = collect($response->json('data'))->pluck('id')->all();
         $this->assertNotContains($inactive->id, $ids);
         $this->assertGreaterThan(0, count($ids));
+
+        $first = $response->json('data.0');
+        $this->assertArrayHasKey('maps_url', $first);
+        if ($first['location'] ?? null) {
+            $this->assertStringContainsString('google.com/maps', (string) $first['maps_url']);
+        }
     }
 
     public function test_inactive_project_returns_not_found_on_knowledge_show(): void

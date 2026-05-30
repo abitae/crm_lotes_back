@@ -129,6 +129,7 @@ class ProjectKnowledgeService
             'id' => $project->id,
             'name' => $project->name,
             'location' => $project->location,
+            'maps_url' => $this->mapsUrlForLocation($project->location),
             'total_lots' => $project->total_lots,
             'lots_count' => $project->lots_count,
             'images_count' => $project->images_count ?? null,
@@ -167,6 +168,7 @@ class ProjectKnowledgeService
                 'id' => $lot->project->id,
                 'name' => $lot->project->name,
                 'location' => $lot->project->location,
+                'maps_url' => $this->mapsUrlForLocation($lot->project->location),
             ] : null,
             'status' => $lot->status ? [
                 'id' => $lot->status->id,
@@ -199,5 +201,16 @@ class ProjectKnowledgeService
     public function encodeForTool(array $data): string
     {
         return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    }
+
+    public function mapsUrlForLocation(?string $location): ?string
+    {
+        $query = is_string($location) ? trim($location) : '';
+
+        if ($query === '') {
+            return null;
+        }
+
+        return 'https://www.google.com/maps/search/?api=1&query='.rawurlencode($query);
     }
 }
