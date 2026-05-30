@@ -37,7 +37,7 @@ class ImportProjectPreviewRequest extends FormRequest
             'file.max' => 'El archivo no debe superar 10 MB.',
             'project_type_id.required' => 'Seleccione el tipo de proyecto.',
             'project_type_id.exists' => 'El tipo de proyecto seleccionado no es válido.',
-            'location.required' => 'Ingrese el enlace de Google Maps del proyecto.',
+            'location.required' => 'Ingrese el enlace de Google Maps o las coordenadas del proyecto.',
         ];
     }
 }

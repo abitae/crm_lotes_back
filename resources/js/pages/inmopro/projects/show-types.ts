@@ -1,4 +1,9 @@
-export type LotStatus = { id: number; name: string; code: string; color?: string };
+export type LotStatus = {
+    id: number;
+    name: string;
+    code: string;
+    color?: string;
+};
 export type Client = { id: number; name: string; dni?: string; phone?: string };
 export type Advisor = { id: number; name: string };
 export type ProjectAsset = {
@@ -9,6 +14,7 @@ export type ProjectAsset = {
     mime_type?: string;
     file_size?: number;
     download_url: string;
+    preview_url?: string | null;
 };
 
 export type Lot = {

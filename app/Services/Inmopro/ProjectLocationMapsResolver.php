@@ -48,6 +48,23 @@ class ProjectLocationMapsResolver
         return true;
     }
 
+    public function isCoordinatePair(string $value): bool
+    {
+        $value = trim($value);
+
+        if (! preg_match('/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/', $value, $matches)) {
+            return false;
+        }
+
+        $latitude = (float) $matches[1];
+        $longitude = (float) $matches[2];
+
+        return $latitude >= -90.0
+            && $latitude <= 90.0
+            && $longitude >= -180.0
+            && $longitude <= 180.0;
+    }
+
     public function resolveMapsUrl(?string $location): ?string
     {
         $location = is_string($location) ? trim($location) : '';
@@ -71,8 +88,8 @@ class ProjectLocationMapsResolver
             return null;
         }
 
-        if ($this->isGoogleMapsUrl($location)) {
-            return 'Ver en Google Maps';
+        if ($this->isGoogleMapsUrl($location) || $this->isCoordinatePair($location)) {
+            return 'Abrir en Google Maps';
         }
 
         return $location;

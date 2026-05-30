@@ -18,6 +18,8 @@ class ProjectLocationValidationTest extends TestCase
 
     private const VALID_MAPS_URL = 'https://www.google.com/maps/search/?api=1&query=Lima';
 
+    private const VALID_COORDINATES = '-12.046374,-77.042793';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -43,6 +45,28 @@ class ProjectLocationValidationTest extends TestCase
         $this->assertDatabaseHas('projects', [
             'name' => 'Proyecto Maps',
             'location' => self::VALID_MAPS_URL,
+        ]);
+    }
+
+    public function test_store_project_accepts_coordinate_pair_location(): void
+    {
+        $user = User::factory()->create();
+        $projectType = ProjectType::query()->firstOrFail();
+
+        $this->actingAs($user)
+            ->post(route('inmopro.projects.store'), [
+                'name' => 'Proyecto Coordenadas',
+                'project_type_id' => $projectType->id,
+                'location' => self::VALID_COORDINATES,
+                'total_lots' => 0,
+                'blocks' => [],
+                'is_active' => true,
+            ])
+            ->assertRedirect(route('inmopro.projects.index'));
+
+        $this->assertDatabaseHas('projects', [
+            'name' => 'Proyecto Coordenadas',
+            'location' => self::VALID_COORDINATES,
         ]);
     }
 
@@ -76,6 +100,29 @@ class ProjectLocationValidationTest extends TestCase
             ->assertSessionHasErrors('location');
     }
 
+    public function test_update_project_accepts_coordinate_pair_location(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::query()->create([
+            'name' => 'Proyecto Legacy',
+            'location' => self::VALID_MAPS_URL,
+            'total_lots' => 10,
+            'blocks' => ['A'],
+        ]);
+
+        $this->actingAs($user)
+            ->put(route('inmopro.projects.update', $project), [
+                'name' => $project->name,
+                'location' => self::VALID_COORDINATES,
+            ])
+            ->assertRedirect(route('inmopro.projects.index'));
+
+        $this->assertDatabaseHas('projects', [
+            'id' => $project->id,
+            'location' => self::VALID_COORDINATES,
+        ]);
+    }
+
     public function test_import_preview_requires_valid_google_maps_url(): void
     {
         $user = User::factory()->create();
@@ -105,6 +152,22 @@ class ProjectLocationValidationTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('project.location', self::VALID_MAPS_URL);
+    }
+
+    public function test_import_preview_accepts_coordinate_pair_location(): void
+    {
+        $user = User::factory()->create();
+        $projectType = ProjectType::query()->firstOrFail();
+        $file = $this->makeSpreadsheetFile();
+
+        $this->actingAs($user)
+            ->post(route('inmopro.projects.import-preview'), [
+                'file' => $file,
+                'project_type_id' => $projectType->id,
+                'location' => self::VALID_COORDINATES,
+            ])
+            ->assertOk()
+            ->assertJsonPath('project.location', self::VALID_COORDINATES);
     }
 
     private function makeSpreadsheetFile(): UploadedFile

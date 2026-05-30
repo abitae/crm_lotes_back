@@ -1,5 +1,8 @@
 import { MapPin } from 'lucide-react';
-import { projectLocationLinkLabel, type ProjectLocationFields } from '@/lib/project-location';
+import {
+    projectLocationLinkLabel,
+    type ProjectLocationFields,
+} from '@/lib/project-location';
 import { cn } from '@/lib/utils';
 
 type ProjectLocationLinkProps = ProjectLocationFields & {
@@ -20,8 +23,18 @@ export function ProjectLocationLink({
         }
 
         return (
-            <span className={cn('inline-flex items-center gap-1.5 text-sm text-slate-500', className)}>
-                <MapPin className={cn('h-4 w-4 text-slate-400', iconClassName)} />
+            <span
+                className={cn(
+                    'inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400',
+                    className,
+                )}
+            >
+                <MapPin
+                    className={cn(
+                        'h-4 w-4 text-slate-400 dark:text-slate-500',
+                        iconClassName,
+                    )}
+                />
                 {location}
             </span>
         );
@@ -34,10 +47,16 @@ export function ProjectLocationLink({
             rel="noopener noreferrer"
             className={cn(
                 'inline-flex items-center gap-1.5 text-sm text-slate-500 transition-colors hover:text-emerald-700',
+                'dark:text-slate-400 dark:hover:text-emerald-300',
                 className,
             )}
         >
-            <MapPin className={cn('h-4 w-4 text-slate-400', iconClassName)} />
+            <MapPin
+                className={cn(
+                    'h-4 w-4 text-slate-400 dark:text-slate-500',
+                    iconClassName,
+                )}
+            />
             {projectLocationLinkLabel({ location, maps_url, location_label })}
         </a>
     );

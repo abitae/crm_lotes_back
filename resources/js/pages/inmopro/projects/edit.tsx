@@ -50,24 +50,26 @@ export default function ProjectsEdit({
     const blocks = project.blocks ?? [];
     const [blockInput, setBlockInput] = useState('');
     const [blocksList, setBlocksList] = useState<string[]>(blocks);
-    const { data, setData, post, processing, errors, transform } = useForm<ProjectEditForm>({
-        name: project.name,
-        project_type_id: project.project_type_id ?? '',
-        location: project.location ?? '',
-        total_lots: project.total_lots ?? ('' as number | ''),
-        blocks: blocksList,
-        is_active: project.is_active ?? true,
-        image_files: [],
-        document_files: [],
-        document_titles: [],
-    });
+    const { data, setData, post, processing, errors, transform } =
+        useForm<ProjectEditForm>({
+            name: project.name,
+            project_type_id: project.project_type_id ?? '',
+            location: project.location ?? '',
+            total_lots: project.total_lots ?? ('' as number | ''),
+            blocks: blocksList,
+            is_active: project.is_active ?? true,
+            image_files: [],
+            document_files: [],
+            document_titles: [],
+        });
 
     const existingImages = useMemo(
         () => (project.assets ?? []).filter((asset) => asset.kind === 'image'),
         [project.assets],
     );
     const existingDocuments = useMemo(
-        () => (project.assets ?? []).filter((asset) => asset.kind === 'document'),
+        () =>
+            (project.assets ?? []).filter((asset) => asset.kind === 'document'),
         [project.assets],
     );
 
@@ -82,7 +84,9 @@ export default function ProjectsEdit({
 
     useEffect(() => {
         return () => {
-            pendingImagePreviews.forEach((preview) => URL.revokeObjectURL(preview.url));
+            pendingImagePreviews.forEach((preview) =>
+                URL.revokeObjectURL(preview.url),
+            );
         };
     }, [pendingImagePreviews]);
 
@@ -127,8 +131,12 @@ export default function ProjectsEdit({
         e.preventDefault();
         transform((formData) => ({
             ...formData,
-            project_type_id: formData.project_type_id === '' ? null : Number(formData.project_type_id),
-            total_lots: formData.total_lots === '' ? null : Number(formData.total_lots),
+            project_type_id:
+                formData.project_type_id === ''
+                    ? null
+                    : Number(formData.project_type_id),
+            total_lots:
+                formData.total_lots === '' ? null : Number(formData.total_lots),
             _method: 'put',
         }));
         post('/inmopro/projects/' + project.id, { forceFormData: true });
@@ -138,19 +146,35 @@ export default function ProjectsEdit({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Editar ${project.name} - Inmopro`} />
             <div className="p-4">
-                <h2 className="mb-6 text-2xl font-black text-slate-800">Editar Proyecto</h2>
+                <h2 className="mb-6 text-2xl font-black text-slate-800">
+                    Editar Proyecto
+                </h2>
                 <form onSubmit={submit} className="max-w-2xl space-y-4">
                     <div>
                         <Label htmlFor="name">Nombre</Label>
-                        <Input id="name" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1" />
+                        <Input
+                            id="name"
+                            value={data.name}
+                            onChange={(e) => setData('name', e.target.value)}
+                            className="mt-1"
+                        />
                         <InputError message={errors.name} />
                     </div>
                     <div>
-                        <Label htmlFor="project_type_id">Tipo de proyecto</Label>
+                        <Label htmlFor="project_type_id">
+                            Tipo de proyecto
+                        </Label>
                         <select
                             id="project_type_id"
                             value={data.project_type_id}
-                            onChange={(e) => setData('project_type_id', e.target.value === '' ? '' : Number(e.target.value))}
+                            onChange={(e) =>
+                                setData(
+                                    'project_type_id',
+                                    e.target.value === ''
+                                        ? ''
+                                        : Number(e.target.value),
+                                )
+                            }
                             className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
                         >
                             <option value="">Sin tipo</option>
@@ -166,10 +190,12 @@ export default function ProjectsEdit({
                         <ProjectLocationFieldHelp htmlFor="location" />
                         <Input
                             id="location"
-                            type="url"
+                            type="text"
                             value={data.location}
-                            onChange={(e) => setData('location', e.target.value)}
-                            placeholder="https://maps.app.goo.gl/..."
+                            onChange={(e) =>
+                                setData('location', e.target.value)
+                            }
+                            placeholder="-12.046374,-77.042793"
                             className="mt-1"
                         />
                         <InputError message={errors.location} />
@@ -179,7 +205,9 @@ export default function ProjectsEdit({
                             id="is_active"
                             type="checkbox"
                             checked={data.is_active}
-                            onChange={(e) => setData('is_active', e.target.checked)}
+                            onChange={(e) =>
+                                setData('is_active', e.target.checked)
+                            }
                             className="h-4 w-4 rounded border-slate-300"
                         />
                         <Label htmlFor="is_active" className="cursor-pointer">
@@ -188,13 +216,22 @@ export default function ProjectsEdit({
                     </div>
                     <InputError message={errors.is_active} />
                     <div>
-                        <Label htmlFor="total_lots">Total de lotes (opcional)</Label>
+                        <Label htmlFor="total_lots">
+                            Total de lotes (opcional)
+                        </Label>
                         <Input
                             id="total_lots"
                             type="number"
                             min={0}
                             value={data.total_lots}
-                            onChange={(e) => setData('total_lots', e.target.value === '' ? '' : Number(e.target.value))}
+                            onChange={(e) =>
+                                setData(
+                                    'total_lots',
+                                    e.target.value === ''
+                                        ? ''
+                                        : Number(e.target.value),
+                                )
+                            }
                             className="mt-1"
                         />
                         <InputError message={errors.total_lots} />
@@ -206,9 +243,16 @@ export default function ProjectsEdit({
                                 value={blockInput}
                                 onChange={(e) => setBlockInput(e.target.value)}
                                 placeholder="Ej. A"
-                                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addBlock())}
+                                onKeyDown={(e) =>
+                                    e.key === 'Enter' &&
+                                    (e.preventDefault(), addBlock())
+                                }
                             />
-                            <Button type="button" variant="outline" onClick={addBlock}>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={addBlock}
+                            >
                                 Añadir
                             </Button>
                         </div>
@@ -220,7 +264,11 @@ export default function ProjectsEdit({
                                         className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-sm font-medium"
                                     >
                                         {b}
-                                        <button type="button" onClick={() => removeBlock(b)} className="text-slate-500 hover:text-slate-700">
+                                        <button
+                                            type="button"
+                                            onClick={() => removeBlock(b)}
+                                            className="text-slate-500 hover:text-slate-700"
+                                        >
                                             ×
                                         </button>
                                     </span>
@@ -235,50 +283,102 @@ export default function ProjectsEdit({
                             type="file"
                             multiple
                             accept="image/*"
-                            onChange={(e) => setData('image_files', Array.from(e.target.files ?? []))}
+                            onChange={(e) =>
+                                setData(
+                                    'image_files',
+                                    Array.from(e.target.files ?? []),
+                                )
+                            }
                             className="mt-1"
                         />
-                        <InputError message={errors.image_files || errors['image_files.0']} />
+                        <InputError
+                            message={
+                                errors.image_files || errors['image_files.0']
+                            }
+                        />
                         {pendingImagePreviews.length > 0 && (
                             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
                                 {pendingImagePreviews.map((preview) => (
-                                    <div key={preview.url} className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                                        <img src={preview.url} alt={preview.name} className="aspect-video w-full object-cover" />
-                                        <p className="truncate px-2 py-1 text-xs text-slate-600">{preview.name}</p>
+                                    <div
+                                        key={preview.url}
+                                        className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                                    >
+                                        <img
+                                            src={preview.url}
+                                            alt={preview.name}
+                                            className="aspect-video w-full object-cover"
+                                        />
+                                        <p className="truncate px-2 py-1 text-xs text-slate-600">
+                                            {preview.name}
+                                        </p>
                                     </div>
                                 ))}
                             </div>
                         )}
                     </div>
                     <div>
-                        <Label htmlFor="document_files">Añadir documentos</Label>
+                        <Label htmlFor="document_files">
+                            Añadir documentos
+                        </Label>
                         <Input
                             id="document_files"
                             type="file"
                             multiple
                             accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                            onChange={(e) => handleDocumentFilesChange(Array.from(e.target.files ?? []))}
+                            onChange={(e) =>
+                                handleDocumentFilesChange(
+                                    Array.from(e.target.files ?? []),
+                                )
+                            }
                             className="mt-1"
                         />
-                        <InputError message={errors.document_files || errors['document_files.0']} />
+                        <InputError
+                            message={
+                                errors.document_files ||
+                                errors['document_files.0']
+                            }
+                        />
                         {data.document_files.length > 0 && (
                             <div className="mt-3 space-y-3">
                                 {data.document_files.map((file, index) => (
-                                    <div key={`${file.name}-${index}`} className="rounded-lg border border-slate-200 p-3">
-                                        <p className="mb-2 truncate text-xs text-slate-500">{file.name}</p>
-                                        <Label htmlFor={`document_title_${index}`}>Nombre del documento</Label>
+                                    <div
+                                        key={`${file.name}-${index}`}
+                                        className="rounded-lg border border-slate-200 p-3"
+                                    >
+                                        <p className="mb-2 truncate text-xs text-slate-500">
+                                            {file.name}
+                                        </p>
+                                        <Label
+                                            htmlFor={`document_title_${index}`}
+                                        >
+                                            Nombre del documento
+                                        </Label>
                                         <Input
                                             id={`document_title_${index}`}
-                                            value={data.document_titles[index] ?? ''}
+                                            value={
+                                                data.document_titles[index] ??
+                                                ''
+                                            }
                                             onChange={(e) => {
-                                                const titles = [...data.document_titles];
+                                                const titles = [
+                                                    ...data.document_titles,
+                                                ];
                                                 titles[index] = e.target.value;
-                                                setData('document_titles', titles);
+                                                setData(
+                                                    'document_titles',
+                                                    titles,
+                                                );
                                             }}
                                             className="mt-1"
                                             required
                                         />
-                                        <InputError message={errors[`document_titles.${index}`] || errors.document_titles} />
+                                        <InputError
+                                            message={
+                                                errors[
+                                                    `document_titles.${index}`
+                                                ] || errors.document_titles
+                                            }
+                                        />
                                     </div>
                                 ))}
                             </div>
@@ -287,15 +387,28 @@ export default function ProjectsEdit({
 
                     {existingImages.length > 0 && (
                         <div className="space-y-3 rounded-xl border border-slate-200 p-4">
-                            <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Imágenes actuales</h3>
+                            <h3 className="text-sm font-bold tracking-wide text-slate-500 uppercase">
+                                Imágenes actuales
+                            </h3>
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                                 {existingImages.map((asset) => (
-                                    <div key={asset.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                                    <div
+                                        key={asset.id}
+                                        className="overflow-hidden rounded-xl border border-slate-200 bg-white"
+                                    >
                                         {asset.preview_url ? (
-                                            <a href={asset.preview_url} target="_blank" rel="noreferrer" className="block">
+                                            <a
+                                                href={asset.preview_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="block"
+                                            >
                                                 <img
                                                     src={asset.preview_url}
-                                                    alt={asset.title || asset.file_name}
+                                                    alt={
+                                                        asset.title ||
+                                                        asset.file_name
+                                                    }
                                                     className="aspect-video w-full object-cover"
                                                 />
                                             </a>
@@ -305,14 +418,21 @@ export default function ProjectsEdit({
                                             </div>
                                         )}
                                         <div className="space-y-2 p-2">
-                                            <p className="truncate text-xs font-medium text-slate-800">{asset.title || asset.file_name}</p>
+                                            <p className="truncate text-xs font-medium text-slate-800">
+                                                {asset.title || asset.file_name}
+                                            </p>
                                             <div className="flex gap-2">
                                                 <Button
                                                     type="button"
                                                     variant="outline"
                                                     size="sm"
                                                     className="flex-1"
-                                                    onClick={() => window.open(asset.download_url, '_blank')}
+                                                    onClick={() =>
+                                                        window.open(
+                                                            asset.download_url,
+                                                            '_blank',
+                                                        )
+                                                    }
                                                 >
                                                     Descargar
                                                 </Button>
@@ -320,7 +440,11 @@ export default function ProjectsEdit({
                                                     type="button"
                                                     variant="destructive"
                                                     size="sm"
-                                                    onClick={() => router.delete(`/inmopro/projects/${project.id}/assets/${asset.id}`)}
+                                                    onClick={() =>
+                                                        router.delete(
+                                                            `/inmopro/projects/${project.id}/assets/${asset.id}`,
+                                                        )
+                                                    }
                                                 >
                                                     Eliminar
                                                 </Button>
@@ -334,22 +458,44 @@ export default function ProjectsEdit({
 
                     {existingDocuments.length > 0 && (
                         <div className="space-y-3 rounded-xl border border-slate-200 p-4">
-                            <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Documentos actuales</h3>
+                            <h3 className="text-sm font-bold tracking-wide text-slate-500 uppercase">
+                                Documentos actuales
+                            </h3>
                             <div className="space-y-2">
                                 {existingDocuments.map((asset) => (
-                                    <div key={asset.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
+                                    <div
+                                        key={asset.id}
+                                        className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
+                                    >
                                         <div>
-                                            <p className="font-medium text-slate-800">{asset.title || asset.file_name}</p>
-                                            <p className="text-xs text-slate-500">Documento</p>
+                                            <p className="font-medium text-slate-800">
+                                                {asset.title || asset.file_name}
+                                            </p>
+                                            <p className="text-xs text-slate-500">
+                                                Documento
+                                            </p>
                                         </div>
                                         <div className="flex gap-2">
-                                            <Button type="button" variant="outline" onClick={() => window.open(asset.download_url, '_blank')}>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() =>
+                                                    window.open(
+                                                        asset.download_url,
+                                                        '_blank',
+                                                    )
+                                                }
+                                            >
                                                 Descargar
                                             </Button>
                                             <Button
                                                 type="button"
                                                 variant="destructive"
-                                                onClick={() => router.delete(`/inmopro/projects/${project.id}/assets/${asset.id}`)}
+                                                onClick={() =>
+                                                    router.delete(
+                                                        `/inmopro/projects/${project.id}/assets/${asset.id}`,
+                                                    )
+                                                }
                                             >
                                                 Eliminar
                                             </Button>

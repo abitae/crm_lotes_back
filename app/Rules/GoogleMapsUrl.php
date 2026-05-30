@@ -16,8 +16,8 @@ class GoogleMapsUrl implements ValidationRule
 
         $resolver = app(ProjectLocationMapsResolver::class);
 
-        if (! $resolver->isGoogleMapsUrl($value)) {
-            $fail('Ingrese un enlace válido de Google Maps (maps.google.com, google.com/maps o maps.app.goo.gl).');
+        if (! $resolver->isGoogleMapsUrl($value) && ! $resolver->isCoordinatePair($value)) {
+            $fail('Ingrese un enlace válido de Google Maps o coordenadas en formato latitud,longitud.');
         }
     }
 }

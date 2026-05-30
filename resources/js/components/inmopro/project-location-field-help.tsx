@@ -5,12 +5,16 @@ type ProjectLocationFieldHelpProps = {
     label?: string;
 };
 
-export function ProjectLocationFieldHelp({ htmlFor, label = 'Enlace de Google Maps' }: ProjectLocationFieldHelpProps) {
+export function ProjectLocationFieldHelp({
+    htmlFor,
+    label = 'Ubicación del proyecto',
+}: ProjectLocationFieldHelpProps) {
     return (
         <>
             <Label htmlFor={htmlFor}>{label}</Label>
             <p className="mt-1 text-xs text-slate-500">
-                Pegue el enlace compartido desde Google Maps. Prefiera enlaces cortos como maps.app.goo.gl.
+                Use coordenadas en formato latitud,longitud, por ejemplo
+                -12.046374,-77.042793, o pegue un enlace de Google Maps.
             </p>
         </>
     );

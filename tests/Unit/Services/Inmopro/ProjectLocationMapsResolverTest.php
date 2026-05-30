@@ -62,6 +62,27 @@ class ProjectLocationMapsResolverTest extends TestCase
         $this->assertSame($url, $this->resolver->resolveMapsUrl($url));
     }
 
+    public function test_is_coordinate_pair_accepts_valid_coordinates(): void
+    {
+        $this->assertTrue($this->resolver->isCoordinatePair('-12.046374,-77.042793'));
+        $this->assertTrue($this->resolver->isCoordinatePair(' -12.046374, -77.042793 '));
+    }
+
+    public function test_is_coordinate_pair_rejects_invalid_coordinates(): void
+    {
+        $this->assertFalse($this->resolver->isCoordinatePair('Huancayo'));
+        $this->assertFalse($this->resolver->isCoordinatePair('-91,-77'));
+        $this->assertFalse($this->resolver->isCoordinatePair('-12,-181'));
+    }
+
+    public function test_resolve_maps_url_builds_search_url_for_coordinates(): void
+    {
+        $this->assertSame(
+            'https://www.google.com/maps/search/?api=1&query=-12.046374%2C-77.042793',
+            $this->resolver->resolveMapsUrl('-12.046374,-77.042793')
+        );
+    }
+
     public function test_resolve_maps_url_builds_search_url_for_legacy_text(): void
     {
         $this->assertSame(
@@ -80,8 +101,16 @@ class ProjectLocationMapsResolverTest extends TestCase
     public function test_display_label_returns_friendly_text_for_google_maps_url(): void
     {
         $this->assertSame(
-            'Ver en Google Maps',
+            'Abrir en Google Maps',
             $this->resolver->displayLabel('https://maps.app.goo.gl/abc123')
+        );
+    }
+
+    public function test_display_label_returns_friendly_text_for_coordinates(): void
+    {
+        $this->assertSame(
+            'Abrir en Google Maps',
+            $this->resolver->displayLabel('-12.069872155122834, -75.21095243577143')
         );
     }
 
