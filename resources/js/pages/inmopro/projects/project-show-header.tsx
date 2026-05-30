@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
-import { LayoutGrid, MapPin, Pencil, Plus, Power, PowerOff, Save } from 'lucide-react';
+import { LayoutGrid, Pencil, Plus, Power, PowerOff, Save } from 'lucide-react';
+import { ProjectLocationLink } from '@/components/inmopro/project-location-link';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { Project } from './show-types';
@@ -24,10 +25,13 @@ export function ProjectShowHeader({
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900">{project.name}</h1>
-                    {project.location && (
-                        <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
-                            <MapPin className="h-4 w-4 text-slate-400" />
-                            {project.location}
+                    {(project.maps_url || project.location) && (
+                        <p className="mt-1">
+                            <ProjectLocationLink
+                                location={project.location}
+                                maps_url={project.maps_url}
+                                location_label={project.location_label}
+                            />
                         </p>
                     )}
                 </div>

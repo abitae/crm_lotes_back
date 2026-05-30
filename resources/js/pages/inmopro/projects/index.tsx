@@ -2,6 +2,8 @@ import { Head, Link, router } from '@inertiajs/react';
 import { AlertTriangle, Download, Eye, FileSpreadsheet, MapPin, Pencil, Plus, Power, PowerOff, Search, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { InmoproMetricCard } from '@/components/inmopro/metric-card';
+import { ProjectLocationFieldHelp } from '@/components/inmopro/project-location-field-help';
+import { ProjectLocationLink } from '@/components/inmopro/project-location-link';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { confirmDelete, confirmToggleProjectActive } from '@/lib/swal';
+import type { ProjectLocationOption } from '@/lib/project-location';
 import { cn } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
@@ -20,6 +23,8 @@ type Project = {
     project_type_id?: number | null;
     project_type?: { id: number; name: string; code: string } | null;
     location?: string | null;
+    maps_url?: string | null;
+    location_label?: string | null;
     total_lots?: number | null;
     lots_count?: number;
     free_lots_count?: number;
@@ -103,7 +108,7 @@ type PageProps = {
         is_active?: string;
     };
     projectTypes: ProjectTypeOption[];
-    locations: string[];
+    locations: ProjectLocationOption[];
     summary: {
         totalProjects: number;
         totalLots: number;
@@ -204,8 +209,8 @@ export default function ProjectsIndex({ projects, filters, projectTypes, locatio
                             <select name="location" defaultValue={filters.location ?? ''} className="rounded-xl border border-input bg-background px-3 py-2 text-sm">
                                 <option value="">Todas las ubicaciones</option>
                                 {locations.map((location) => (
-                                    <option key={location} value={location}>
-                                        {location}
+                                    <option key={location.value} value={location.value}>
+                                        {location.label}
                                     </option>
                                 ))}
                             </select>
@@ -295,7 +300,17 @@ export default function ProjectsIndex({ projects, filters, projectTypes, locatio
                                                         <div>
                                                             <p className="font-semibold text-slate-900">{project.name}</p>
                                                             <p className="text-xs text-slate-500">
-                                                                {project.location ?? 'Sin ubicacion'} · {project.blocks_count ?? 0} manzana(s)
+                                                                {project.maps_url || project.location ? (
+                                                                    <ProjectLocationLink
+                                                                        location={project.location}
+                                                                        maps_url={project.maps_url}
+                                                                        location_label={project.location_label}
+                                                                        className="text-xs"
+                                                                    />
+                                                                ) : (
+                                                                    'Sin ubicacion'
+                                                                )}{' '}
+                                                                · {project.blocks_count ?? 0} manzana(s)
                                                             </p>
                                                         </div>
                                                     </td>
@@ -671,12 +686,13 @@ function ProjectExcelImportModal({
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="project-import-location">Ubicacion</Label>
+                            <ProjectLocationFieldHelp htmlFor="project-import-location" />
                             <Input
                                 id="project-import-location"
+                                type="url"
                                 value={form.location}
                                 onChange={(e) => updateField('location', e.target.value)}
-                                placeholder="Ej. Lima"
+                                placeholder="https://maps.app.goo.gl/..."
                             />
                         </div>
                         <div className="space-y-2">

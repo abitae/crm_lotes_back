@@ -2,6 +2,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import InputError from '@/components/input-error';
+import { ProjectLocationFieldHelp } from '@/components/inmopro/project-location-field-help';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -162,8 +163,15 @@ export default function ProjectsEdit({
                         <InputError message={errors.project_type_id} />
                     </div>
                     <div>
-                        <Label htmlFor="location">Ubicación</Label>
-                        <Input id="location" value={data.location} onChange={(e) => setData('location', e.target.value)} className="mt-1" />
+                        <ProjectLocationFieldHelp htmlFor="location" />
+                        <Input
+                            id="location"
+                            type="url"
+                            value={data.location}
+                            onChange={(e) => setData('location', e.target.value)}
+                            placeholder="https://maps.app.goo.gl/..."
+                            className="mt-1"
+                        />
                         <InputError message={errors.location} />
                     </div>
                     <div className="flex items-center gap-2">

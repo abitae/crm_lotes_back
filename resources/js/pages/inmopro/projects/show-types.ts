@@ -38,6 +38,8 @@ export type Project = {
     is_active: boolean;
     name: string;
     location?: string;
+    maps_url?: string | null;
+    location_label?: string | null;
     total_lots?: number;
     blocks?: string[];
     assets?: ProjectAsset[];

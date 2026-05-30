@@ -5,10 +5,15 @@ namespace App\OpenAi\Services;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\ProjectAsset;
+use App\Services\Inmopro\ProjectLocationMapsResolver;
 use Illuminate\Database\Eloquent\Collection;
 
 class ProjectKnowledgeService
 {
+    public function __construct(
+        private ProjectLocationMapsResolver $locationMapsResolver,
+    ) {}
+
     /**
      * @return Collection<int, Project>
      */
@@ -205,12 +210,6 @@ class ProjectKnowledgeService
 
     public function mapsUrlForLocation(?string $location): ?string
     {
-        $query = is_string($location) ? trim($location) : '';
-
-        if ($query === '') {
-            return null;
-        }
-
-        return 'https://www.google.com/maps/search/?api=1&query='.rawurlencode($query);
+        return $this->locationMapsResolver->resolveMapsUrl($location);
     }
 }

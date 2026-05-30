@@ -97,7 +97,7 @@ class InmoproProjectsExcelTest extends TestCase
         $previewResponse = $this->post(route('inmopro.projects.import-preview'), [
             'file' => $file,
             'project_type_id' => $projectType->id,
-            'location' => 'Lima',
+            'location' => 'https://www.google.com/maps/search/?api=1&query=Lima',
         ]);
 
         $previewResponse
@@ -166,7 +166,7 @@ class InmoproProjectsExcelTest extends TestCase
         $previewResponse = $this->post(route('inmopro.projects.import-preview'), [
             'file' => $file,
             'project_type_id' => $projectType->id,
-            'location' => 'Lima',
+            'location' => 'https://www.google.com/maps/search/?api=1&query=Lima',
         ]);
 
         $previewResponse
@@ -230,7 +230,7 @@ class InmoproProjectsExcelTest extends TestCase
         $this->post(route('inmopro.projects.import-preview'), [
             'file' => $file,
             'project_type_id' => $projectType->id,
-            'location' => 'Lima',
+            'location' => 'https://www.google.com/maps/search/?api=1&query=Lima',
         ])
             ->assertOk()
             ->assertJsonPath('can_import', false)
@@ -296,7 +296,7 @@ class InmoproProjectsExcelTest extends TestCase
         $previewResponse = $this->post(route('inmopro.projects.import-preview'), [
             'file' => $file,
             'project_type_id' => $projectType->id,
-            'location' => 'Lima',
+            'location' => 'https://www.google.com/maps/search/?api=1&query=Lima',
         ]);
 
         $previewResponse->assertOk()->assertJsonPath('can_import', true);
@@ -369,7 +369,7 @@ class InmoproProjectsExcelTest extends TestCase
         $this->post(route('inmopro.projects.import-preview'), [
             'file' => $file,
             'project_type_id' => $projectType->id,
-            'location' => 'Lima',
+            'location' => 'https://www.google.com/maps/search/?api=1&query=Lima',
         ])
             ->assertOk()
             ->assertJsonPath('can_import', false)
@@ -411,7 +411,7 @@ class InmoproProjectsExcelTest extends TestCase
         $this->post(route('inmopro.projects.import-preview'), [
             'file' => $file,
             'project_type_id' => $projectType->id,
-            'location' => 'Lima',
+            'location' => 'https://www.google.com/maps/search/?api=1&query=Lima',
         ])
             ->assertOk()
             ->assertJsonPath('can_import', false);

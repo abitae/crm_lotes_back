@@ -16,6 +16,7 @@ use App\Models\Inmopro\ProjectAsset;
 use App\Models\Inmopro\ProjectType;
 use App\Services\Inmopro\LotPersistService;
 use App\Services\Inmopro\ProjectAssetStorageService;
+use App\Services\Inmopro\ProjectLocationMapsResolver;
 use App\Services\Inmopro\ProjectsExcelImportService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -36,6 +37,7 @@ class ProjectController extends Controller
     public function __construct(
         private LotPersistService $lotPersistService,
         private ProjectAssetStorageService $projectAssetStorage,
+        private ProjectLocationMapsResolver $locationMapsResolver,
     ) {}
 
     public function index(Request $request): Response
@@ -106,6 +108,8 @@ class ProjectController extends Controller
                     'code' => $project->projectType->code,
                 ] : null,
                 'location' => $project->location,
+                'maps_url' => $this->locationMapsResolver->resolveMapsUrl($project->location),
+                'location_label' => $this->locationMapsResolver->displayLabel($project->location),
                 'total_lots' => $project->total_lots,
                 'blocks' => $project->blocks,
                 'lots_count' => $actualLots,
@@ -146,7 +150,13 @@ class ProjectController extends Controller
                 ->where('location', '!=', '')
                 ->orderBy('location')
                 ->distinct()
-                ->pluck('location'),
+                ->pluck('location')
+                ->map(fn (string $location): array => [
+                    'value' => $location,
+                    'label' => $this->locationMapsResolver->displayLabel($location) ?? $location,
+                ])
+                ->values()
+                ->all(),
             'summary' => [
                 'totalProjects' => $projects->total(),
                 'totalLots' => $projectCollection->sum('lots_count'),
@@ -425,6 +435,8 @@ class ProjectController extends Controller
                 'code' => $project->projectType->code,
             ] : null,
             'location' => $project->location,
+            'maps_url' => $this->locationMapsResolver->resolveMapsUrl($project->location),
+            'location_label' => $this->locationMapsResolver->displayLabel($project->location),
             'total_lots' => $project->total_lots,
             'blocks' => $project->blocks,
             'is_active' => (bool) $project->is_active,
