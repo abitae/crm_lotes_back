@@ -9,6 +9,7 @@ use App\Http\Requests\Inmopro\ImportProjectConfirmRequest;
 use App\Http\Requests\Inmopro\ImportProjectPreviewRequest;
 use App\Http\Requests\Inmopro\StoreProjectRequest;
 use App\Http\Requests\Inmopro\UpdateProjectRequest;
+use App\Models\Inmopro\City;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
@@ -175,6 +176,7 @@ class ProjectController extends Controller
                 ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get(['id', 'name', 'code']),
+            'cities' => $this->activeCitiesForSelect(),
         ]);
     }
 
@@ -185,6 +187,7 @@ class ProjectController extends Controller
 
         DB::transaction(function () use ($projectData, $request): void {
             $project = Project::create($projectData);
+            $this->syncPortada($project, $request);
             $this->storeAssets($project, $request);
         });
 
@@ -243,6 +246,7 @@ class ProjectController extends Controller
                 ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get(['id', 'name', 'code']),
+            'cities' => $this->activeCitiesForSelect(),
         ]);
     }
 
@@ -253,6 +257,7 @@ class ProjectController extends Controller
 
         DB::transaction(function () use ($project, $projectData, $request): void {
             $project->update($projectData);
+            $this->syncPortada($project, $request);
             $this->storeAssets($project, $request);
         });
 
@@ -262,6 +267,7 @@ class ProjectController extends Controller
     public function destroy(Project $project): RedirectResponse
     {
         $project->load('assets');
+        $this->deletePortadaFile($project);
         foreach ($project->assets as $asset) {
             Storage::disk(ProjectAsset::storageDisk())->delete($asset->file_path);
         }
@@ -359,7 +365,19 @@ class ProjectController extends Controller
      */
     private function projectData(array $validated): array
     {
-        unset($validated['image_files'], $validated['document_files'], $validated['document_titles']);
+        unset(
+            $validated['image_files'],
+            $validated['document_files'],
+            $validated['document_titles'],
+            $validated['portada_file'],
+            $validated['remove_portada'],
+        );
+
+        if (array_key_exists('is_web', $validated)) {
+            $validated['is_web'] = (bool) $validated['is_web'];
+        } else {
+            $validated['is_web'] = false;
+        }
 
         if (array_key_exists('is_active', $validated)) {
             $validated['is_active'] = (bool) $validated['is_active'];
@@ -423,7 +441,7 @@ class ProjectController extends Controller
      */
     private function projectPayload(Project $project, bool $includeLots = false): array
     {
-        $project->loadMissing(['assets', 'projectType']);
+        $project->loadMissing(['assets', 'projectType', 'city']);
 
         return [
             'id' => $project->id,
@@ -440,6 +458,22 @@ class ProjectController extends Controller
             'total_lots' => $project->total_lots,
             'blocks' => $project->blocks,
             'is_active' => (bool) $project->is_active,
+            'city_id' => $project->city_id,
+            'city' => $project->city ? [
+                'id' => $project->city->id,
+                'name' => $project->city->name,
+                'code' => $project->city->code,
+                'department' => $project->city->department,
+            ] : null,
+            'province' => $project->province,
+            'district' => $project->district,
+            'project_zone' => $project->project_zone,
+            'registry_status' => $project->registry_status,
+            'descripcion' => $project->descripcion,
+            'precio_web' => $project->precio_web !== null ? (float) $project->precio_web : null,
+            'image_portada' => $project->image_portada,
+            'is_web' => (bool) $project->is_web,
+            'tipo_web' => $project->tipo_web,
             'assets' => $project->assets
                 ->map(fn (ProjectAsset $asset) => $this->assetPayload($project, $asset))
                 ->values()
@@ -507,6 +541,84 @@ class ProjectController extends Controller
             'download_url' => route('inmopro.projects.assets.download', [$project, $asset]),
             'preview_url' => $previewUrl,
         ];
+    }
+
+    /**
+     * @return list<array{id: int, name: string, code: string, department: string|null}>
+     */
+    private function activeCitiesForSelect(): array
+    {
+        return City::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name', 'code', 'department'])
+            ->map(fn (City $city): array => [
+                'id' => $city->id,
+                'name' => $city->name,
+                'code' => $city->code,
+                'department' => $city->department,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function syncPortada(Project $project, Request $request): void
+    {
+        if ($request->boolean('remove_portada')) {
+            $this->deletePortadaFile($project);
+            $project->update(['image_portada' => null]);
+
+            return;
+        }
+
+        if (! $request->hasFile('portada_file')) {
+            return;
+        }
+
+        $file = $request->file('portada_file');
+        if (! $file instanceof UploadedFile) {
+            return;
+        }
+
+        $this->deletePortadaFile($project);
+
+        $extension = $file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'jpg';
+        $path = $file->storeAs(
+            "projects/{$project->id}",
+            'portada.'.$extension,
+            'public',
+        );
+
+        $url = Storage::disk('public')->url($path);
+
+        $project->update([
+            'image_portada' => $url !== '' ? $url : null,
+        ]);
+    }
+
+    private function deletePortadaFile(Project $project): void
+    {
+        $path = $this->portadaPathFromUrl($project->image_portada);
+
+        if ($path !== null && Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
+    }
+
+    private function portadaPathFromUrl(?string $url): ?string
+    {
+        if (! filled($url)) {
+            return null;
+        }
+
+        $prefix = rtrim(Storage::disk('public')->url(''), '/').'/';
+
+        if (! str_starts_with($url, $prefix)) {
+            return null;
+        }
+
+        return ltrim(substr($url, strlen($prefix)), '/');
     }
 
     private function assetPreviewUrl(ProjectAsset $asset): ?string

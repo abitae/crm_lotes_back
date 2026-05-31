@@ -7,7 +7,6 @@ use App\Http\Requests\Api\v1\Cazador\CancelAttentionTicketRequest;
 use App\Http\Requests\Api\v1\Cazador\StoreAttentionTicketRequest;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\AttentionTicket;
-use App\Models\Inmopro\AttentionTicketType;
 use App\Models\Inmopro\Client;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,13 +48,11 @@ class AttentionTicketController extends Controller
             ], 422);
         }
 
-        $typeId = $request->integer('attention_ticket_type_id') ?: AttentionTicketType::general()->id;
-
         $ticket = AttentionTicket::create([
             'advisor_id' => $advisor->id,
             'client_id' => $client->id,
             'project_id' => $request->integer('project_id'),
-            'attention_ticket_type_id' => $typeId,
+            'attention_ticket_type_id' => $request->integer('attention_ticket_type_id'),
             'status' => 'pendiente',
             'notes' => $request->input('notes'),
             'scheduled_at' => null,

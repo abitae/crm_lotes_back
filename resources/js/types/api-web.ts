@@ -9,6 +9,7 @@ export const WEB_API_V1_BASE_PATH = '/api/v1/web' as const;
 
 /** Metadatos de paginación en GET /api/v1/web/projects */
 export type WebProjectsIndexMeta = {
+    tipo_web: 'lotesenremate.pe' | 'inviertexpress.pe';
     current_page: number;
     per_page: number;
     total: number;
@@ -17,8 +18,10 @@ export type WebProjectsIndexMeta = {
     to: number | null;
 };
 
-/** Query params opcionales para GET /api/v1/web/projects */
+/** Query params para GET /api/v1/web/projects */
 export type WebProjectsIndexQuery = {
+    /** Sitio consumidor (obligatorio en el API). */
+    tipo_web: 'lotesenremate.pe' | 'inviertexpress.pe';
     page?: number;
     per_page?: number;
     search?: string;
@@ -28,6 +31,13 @@ export type WebProjectsIndexQuery = {
     has_images?: boolean;
     has_videos?: boolean;
     order?: 'name' | 'name_desc' | 'lots_desc' | 'free_lots_desc';
+};
+
+/** Ciudad embebida en el catálogo web */
+export type WebProjectCity = {
+    id: number;
+    name: string;
+    department: string | null;
 };
 
 /** Resumen global en GET /api/v1/web/projects */
@@ -64,12 +74,24 @@ export type WebProjectAsset = {
 export type WebProject = {
     id: number;
     name: string;
+    /** Coordenadas `lat,lng` o URL de Google Maps (no es ciudad/distrito). */
     location: string | null;
+    maps_url: string | null;
+    location_label: string | null;
     blocks: string[];
     total_lots: number | null;
     lots_count: number;
     free_lots_count: number;
     project_type: WebProjectType | null;
+    image_portada: string | null;
+    tipo_web: string | null;
+    city: WebProjectCity | null;
+    province: string | null;
+    district: string | null;
+    project_zone: string | null;
+    registry_status: string | null;
+    descripcion: string | null;
+    precio_web: number | null;
     images: WebProjectAsset[];
     videos: WebProjectAsset[];
     images_count: number;

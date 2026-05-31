@@ -3,23 +3,26 @@
 namespace App\Http\Requests\Inmopro;
 
 use App\Http\Requests\Inmopro\Concerns\ValidatesProjectAssetUploads;
+use App\Http\Requests\Inmopro\Concerns\ValidatesProjectWebAndLocationFields;
 use App\Rules\GoogleMapsUrl;
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateProjectRequest extends FormRequest
 {
     use ValidatesProjectAssetUploads;
+    use ValidatesProjectWebAndLocationFields;
 
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
+    protected function prepareForValidation(): void
+    {
+        $this->prepareProjectWebAndLocationForValidation();
+    }
+
     public function rules(): array
     {
         return [
@@ -30,13 +33,11 @@ class UpdateProjectRequest extends FormRequest
             'blocks' => ['nullable', 'array'],
             'blocks.*' => ['string', 'max:10'],
             'is_active' => ['nullable', 'boolean'],
+            ...$this->projectWebAndLocationRules(),
             ...$this->projectAssetUploadRules(),
         ];
     }
 
-    /**
-     * @return array<string, string>
-     */
     public function messages(): array
     {
         return $this->projectAssetUploadMessages();

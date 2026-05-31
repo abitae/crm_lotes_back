@@ -8,22 +8,28 @@ Guía para **aplicaciones externas** (sitio web, app móvil, landing, etc.) que 
 
 ## 1. Resumen
 
-| Concepto | Valor |
-|----------|--------|
-| URL base del API | `{BASE_URL}/api/v1/web` |
-| Ejemplo | `https://api.ejemplo.com/api/v1/web` |
-| Formato | JSON |
-| Autenticación | **Ninguna** (no enviar `Authorization`) |
-| Rate limit | 120 solicitudes por minuto por IP |
-| Métodos | Solo `GET` |
+
+| Concepto         | Valor                                   |
+| ---------------- | --------------------------------------- |
+| URL base del API | `{BASE_URL}/api/v1/web`                 |
+| Ejemplo          | `https://api.ejemplo.com/api/v1/web`    |
+| Formato          | JSON                                    |
+| Autenticación    | **Ninguna** (no enviar `Authorization`) |
+| Rate limit       | 120 solicitudes por minuto por IP       |
+| Métodos          | Solo `GET`                              |
+
+Este API alimenta **varias páginas web** (`lotesenremate.pe`, `inviertexpress.pe`, etc.). En el **listado** `GET /projects` debes enviar siempre el query `tipo_web` con el sitio que consume el catálogo; solo recibirás proyectos publicados para ese destino.
+
 
 `{BASE_URL}` es el dominio que te indique el equipo del backend (producción o staging). Todas las rutas de este documento se concatenan a ese origen.
 
 **Cabecera recomendada**
 
-| Cabecera | Valor |
-|----------|--------|
+
+| Cabecera | Valor              |
+| -------- | ------------------ |
 | `Accept` | `application/json` |
+
 
 ---
 
@@ -31,7 +37,7 @@ Guía para **aplicaciones externas** (sitio web, app móvil, landing, etc.) que 
 
 ```bash
 curl -s -H "Accept: application/json" \
-  "https://api.ejemplo.com/api/v1/web/projects?per_page=5"
+  "https://api.ejemplo.com/api/v1/web/projects?tipo_web=lotesenremate.pe&per_page=5"
 ```
 
 Respuesta (`200`):
@@ -81,44 +87,60 @@ curl -s -H "Accept: application/json" \
 
 **URL:** `{BASE_URL}/api/v1/web/projects`
 
-Devuelve `summary`, `meta` y `data` (array de proyectos).
+Devuelve `summary`, `meta` y `data` (array de proyectos) **del sitio indicado en `tipo_web`**.
+
+Cada front (landing, catálogo, etc.) debe fijar `tipo_web` según su dominio. Valores permitidos:
+
+| `tipo_web`           | Uso típico              |
+| -------------------- | ----------------------- |
+| `lotesenremate.pe`   | Sitio Lotes en Remate   |
+| `inviertexpress.pe`  | Sitio Inviert Express   |
+
+Proyecto visible en el listado cuando: `is_active = true`, `is_web = true` y `tipo_web` coincide con el query.
 
 #### Query params
 
-| Parámetro | Tipo | Default | Descripción |
-|-----------|------|---------|-------------|
-| `page` | int | `1` | Página actual (mín. 1) |
-| `per_page` | int | `15` | Ítems por página (máx. 50) |
-| `search` | string | — | Busca en nombre y ubicación (parcial) |
-| `location` | string | — | Ubicación exacta |
-| `project_type_id` | int | — | ID del tipo de proyecto |
-| `has_free_lots` | bool | — | `1` o `true`: solo con lotes disponibles (`LIBRE`) |
-| `has_images` | bool | — | Solo con al menos una imagen |
-| `has_videos` | bool | — | Solo con al menos un vídeo |
-| `order` | string | `name` | `name`, `name_desc`, `lots_desc`, `free_lots_desc` |
+
+| Parámetro         | Tipo   | Default | Descripción                                                                         |
+| ----------------- | ------ | ------- | ----------------------------------------------------------------------------------- |
+| **`tipo_web`**    | string | —       | **Obligatorio.** Sitio consumidor: `lotesenremate.pe` o `inviertexpress.pe`        |
+| `page`            | int    | `1`     | Página actual (mín. 1)                                                              |
+| `per_page`        | int    | `15`    | Ítems por página (máx. 50)                                                          |
+| `search`          | string | —       | Busca en nombre y coordenadas/enlace Maps (parcial)                                 |
+| `location`        | string | —       | Coincidencia exacta del valor guardado (coordenadas `lat,lng` o URL de Google Maps) |
+| `project_type_id` | int    | —       | ID del tipo de proyecto                                                             |
+| `has_free_lots`   | bool   | —       | `1` o `true`: solo con lotes disponibles (`LIBRE`)                                  |
+| `has_images`      | bool   | —       | Solo con al menos una imagen                                                        |
+| `has_videos`      | bool   | —       | Solo con al menos un vídeo                                                          |
+| `order`           | string | `name`  | `name`, `name_desc`, `lots_desc`, `free_lots_desc`                                  |
+
 
 **Orden (`order`)**
 
-| Valor | Resultado |
-|--------|-----------|
-| `name` | Nombre A→Z |
-| `name_desc` | Nombre Z→A |
-| `lots_desc` | Más lotes registrados primero |
-| `free_lots_desc` | Más lotes libres primero |
+
+| Valor            | Resultado                     |
+| ---------------- | ----------------------------- |
+| `name`           | Nombre A→Z                    |
+| `name_desc`      | Nombre Z→A                    |
+| `lots_desc`      | Más lotes registrados primero |
+| `free_lots_desc` | Más lotes libres primero      |
+
 
 **Ejemplo con filtros**
 
 ```
-GET /api/v1/web/projects?search=Olivos&has_free_lots=1&per_page=10&page=1&order=free_lots_desc
+GET /api/v1/web/projects?tipo_web=lotesenremate.pe&search=Olivos&has_free_lots=1&per_page=10&page=1&order=free_lots_desc
 ```
 
 **Respuestas**
 
-| Código | Significado |
-|--------|-------------|
-| `200` | OK |
-| `422` | Parámetro inválido (ver sección 7) |
-| `429` | Demasiadas peticiones; esperar y reintentar |
+
+| Código | Significado                                 |
+| ------ | ------------------------------------------- |
+| `200`  | OK                                          |
+| `422`  | Parámetro inválido (ver sección 7)          |
+| `429`  | Demasiadas peticiones; esperar y reintentar |
+
 
 ---
 
@@ -128,10 +150,12 @@ GET /api/v1/web/projects?search=Olivos&has_free_lots=1&per_page=10&page=1&order=
 
 Un solo proyecto en `data`. Misma estructura que un elemento del listado (sin `summary` ni `meta`).
 
-| Código | Significado |
-|--------|-------------|
-| `200` | OK |
-| `404` | Proyecto no existe |
+
+| Código | Significado                                                     |
+| ------ | --------------------------------------------------------------- |
+| `200`  | OK                                                              |
+| `404`  | Proyecto no existe o no visible en web (`is_active` e `is_web`) |
+
 
 ---
 
@@ -141,10 +165,12 @@ Un solo proyecto en `data`. Misma estructura que un elemento del listado (sin `s
 
 **Opcional.** Responde `302` hacia la URL pública del archivo. En integraciones nuevas usa directamente el campo `url` del JSON (listado o detalle); no hace falta llamar a esta ruta.
 
-| Código | Significado |
-|--------|-------------|
-| `302` | Redirección a la URL del archivo |
-| `404` | Activo o proyecto no válido |
+
+| Código | Significado                      |
+| ------ | -------------------------------- |
+| `302`  | Redirección a la URL del archivo |
+| `404`  | Activo o proyecto no válido      |
+
 
 ---
 
@@ -152,59 +178,79 @@ Un solo proyecto en `data`. Misma estructura que un elemento del listado (sin `s
 
 ### 4.1 `summary` (solo listado)
 
-Totales **globales**. No cambian al filtrar el listado.
+Totales del **sitio** (`tipo_web` del request): proyectos visibles en web para ese destino y sus lotes/activos. No incluye otros sitios ni proyectos solo de CRM.
 
-| Campo | Tipo | Descripción |
-|--------|------|-------------|
-| `projects_count` | int | Total de proyectos en el sistema |
-| `lots_total` | int | Total de lotes |
-| `lots_free` | int | Lotes con estado `LIBRE` |
-| `images_total` | int | Imágenes activas en el sistema |
-| `videos_total` | int | Vídeos activos en el sistema |
+
+| Campo            | Tipo | Descripción                                              |
+| ---------------- | ---- | -------------------------------------------------------- |
+| `projects_count` | int  | Proyectos con `is_web` y el `tipo_web` solicitado        |
+| `lots_total`     | int  | Lotes de esos proyectos                                  |
+| `lots_free`      | int  | Lotes `LIBRE` de esos proyectos                          |
+| `images_total`   | int  | Imágenes activas de esos proyectos                       |
+| `videos_total`   | int  | Vídeos activos de esos proyectos                         |
+
 
 ### 4.2 `meta` (solo listado)
 
-Paginación del resultado **filtrado**.
+Paginación del resultado **filtrado** (mismo `tipo_web` y filtros opcionales).
 
-| Campo | Tipo | Descripción |
-|--------|------|-------------|
-| `current_page` | int | Página actual |
-| `per_page` | int | Tamaño de página |
-| `total` | int | Proyectos que cumplen los filtros |
-| `last_page` | int | Última página |
-| `from` | int\|null | Primer ítem de la página |
-| `to` | int\|null | Último ítem de la página |
 
-`summary.projects_count` ≠ `meta.total` cuando hay filtros activos.
+| Campo          | Tipo     | Descripción                       |
+| -------------- | -------- | --------------------------------- |
+| `tipo_web`     | string   | Sitio aplicado en la consulta     |
+| `current_page` | int      | Página actual                     |
+| `per_page`     | int      | Tamaño de página                  |
+| `total`        | int      | Proyectos que cumplen los filtros |
+| `last_page`    | int      | Última página                     |
+| `from`         | int|null | Primer ítem de la página          |
+| `to`           | int|null | Último ítem de la página          |
+
+
+`summary.projects_count` coincide con `meta.total` si no hay filtros opcionales (`search`, `has_free_lots`, etc.). Con filtros, `meta.total` puede ser menor.
 
 ### 4.3 Proyecto (`data[]` o `data`)
 
-| Campo | Tipo | Descripción |
-|--------|------|-------------|
-| `id` | int | ID del proyecto |
-| `name` | string | Nombre |
-| `location` | string\|null | Ubicación |
-| `blocks` | array | Sectores o bloques |
-| `total_lots` | int\|null | Lotes planificados |
-| `lots_count` | int | Lotes registrados |
-| `free_lots_count` | int | Lotes en estado `LIBRE` |
-| `project_type` | object\|null | `{ id, name, code }` |
-| `images_count` | int | Cantidad de imágenes en la respuesta |
-| `videos_count` | int | Cantidad de vídeos en la respuesta |
-| `images` | array | Activos imagen |
-| `videos` | array | Activos vídeo |
+
+| Campo             | Tipo        | Descripción                                                                                       |
+| ----------------- | ----------- | ------------------------------------------------------------------------------------------------- |
+| `id`              | int         | ID del proyecto                                                                                   |
+| `name`            | string      | Nombre                                                                                            |
+| `location`        | string|null | Coordenadas Google Maps (`latitud,longitud`) o enlace de Google Maps tal como se guardó en el CRM |
+| `maps_url`        | string|null | Enlace para abrir en Google Maps (derivado de `location`)                                         |
+| `location_label`  | string|null | Texto sugerido para el enlace (ej. «Abrir en Google Maps»)                                        |
+| `blocks`          | array       | Sectores o bloques                                                                                |
+| `total_lots`      | int|null    | Lotes planificados                                                                                |
+| `lots_count`      | int         | Lotes registrados                                                                                 |
+| `free_lots_count` | int         | Lotes en estado `LIBRE`                                                                           |
+| `project_type`    | object|null | `{ id, name, code }`                                                                              |
+| `image_portada`   | string|null | URL pública de la portada (preferida para tarjetas)                                               |
+| `tipo_web`        | string|null | Sitio destino: `lotesenremate.pe` o `inviertexpress.pe`                                           |
+| `city`            | object|null | `{ id, name, department }`                                                                        |
+| `province`        | string|null | Provincia                                                                                         |
+| `district`        | string|null | Distrito                                                                                          |
+| `project_zone`    | string|null | Zona de proyecto                                                                                  |
+| `registry_status` | string|null | Estado registral                                                                                  |
+| `descripcion`     | string|null | Descripción promocional para el catálogo web                                                      |
+| `precio_web`      | number|null | Precio de referencia mostrado en la web (soles, 2 decimales)                                      |
+| `images_count`    | int         | Cantidad de imágenes en la respuesta                                                              |
+| `videos_count`    | int         | Cantidad de vídeos en la respuesta                                                                |
+| `images`          | array       | Activos imagen                                                                                    |
+| `videos`          | array       | Activos vídeo                                                                                     |
+
 
 ### 4.4 Activo (imagen / vídeo)
 
-| Campo | Tipo | Descripción |
-|--------|------|-------------|
-| `id` | int | ID del activo |
-| `kind` | string | `image`, `video`, etc. |
-| `title` | string | Título |
-| `file_name` | string | Nombre de archivo |
-| `mime_type` | string | MIME |
-| `file_size` | int | Bytes |
-| `url` | string | URL absoluta del archivo (usar en `<img>`, `<video>`, descarga) |
+
+| Campo       | Tipo   | Descripción                                                     |
+| ----------- | ------ | --------------------------------------------------------------- |
+| `id`        | int    | ID del activo                                                   |
+| `kind`      | string | `image`, `video`, etc.                                          |
+| `title`     | string | Título                                                          |
+| `file_name` | string | Nombre de archivo                                               |
+| `mime_type` | string | MIME                                                            |
+| `file_size` | int    | Bytes                                                           |
+| `url`       | string | URL absoluta del archivo (usar en `<img>`, `<video>`, descarga) |
+
 
 ---
 
@@ -212,7 +258,7 @@ Paginación del resultado **filtrado**.
 
 ### Lotes libres
 
-- `free_lots_count` cuenta lotes con código de estado **`LIBRE`**.
+- `free_lots_count` cuenta lotes con código de estado `**LIBRE`**.
 - Puedes filtrar el listado con `has_free_lots=1`.
 
 ### Medios
@@ -268,11 +314,13 @@ const nextPage = meta.current_page + 1;
 
 ## 7. Errores
 
-| Código | Cuándo | Qué hacer en tu app |
-|--------|--------|---------------------|
-| `422` | Query param inválido | Mostrar error de búsqueda/filtros; revisar `errors` en JSON |
-| `404` | ID de proyecto inexistente | Página “no encontrado” |
-| `429` | Rate limit | Mensaje “intenta más tarde”; backoff |
+
+| Código | Cuándo                     | Qué hacer en tu app                                         |
+| ------ | -------------------------- | ----------------------------------------------------------- |
+| `422`  | Query param inválido o falta `tipo_web` en listado | Revisar `errors` en JSON; en listado siempre enviar `tipo_web` |
+| `404`  | ID de proyecto inexistente | Página “no encontrado”                                      |
+| `429`  | Rate limit                 | Mensaje “intenta más tarde”; backoff                        |
+
 
 **Ejemplo `422`** (`per_page` > 50):
 
@@ -294,8 +342,8 @@ const nextPage = meta.current_page + 1;
 ```bash
 BASE="https://api.ejemplo.com"
 
-curl -s -H "Accept: application/json" "$BASE/api/v1/web/projects?per_page=10"
-curl -s -H "Accept: application/json" "$BASE/api/v1/web/projects?search=Mito&has_free_lots=1"
+curl -s -H "Accept: application/json" "$BASE/api/v1/web/projects?tipo_web=lotesenremate.pe&per_page=10"
+curl -s -H "Accept: application/json" "$BASE/api/v1/web/projects?tipo_web=inviertexpress.pe&search=Mito&has_free_lots=1"
 curl -s -H "Accept: application/json" "$BASE/api/v1/web/projects/4"
 ```
 
@@ -318,6 +366,7 @@ type CatalogResponse = {
 
 async function fetchProjects(page = 1): Promise<CatalogResponse> {
   const params = new URLSearchParams({
+    tipo_web: 'lotesenremate.pe',
     page: String(page),
     per_page: '12',
     has_free_lots: '1',
@@ -375,6 +424,8 @@ sequenceDiagram
   CDN-->>App: imagen o video
 ```
 
+
+
 1. Configura `BASE_URL` en tu aplicación.
 2. Listado: `GET /projects` con paginación y filtros según tu UI.
 3. Detalle: `GET /projects/{id}` al abrir un proyecto.
@@ -385,13 +436,13 @@ sequenceDiagram
 
 ## 10. Checklist del integrador
 
-- [ ] Tienes la `BASE_URL` correcta (staging vs producción).
-- [ ] Todas las peticiones llevan `Accept: application/json`.
-- [ ] No envías cabeceras de autenticación.
-- [ ] Paginación: usas `meta.last_page` y repites filtros en cada `page`.
-- [ ] Imágenes/vídeos cargan desde `url`, no desde rutas inventadas.
-- [ ] Probaste un `url` de ejemplo en navegador o emulador.
-- [ ] Manejas `429` sin reintentar en bucle agresivo.
+- Tienes la `BASE_URL` correcta (staging vs producción).
+- Todas las peticiones llevan `Accept: application/json`.
+- No envías cabeceras de autenticación.
+- Paginación: usas `meta.last_page` y repites filtros en cada `page`.
+- Imágenes/vídeos cargan desde `url`, no desde rutas inventadas.
+- Probaste un `url` de ejemplo en navegador o emulador.
+- Manejas `429` sin reintentar en bucle agresivo.
 
 ---
 

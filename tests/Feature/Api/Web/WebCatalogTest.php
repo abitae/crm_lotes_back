@@ -25,6 +25,17 @@ class WebCatalogTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const DEFAULT_TIPO_WEB = 'lotesenremate.pe';
+
+    /**
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>
+     */
+    private function indexQuery(array $extra = []): array
+    {
+        return array_merge(['tipo_web' => self::DEFAULT_TIPO_WEB], $extra);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -42,9 +53,10 @@ class WebCatalogTest extends TestCase
 
     public function test_projects_catalog_is_public_and_returns_summary_and_data(): void
     {
-        $response = $this->getJson(route('api.v1.web.projects.index'));
+        $response = $this->getJson(route('api.v1.web.projects.index', $this->indexQuery()));
 
         $response->assertOk()
+            ->assertJsonPath('meta.tipo_web', self::DEFAULT_TIPO_WEB)
             ->assertJsonStructure([
                 'summary' => [
                     'projects_count',
@@ -54,6 +66,7 @@ class WebCatalogTest extends TestCase
                     'videos_total',
                 ],
                 'meta' => [
+                    'tipo_web',
                     'current_page',
                     'per_page',
                     'total',
@@ -66,11 +79,22 @@ class WebCatalogTest extends TestCase
                         'id',
                         'name',
                         'location',
+                        'maps_url',
+                        'location_label',
                         'blocks',
                         'total_lots',
                         'lots_count',
                         'free_lots_count',
                         'project_type',
+                        'image_portada',
+                        'tipo_web',
+                        'city',
+                        'province',
+                        'district',
+                        'project_zone',
+                        'registry_status',
+                        'descripcion',
+                        'precio_web',
                         'images',
                         'videos',
                         'images_count',
@@ -79,28 +103,38 @@ class WebCatalogTest extends TestCase
                 ],
             ]);
 
-        $this->assertSame(Project::query()->count(), $response->json('meta.total'));
+        $this->assertSame(
+            Project::query()->visibleOnWeb()->where('tipo_web', self::DEFAULT_TIPO_WEB)->count(),
+            $response->json('meta.total')
+        );
     }
 
     public function test_projects_catalog_supports_pagination(): void
     {
-        $response = $this->getJson(route('api.v1.web.projects.index', [
+        $response = $this->getJson(route('api.v1.web.projects.index', $this->indexQuery([
             'page' => 1,
             'per_page' => 2,
-        ]));
+        ])));
 
         $response->assertOk()
             ->assertJsonPath('meta.current_page', 1)
             ->assertJsonPath('meta.per_page', 2)
-            ->assertJsonPath('meta.total', Project::query()->count())
+            ->assertJsonPath('meta.total', Project::query()->visibleOnWeb()->where('tipo_web', self::DEFAULT_TIPO_WEB)->count())
             ->assertJsonCount(2, 'data');
+    }
+
+    public function test_projects_catalog_requires_tipo_web(): void
+    {
+        $this->getJson(route('api.v1.web.projects.index'))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['tipo_web']);
     }
 
     public function test_projects_catalog_filters_by_search(): void
     {
         $project = Project::query()->where('name', 'Mirador 3.1')->firstOrFail();
 
-        $this->getJson(route('api.v1.web.projects.index', ['search' => 'Mirador']))
+        $this->getJson(route('api.v1.web.projects.index', $this->indexQuery(['search' => 'Mirador'])))
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.id', $project->id);
@@ -109,9 +143,13 @@ class WebCatalogTest extends TestCase
     public function test_projects_catalog_filters_by_project_type(): void
     {
         $type = ProjectType::query()->where('code', 'RESIDENCIAL')->firstOrFail();
-        $expectedCount = Project::query()->where('project_type_id', $type->id)->count();
+        $expectedCount = Project::query()
+            ->visibleOnWeb()
+            ->where('tipo_web', self::DEFAULT_TIPO_WEB)
+            ->where('project_type_id', $type->id)
+            ->count();
 
-        $this->getJson(route('api.v1.web.projects.index', ['project_type_id' => $type->id]))
+        $this->getJson(route('api.v1.web.projects.index', $this->indexQuery(['project_type_id' => $type->id])))
             ->assertOk()
             ->assertJsonPath('meta.total', $expectedCount);
     }
@@ -119,23 +157,25 @@ class WebCatalogTest extends TestCase
     public function test_projects_catalog_filters_projects_with_free_lots(): void
     {
         $expectedCount = Project::query()
+            ->visibleOnWeb()
+            ->where('tipo_web', self::DEFAULT_TIPO_WEB)
             ->whereHas('lots', fn ($q) => $q->whereHas(
                 'status',
                 fn ($s) => $s->where('code', LotStatus::CODE_LIBRE)
             ))
             ->count();
 
-        $this->getJson(route('api.v1.web.projects.index', ['has_free_lots' => 1]))
+        $this->getJson(route('api.v1.web.projects.index', $this->indexQuery(['has_free_lots' => 1])))
             ->assertOk()
             ->assertJsonPath('meta.total', $expectedCount);
     }
 
     public function test_projects_catalog_rejects_invalid_filters(): void
     {
-        $this->getJson(route('api.v1.web.projects.index', [
+        $this->getJson(route('api.v1.web.projects.index', $this->indexQuery([
             'per_page' => 100,
             'order' => 'invalid',
-        ]))
+        ])))
             ->assertUnprocessable();
     }
 
@@ -209,5 +249,64 @@ class WebCatalogTest extends TestCase
 
         $this->get(route('api.v1.web.projects.assets.show', [$project, $asset]))
             ->assertRedirect($expectedUrl);
+    }
+
+    public function test_projects_catalog_excludes_projects_not_visible_on_web(): void
+    {
+        $hidden = Project::query()->firstOrFail();
+        $hidden->update(['is_web' => false]);
+
+        $response = $this->getJson(route('api.v1.web.projects.index', $this->indexQuery()));
+
+        $response->assertOk();
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertNotContains($hidden->id, $ids);
+    }
+
+    public function test_show_returns_not_found_when_project_is_not_visible_on_web(): void
+    {
+        $project = Project::query()->firstOrFail();
+        $project->update(['is_web' => false]);
+
+        $this->getJson(route('api.v1.web.projects.show', $project))
+            ->assertNotFound();
+    }
+
+    public function test_projects_catalog_filters_by_tipo_web(): void
+    {
+        Project::query()->update(['tipo_web' => 'lotesenremate.pe']);
+        $other = Project::query()->firstOrFail();
+        $other->update(['tipo_web' => 'inviertexpress.pe']);
+
+        $this->getJson(route('api.v1.web.projects.index', $this->indexQuery([
+            'tipo_web' => 'inviertexpress.pe',
+        ])))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.id', $other->id);
+    }
+
+    public function test_show_includes_image_portada_and_location_fields(): void
+    {
+        $project = Project::query()->firstOrFail();
+        $project->update([
+            'descripcion' => 'Proyecto de prueba web',
+            'precio_web' => 99000,
+            'image_portada' => 'https://example.test/storage/projects/1/portada.jpg',
+            'province' => 'Lima',
+            'district' => 'Miraflores',
+            'project_zone' => 'Costa',
+            'registry_status' => 'Inscrito',
+        ]);
+
+        $this->getJson(route('api.v1.web.projects.show', $project))
+            ->assertOk()
+            ->assertJsonPath('data.image_portada', $project->image_portada)
+            ->assertJsonPath('data.province', 'Lima')
+            ->assertJsonPath('data.district', 'Miraflores')
+            ->assertJsonPath('data.project_zone', 'Costa')
+            ->assertJsonPath('data.registry_status', 'Inscrito')
+            ->assertJsonPath('data.descripcion', 'Proyecto de prueba web')
+            ->assertJsonPath('data.precio_web', 99000);
     }
 }

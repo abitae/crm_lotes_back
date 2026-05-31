@@ -3,23 +3,26 @@
 namespace App\Http\Requests\Inmopro;
 
 use App\Http\Requests\Inmopro\Concerns\ValidatesProjectAssetUploads;
+use App\Http\Requests\Inmopro\Concerns\ValidatesProjectWebAndLocationFields;
 use App\Rules\GoogleMapsUrl;
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreProjectRequest extends FormRequest
 {
     use ValidatesProjectAssetUploads;
+    use ValidatesProjectWebAndLocationFields;
 
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
+    protected function prepareForValidation(): void
+    {
+        $this->prepareProjectWebAndLocationForValidation();
+    }
+
     public function rules(): array
     {
         return [
@@ -30,16 +33,16 @@ class StoreProjectRequest extends FormRequest
             'blocks' => ['nullable', 'array'],
             'blocks.*' => ['string', 'max:10'],
             'is_active' => ['nullable', 'boolean'],
+            ...$this->projectWebAndLocationRules(requireTipoWebWhenWeb: true),
             ...$this->projectAssetUploadRules(),
         ];
     }
 
-    /**
-     * @return array<string, string>
-     */
     public function messages(): array
     {
-        return $this->projectAssetUploadMessages();
+        return array_merge($this->projectAssetUploadMessages(), [
+            'tipo_web.required_if' => 'Selecciona el sitio web cuando el proyecto es visible en la web.',
+        ]);
     }
 
     public function withValidator(Validator $validator): void

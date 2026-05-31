@@ -9,66 +9,71 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Project extends Model
 {
-    /**
-     * @var list<string>
-     */
+    public const TIPO_WEB_SITES = [
+        'lotesenremate.pe',
+        'inviertexpress.pe',
+    ];
+
     protected $fillable = [
         'name',
         'project_type_id',
+        'city_id',
+        'province',
+        'district',
+        'project_zone',
+        'registry_status',
+        'descripcion',
+        'precio_web',
         'location',
         'total_lots',
         'blocks',
         'is_active',
+        'image_portada',
+        'is_web',
+        'tipo_web',
     ];
 
-    /**
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
             'blocks' => 'array',
             'total_lots' => 'integer',
             'is_active' => 'boolean',
+            'is_web' => 'boolean',
+            'precio_web' => 'decimal:2',
         ];
     }
 
-    /**
-     * @param  Builder<Project>  $query
-     * @return Builder<Project>
-     */
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
     }
 
-    /**
-     * @return BelongsTo<ProjectType, $this>
-     */
+    public function scopeVisibleOnWeb(Builder $query): Builder
+    {
+        return $query->where('is_active', true)->where('is_web', true);
+    }
+
     public function projectType(): BelongsTo
     {
         return $this->belongsTo(ProjectType::class, 'project_type_id');
     }
 
-    /**
-     * @return HasMany<Lot, $this>
-     */
+    public function city(): BelongsTo
+    {
+        return $this->belongsTo(City::class, 'city_id');
+    }
+
     public function lots(): HasMany
     {
         return $this->hasMany(Lot::class, 'project_id');
     }
 
-    /**
-     * @return HasMany<AttentionTicket, $this>
-     */
     public function attentionTickets(): HasMany
     {
         return $this->hasMany(AttentionTicket::class, 'project_id');
     }
 
-    /**
-     * @return HasMany<ProjectAsset, $this>
-     */
     public function assets(): HasMany
     {
         return $this->hasMany(ProjectAsset::class, 'project_id')
@@ -76,17 +81,11 @@ class Project extends Model
             ->orderBy('id');
     }
 
-    /**
-     * @return HasMany<ProjectAsset, $this>
-     */
     public function images(): HasMany
     {
         return $this->assets()->where('kind', 'image');
     }
 
-    /**
-     * @return HasMany<ProjectAsset, $this>
-     */
     public function documents(): HasMany
     {
         return $this->assets()->where('kind', 'document');

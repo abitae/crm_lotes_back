@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\v1\Cazador\AttentionTicketController;
+use App\Http\Controllers\Api\v1\Cazador\AttentionTicketTypeController;
 use App\Http\Controllers\Api\v1\Cazador\AuthController;
 use App\Http\Controllers\Api\v1\Cazador\CityController;
 use App\Http\Controllers\Api\v1\Cazador\ClientController;
@@ -55,6 +56,7 @@ Route::prefix('v1/cazador')->name('api.v1.cazador.')->group(function (): void {
         Route::post('clients', [ClientController::class, 'store'])->name('clients.store');
         Route::get('clients/{client}', [ClientController::class, 'show'])->name('clients.show');
         Route::put('clients/{client}', [ClientController::class, 'update'])->name('clients.update');
+        Route::get('attention-ticket-types', [AttentionTicketTypeController::class, 'index'])->name('attention-ticket-types.index');
         Route::get('attention-tickets', [AttentionTicketController::class, 'index'])->name('attention-tickets.index');
         Route::post('attention-tickets', [AttentionTicketController::class, 'store'])->name('attention-tickets.store');
         Route::post('attention-tickets/{attentionTicket}/cancel', [AttentionTicketController::class, 'cancel'])->name('attention-tickets.cancel');

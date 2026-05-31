@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\v1\Web;
 
+use App\Models\Inmopro\Project;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -24,6 +25,7 @@ class IndexWebProjectsRequest extends FormRequest
             'search' => ['nullable', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
             'project_type_id' => ['nullable', 'integer', 'exists:project_types,id'],
+            'tipo_web' => ['required', 'string', Rule::in(Project::TIPO_WEB_SITES)],
             'has_free_lots' => ['nullable', 'boolean'],
             'has_images' => ['nullable', 'boolean'],
             'has_videos' => ['nullable', 'boolean'],
@@ -39,5 +41,10 @@ class IndexWebProjectsRequest extends FormRequest
     public function perPage(): int
     {
         return (int) ($this->validated('per_page') ?? 15);
+    }
+
+    public function tipoWeb(): string
+    {
+        return (string) $this->validated('tipo_web');
     }
 }

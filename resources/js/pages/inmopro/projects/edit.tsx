@@ -2,7 +2,12 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import InputError from '@/components/input-error';
-import { ProjectLocationFieldHelp } from '@/components/inmopro/project-location-field-help';
+import {
+    ProjectAdministrativeLocationFields,
+    ProjectGoogleMapsCoordinatesField,
+    ProjectWebPublicationFields,
+    type CityOption,
+} from '@/pages/inmopro/projects/project-form-fields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,19 +26,40 @@ type Project = {
     id: number;
     name: string;
     project_type_id?: number | null;
+    city_id?: number | null;
+    province?: string | null;
+    district?: string | null;
+    project_zone?: string | null;
+    registry_status?: string | null;
     location?: string;
     total_lots?: number;
     blocks?: string[];
     is_active: boolean;
+    image_portada?: string | null;
+    is_web?: boolean;
+    tipo_web?: string | null;
+    descripcion?: string | null;
+    precio_web?: number | string | null;
     assets?: ProjectAsset[];
 };
 type ProjectEditForm = {
     name: string;
     project_type_id: number | '';
+    city_id: number | '';
+    province: string;
+    district: string;
+    project_zone: string;
+    registry_status: string;
     location: string;
     total_lots: number | '';
     blocks: string[];
     is_active: boolean;
+    is_web: boolean;
+    tipo_web: string;
+    descripcion: string;
+    precio_web: number | '';
+    portada_file: File | null;
+    remove_portada: boolean;
     image_files: File[];
     document_files: File[];
     document_titles: string[];
@@ -43,9 +69,11 @@ type ProjectEditForm = {
 export default function ProjectsEdit({
     project,
     projectTypes,
+    cities,
 }: {
     project: Project;
     projectTypes: Array<{ id: number; name: string; code: string }>;
+    cities: CityOption[];
 }) {
     const blocks = project.blocks ?? [];
     const [blockInput, setBlockInput] = useState('');
@@ -54,10 +82,24 @@ export default function ProjectsEdit({
         useForm<ProjectEditForm>({
             name: project.name,
             project_type_id: project.project_type_id ?? '',
+            city_id: project.city_id ?? '',
+            province: project.province ?? '',
+            district: project.district ?? '',
+            project_zone: project.project_zone ?? '',
+            registry_status: project.registry_status ?? '',
             location: project.location ?? '',
             total_lots: project.total_lots ?? ('' as number | ''),
             blocks: blocksList,
             is_active: project.is_active ?? true,
+            is_web: project.is_web ?? false,
+            tipo_web: project.tipo_web ?? '',
+            descripcion: project.descripcion ?? '',
+            precio_web:
+                project.precio_web != null && project.precio_web !== ''
+                    ? Number(project.precio_web)
+                    : ('' as number | ''),
+            portada_file: null,
+            remove_portada: false,
             image_files: [],
             document_files: [],
             document_titles: [],
@@ -135,8 +177,15 @@ export default function ProjectsEdit({
                 formData.project_type_id === ''
                     ? null
                     : Number(formData.project_type_id),
+            city_id:
+                formData.city_id === '' ? null : Number(formData.city_id),
             total_lots:
                 formData.total_lots === '' ? null : Number(formData.total_lots),
+            is_web: formData.is_web ? 1 : 0,
+            tipo_web: formData.is_web ? formData.tipo_web : null,
+            precio_web:
+                formData.precio_web === '' ? null : Number(formData.precio_web),
+            remove_portada: formData.remove_portada ? 1 : 0,
             _method: 'put',
         }));
         post('/inmopro/projects/' + project.id, { forceFormData: true });
@@ -186,20 +235,35 @@ export default function ProjectsEdit({
                         </select>
                         <InputError message={errors.project_type_id} />
                     </div>
-                    <div>
-                        <ProjectLocationFieldHelp htmlFor="location" />
-                        <Input
-                            id="location"
-                            type="text"
-                            value={data.location}
-                            onChange={(e) =>
-                                setData('location', e.target.value)
-                            }
-                            placeholder="-12.046374,-77.042793"
-                            className="mt-1"
-                        />
-                        <InputError message={errors.location} />
-                    </div>
+                    <ProjectAdministrativeLocationFields
+                        cities={cities}
+                        cityId={data.city_id}
+                        province={data.province}
+                        district={data.district}
+                        projectZone={data.project_zone}
+                        registryStatus={data.registry_status}
+                        errors={errors}
+                        onCityIdChange={(value) => setData('city_id', value)}
+                        onProvinceChange={(value) =>
+                            setData('province', value)
+                        }
+                        onDistrictChange={(value) =>
+                            setData('district', value)
+                        }
+                        onProjectZoneChange={(value) =>
+                            setData('project_zone', value)
+                        }
+                        onRegistryStatusChange={(value) =>
+                            setData('registry_status', value)
+                        }
+                    />
+                    <ProjectGoogleMapsCoordinatesField
+                        location={data.location}
+                        errors={errors}
+                        onLocationChange={(value) =>
+                            setData('location', value)
+                        }
+                    />
                     <div className="flex items-center gap-2">
                         <input
                             id="is_active"
@@ -215,6 +279,36 @@ export default function ProjectsEdit({
                         </Label>
                     </div>
                     <InputError message={errors.is_active} />
+                    <ProjectWebPublicationFields
+                        isWeb={data.is_web}
+                        tipoWeb={data.tipo_web}
+                        descripcion={data.descripcion}
+                        precioWeb={data.precio_web}
+                        imagePortada={project.image_portada ?? null}
+                        portadaFile={data.portada_file}
+                        removePortada={data.remove_portada}
+                        errors={errors}
+                        onIsWebChange={(value) => {
+                            setData((current) => ({
+                                ...current,
+                                is_web: value,
+                                tipo_web: value ? current.tipo_web : '',
+                            }));
+                        }}
+                        onTipoWebChange={(value) => setData('tipo_web', value)}
+                        onDescripcionChange={(value) =>
+                            setData('descripcion', value)
+                        }
+                        onPrecioWebChange={(value) =>
+                            setData('precio_web', value)
+                        }
+                        onPortadaFileChange={(file) =>
+                            setData('portada_file', file)
+                        }
+                        onRemovePortadaChange={(value) =>
+                            setData('remove_portada', value)
+                        }
+                    />
                     <div>
                         <Label htmlFor="total_lots">
                             Total de lotes (opcional)

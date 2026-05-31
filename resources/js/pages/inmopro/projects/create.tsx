@@ -2,7 +2,12 @@ import { Head, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import InputError from '@/components/input-error';
-import { ProjectLocationFieldHelp } from '@/components/inmopro/project-location-field-help';
+import {
+    ProjectAdministrativeLocationFields,
+    ProjectGoogleMapsCoordinatesField,
+    ProjectWebPublicationFields,
+    type CityOption,
+} from '@/pages/inmopro/projects/project-form-fields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,10 +17,20 @@ import type { BreadcrumbItem } from '@/types';
 type ProjectCreateForm = {
     name: string;
     project_type_id: number | '';
+    city_id: number | '';
+    province: string;
+    district: string;
+    project_zone: string;
+    registry_status: string;
     location: string;
     total_lots: string | number;
     blocks: string[];
     is_active: boolean;
+    is_web: boolean;
+    tipo_web: string;
+    descripcion: string;
+    precio_web: string | number;
+    portada_file: File | null;
     image_files: File[];
     document_files: File[];
     document_titles: string[];
@@ -23,8 +38,10 @@ type ProjectCreateForm = {
 
 export default function ProjectsCreate({
     projectTypes,
+    cities,
 }: {
     projectTypes: Array<{ id: number; name: string; code: string }>;
+    cities: CityOption[];
 }) {
     const [blockInput, setBlockInput] = useState('');
     const [blocks, setBlocks] = useState<string[]>([]);
@@ -32,10 +49,20 @@ export default function ProjectsCreate({
         useForm<ProjectCreateForm>({
             name: '',
             project_type_id: '',
+            city_id: '',
+            province: '',
+            district: '',
+            project_zone: '',
+            registry_status: '',
             location: '',
             total_lots: '' as string | number,
             blocks: [] as string[],
             is_active: true,
+            is_web: false,
+            tipo_web: '',
+            descripcion: '',
+            precio_web: '' as string | number,
+            portada_file: null,
             image_files: [],
             document_files: [],
             document_titles: [],
@@ -86,8 +113,14 @@ export default function ProjectsCreate({
                 formData.project_type_id === ''
                     ? null
                     : Number(formData.project_type_id),
+            city_id:
+                formData.city_id === '' ? null : Number(formData.city_id),
             total_lots:
                 formData.total_lots === '' ? null : Number(formData.total_lots),
+            is_web: formData.is_web ? 1 : 0,
+            tipo_web: formData.is_web ? formData.tipo_web : null,
+            precio_web:
+                formData.precio_web === '' ? null : Number(formData.precio_web),
         }));
         post('/inmopro/projects', { forceFormData: true });
     };
@@ -99,7 +132,7 @@ export default function ProjectsCreate({
                 <h2 className="mb-6 text-2xl font-black text-slate-800">
                     Nuevo Proyecto
                 </h2>
-                <form onSubmit={submit} className="max-w-md space-y-4">
+                <form onSubmit={submit} className="max-w-2xl space-y-4">
                     <div>
                         <Label htmlFor="name">Nombre</Label>
                         <Input
@@ -136,20 +169,35 @@ export default function ProjectsCreate({
                         </select>
                         <InputError message={errors.project_type_id} />
                     </div>
-                    <div>
-                        <ProjectLocationFieldHelp htmlFor="location" />
-                        <Input
-                            id="location"
-                            type="text"
-                            value={data.location}
-                            onChange={(e) =>
-                                setData('location', e.target.value)
-                            }
-                            placeholder="-12.046374,-77.042793"
-                            className="mt-1"
-                        />
-                        <InputError message={errors.location} />
-                    </div>
+                    <ProjectAdministrativeLocationFields
+                        cities={cities}
+                        cityId={data.city_id}
+                        province={data.province}
+                        district={data.district}
+                        projectZone={data.project_zone}
+                        registryStatus={data.registry_status}
+                        errors={errors}
+                        onCityIdChange={(value) => setData('city_id', value)}
+                        onProvinceChange={(value) =>
+                            setData('province', value)
+                        }
+                        onDistrictChange={(value) =>
+                            setData('district', value)
+                        }
+                        onProjectZoneChange={(value) =>
+                            setData('project_zone', value)
+                        }
+                        onRegistryStatusChange={(value) =>
+                            setData('registry_status', value)
+                        }
+                    />
+                    <ProjectGoogleMapsCoordinatesField
+                        location={data.location}
+                        errors={errors}
+                        onLocationChange={(value) =>
+                            setData('location', value)
+                        }
+                    />
                     <div className="flex items-center gap-2">
                         <input
                             id="is_active"
@@ -165,6 +213,34 @@ export default function ProjectsCreate({
                         </Label>
                     </div>
                     <InputError message={errors.is_active} />
+                    <ProjectWebPublicationFields
+                        isWeb={data.is_web}
+                        tipoWeb={data.tipo_web}
+                        descripcion={data.descripcion}
+                        precioWeb={data.precio_web}
+                        imagePortada={null}
+                        portadaFile={data.portada_file}
+                        removePortada={false}
+                        errors={errors}
+                        onIsWebChange={(value) => {
+                            setData((current) => ({
+                                ...current,
+                                is_web: value,
+                                tipo_web: value ? current.tipo_web : '',
+                            }));
+                        }}
+                        onTipoWebChange={(value) => setData('tipo_web', value)}
+                        onDescripcionChange={(value) =>
+                            setData('descripcion', value)
+                        }
+                        onPrecioWebChange={(value) =>
+                            setData('precio_web', value)
+                        }
+                        onPortadaFileChange={(file) =>
+                            setData('portada_file', file)
+                        }
+                        onRemovePortadaChange={() => {}}
+                    />
                     <div>
                         <Label htmlFor="total_lots">
                             Total de lotes (opcional)
