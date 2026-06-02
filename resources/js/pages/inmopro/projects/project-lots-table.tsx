@@ -107,6 +107,9 @@ export function ProjectLotsTable({
     clientJustSelectedRef,
     getCellValue,
     setCellEdit,
+    getEffectiveStatusId,
+    isTransferredStatus,
+    transferredStatusId,
     buildPayload,
     buildRowPayloadForSave,
     updateLot,
@@ -126,6 +129,9 @@ export function ProjectLotsTable({
         field: string,
         value: string | number | null,
     ) => void;
+    getEffectiveStatusId: (lot: Lot) => number;
+    isTransferredStatus: (lot: Lot) => boolean;
+    transferredStatusId?: number;
     buildPayload: (lot: Lot, overrides: Partial<LotPayload>) => LotPayload;
     buildRowPayloadForSave: (lot: Lot) => LotPayload;
     updateLot: (lot: Lot, payload: LotPayload) => void;
@@ -345,25 +351,30 @@ export function ProjectLotsTable({
                                 <tbody>
                                     {filteredLots.map((lot) => {
                                         const isSaving = savingLotId === lot.id;
+                                        const effectiveStatusId =
+                                            getEffectiveStatusId(lot);
+                                        const effectiveStatus =
+                                            lotStatuses.find(
+                                                (status) =>
+                                                    status.id ===
+                                                    effectiveStatusId,
+                                            );
                                         const statusCode =
-                                            lot.status?.code ?? 'LIBRE';
+                                            effectiveStatus?.code ??
+                                            lot.status?.code ??
+                                            'LIBRE';
                                         const statusColor =
+                                            effectiveStatus?.color ??
                                             lot.status?.color ??
                                             lotStatusColor(
                                                 statusCode,
                                                 lotStatuses,
                                             );
-                                        const availableStatuses =
-                                            lotStatuses.filter(
-                                                (status) =>
-                                                    status.code !==
-                                                        'TRANSFERIDO' ||
-                                                    status.id ===
-                                                        lot.status?.id,
-                                            );
                                         const canEdit =
                                             statusCode === 'RESERVADO' ||
                                             statusCode === 'TRANSFERIDO';
+                                        const requiresTransferDate =
+                                            isTransferredStatus(lot);
 
                                         return (
                                             <tr
@@ -460,26 +471,43 @@ export function ProjectLotsTable({
                                                         />
                                                         <select
                                                             value={
-                                                                lot.status
-                                                                    ?.id ?? ''
+                                                                effectiveStatusId ||
+                                                                ''
                                                             }
                                                             disabled={isSaving}
-                                                            onChange={(e) =>
+                                                            onChange={(e) => {
+                                                                const newStatusId =
+                                                                    Number(
+                                                                        e.target
+                                                                            .value,
+                                                                    );
+                                                                if (
+                                                                    transferredStatusId !=
+                                                                        null &&
+                                                                    newStatusId ===
+                                                                        transferredStatusId &&
+                                                                    lot.status
+                                                                        ?.id !==
+                                                                        transferredStatusId
+                                                                ) {
+                                                                    setCellEdit(
+                                                                        lot,
+                                                                        'lot_status_id',
+                                                                        newStatusId,
+                                                                    );
+                                                                    return;
+                                                                }
                                                                 updateLot(
                                                                     lot,
                                                                     buildPayload(
                                                                         lot,
                                                                         {
                                                                             lot_status_id:
-                                                                                Number(
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                ),
+                                                                                newStatusId,
                                                                         },
                                                                     ),
-                                                                )
-                                                            }
+                                                                );
+                                                            }}
                                                             className={
                                                                 statusSelectClass
                                                             }
@@ -487,12 +515,13 @@ export function ProjectLotsTable({
                                                                 statusColor,
                                                             )}
                                                             title={
+                                                                effectiveStatus?.name ??
                                                                 lot.status
                                                                     ?.name ??
                                                                 'Estado del lote'
                                                             }
                                                         >
-                                                            {availableStatuses.map(
+                                                            {lotStatuses.map(
                                                                 (status) => (
                                                                     <option
                                                                         key={
@@ -771,6 +800,12 @@ export function ProjectLotsTable({
                                                         disabled={
                                                             isSaving || !canEdit
                                                         }
+                                                        required={
+                                                            requiresTransferDate
+                                                        }
+                                                        aria-required={
+                                                            requiresTransferDate
+                                                        }
                                                         onChange={(e) =>
                                                             setCellEdit(
                                                                 lot,
@@ -784,6 +819,11 @@ export function ProjectLotsTable({
                                                         style={{
                                                             minWidth: '7rem',
                                                         }}
+                                                        title={
+                                                            requiresTransferDate
+                                                                ? 'Fecha de escritura obligatoria para transferir'
+                                                                : undefined
+                                                        }
                                                     />
                                                 </td>
                                                 <td className="border border-border px-1 py-0.5 align-middle">
@@ -815,7 +855,8 @@ export function ProjectLotsTable({
                                                 </td>
                                                 <td className="border border-border px-1 py-0.5 align-middle">
                                                     <div className="flex items-center justify-center gap-0.5">
-                                                        {canEdit && (
+                                                        {(canEdit ||
+                                                            edited[lot.id]) && (
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"

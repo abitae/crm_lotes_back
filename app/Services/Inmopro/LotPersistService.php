@@ -12,14 +12,19 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 
 class LotPersistService
 {
+    public function __construct(
+        private CommissionService $commissionService,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
     public function prepareForStore(array $validated): array
     {
+        $validated = $this->normalizeLotDateFields($validated);
+        $this->guardTransferStatusChange($validated);
         $validated = $this->normalizeLotFields($validated);
-        $this->guardManualTransferStatusChange($validated);
 
         return $validated;
     }
@@ -29,8 +34,11 @@ class LotPersistService
      */
     public function update(Lot $lot, array $validated): void
     {
-        $validated = $this->normalizeLotFields($validated);
-        $this->guardManualTransferStatusChange($validated, $lot);
+        $validated = $this->normalizeLotDateFields($validated);
+        $this->guardTransferStatusChange($validated, $lot);
+        $this->validateTransferToTransferred($validated, $lot);
+        $transitionedToTransferred = $this->isTransitioningToTransferred($validated, $lot);
+        $validated = $this->normalizeLotFields($validated, $lot);
         $clientName = isset($validated['client_name']) ? trim((string) $validated['client_name']) : null;
         $clientDni = isset($validated['client_dni']) ? trim((string) $validated['client_dni']) : null;
         $clientPhone = array_key_exists('client_phone', $validated)
@@ -92,19 +100,25 @@ class LotPersistService
 
         $lot->fill($validated);
         $lot->save();
+
+        if ($transitionedToTransferred && ! $lot->commissions()->exists()) {
+            $this->commissionService->createCommissionsForTransferredLot($lot->fresh());
+        }
     }
 
     /**
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
-    public function normalizeLotFields(array $validated): array
+    public function normalizeLotFields(array $validated, ?Lot $lot = null): array
     {
         if (array_key_exists('number', $validated) && $validated['number'] !== null) {
             $validated['number'] = mb_strtoupper(trim((string) $validated['number']));
         }
 
-        $validated = $this->normalizeLotDateFields($validated);
+        if ($this->willBeTransferredStatus($validated, $lot)) {
+            return $this->applyTransferredFinancialSettlement($validated, $lot);
+        }
 
         $price = array_key_exists('price', $validated) && $validated['price'] !== null
             ? (float) $validated['price']
@@ -154,13 +168,13 @@ class LotPersistService
     /**
      * @param  array<string, mixed>  $validated
      */
-    private function guardManualTransferStatusChange(array $validated, ?Lot $lot = null): void
+    private function guardTransferStatusChange(array $validated, ?Lot $lot = null): void
     {
         if (! array_key_exists('lot_status_id', $validated)) {
             return;
         }
 
-        $transferredStatusId = LotStatus::query()->where('code', LotStatus::CODE_TRANSFERIDO)->value('id');
+        $transferredStatusId = $this->transferredStatusId();
 
         if (! $transferredStatusId) {
             return;
@@ -168,17 +182,107 @@ class LotPersistService
 
         $requestedStatusId = (int) $validated['lot_status_id'];
 
-        if ($lot === null && $requestedStatusId === (int) $transferredStatusId) {
+        if ($lot === null && $requestedStatusId === $transferredStatusId) {
             throw new HttpResponseException(
-                back()->withErrors(['lot_status_id' => 'Use la confirmacion de transferencia para registrar lotes transferidos.'])
+                back()->withErrors(['lot_status_id' => 'No puede crear un lote directamente en estado TRANSFERIDO.'])
             );
         }
 
-        if ($lot !== null && $requestedStatusId !== (int) $lot->lot_status_id
-            && ($requestedStatusId === (int) $transferredStatusId || (int) $lot->lot_status_id === (int) $transferredStatusId)) {
+        if ($lot !== null
+            && (int) $lot->lot_status_id === $transferredStatusId
+            && $requestedStatusId !== $transferredStatusId) {
             throw new HttpResponseException(
-                back()->withErrors(['lot_status_id' => 'El estado TRANSFERIDO solo puede cambiarse desde el flujo de confirmacion de transferencia.'])
+                back()->withErrors(['lot_status_id' => 'No puede cambiar el estado de un lote ya transferido.'])
             );
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function validateTransferToTransferred(array $validated, Lot $lot): void
+    {
+        if (! $this->isTransitioningToTransferred($validated, $lot)) {
+            return;
+        }
+
+        $reservedStatusId = LotStatus::query()->where('code', LotStatus::CODE_RESERVADO)->value('id');
+
+        if (! $reservedStatusId || (int) $lot->lot_status_id !== (int) $reservedStatusId) {
+            throw new HttpResponseException(
+                back()->withErrors(['lot_status_id' => 'Solo los lotes en estado RESERVADO pueden pasar a TRANSFERIDO.'])
+            );
+        }
+
+        $transferDate = $validated['notarial_transfer_date'] ?? $lot->notarial_transfer_date?->toDateString();
+
+        if (empty($transferDate)) {
+            throw new HttpResponseException(
+                back()->withErrors(['notarial_transfer_date' => 'La fecha de escritura es obligatoria al transferir el lote.'])
+            );
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function isTransitioningToTransferred(array $validated, Lot $lot): bool
+    {
+        $transferredStatusId = $this->transferredStatusId();
+
+        if (! $transferredStatusId || ! array_key_exists('lot_status_id', $validated)) {
+            return false;
+        }
+
+        return (int) $validated['lot_status_id'] === $transferredStatusId
+            && (int) $lot->lot_status_id !== $transferredStatusId;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function willBeTransferredStatus(array $validated, ?Lot $lot): bool
+    {
+        $transferredStatusId = $this->transferredStatusId();
+
+        if (! $transferredStatusId) {
+            return false;
+        }
+
+        if (array_key_exists('lot_status_id', $validated)) {
+            return (int) $validated['lot_status_id'] === $transferredStatusId;
+        }
+
+        return $lot !== null && (int) $lot->lot_status_id === $transferredStatusId;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function applyTransferredFinancialSettlement(array $validated, ?Lot $lot = null): array
+    {
+        $price = array_key_exists('price', $validated) && $validated['price'] !== null
+            ? (float) $validated['price']
+            : ($lot !== null && $lot->price !== null ? (float) $lot->price : null);
+
+        if ($price === null) {
+            $validated['remaining_balance'] = null;
+
+            return $validated;
+        }
+
+        $validated['price'] = $price;
+        $validated['advance'] = $price;
+        $validated['remaining_balance'] = 0.0;
+
+        return $validated;
+    }
+
+    private function transferredStatusId(): ?int
+    {
+        $id = LotStatus::query()->where('code', LotStatus::CODE_TRANSFERIDO)->value('id');
+
+        return $id !== null ? (int) $id : null;
     }
 }

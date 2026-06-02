@@ -271,6 +271,20 @@ export default function ProjectsShow({ project, lotStatuses }: PageProps) {
         minChars: SEARCH_MIN_CHARS,
     });
 
+    const transferredStatusId = lotStatuses.find(
+        (status) => status.code === 'TRANSFERIDO',
+    )?.id;
+
+    const getEffectiveStatusId = (lot: Lot): number =>
+        (edited[lot.id]?.lot_status_id as number | undefined) ??
+        lot.status?.id ??
+        lotStatuses[0]?.id ??
+        0;
+
+    const isTransferredStatus = (lot: Lot): boolean =>
+        transferredStatusId != null &&
+        getEffectiveStatusId(lot) === transferredStatusId;
+
     const calculateRemainingBalance = (
         price: string | number | null | undefined,
         advance: string | number | null | undefined,
@@ -289,7 +303,7 @@ export default function ProjectsShow({ project, lotStatuses }: PageProps) {
         lot: Lot,
         overrides: Partial<LotPayload>,
     ): LotPayload => ({
-        lot_status_id: lot.status?.id ?? lotStatuses[0]?.id ?? 0,
+        lot_status_id: getEffectiveStatusId(lot),
         client_id:
             overrides.client_id !== undefined
                 ? overrides.client_id
@@ -375,25 +389,55 @@ export default function ProjectsShow({ project, lotStatuses }: PageProps) {
         setEdited((prev) => {
             const nextRow = { ...prev[lot.id], [field]: value };
 
+            if (
+                field === 'lot_status_id' &&
+                transferredStatusId != null &&
+                Number(value) === transferredStatusId
+            ) {
+                const nextPrice = toNum(nextRow.price ?? lot.price);
+                if (nextPrice !== null) {
+                    nextRow.advance = nextPrice;
+                    nextRow.remaining_balance = 0;
+                }
+            }
+
             if (field === 'price' || field === 'advance') {
                 const nextPrice =
                     field === 'price' ? value : (nextRow.price ?? lot.price);
-                const nextAdvance =
-                    field === 'advance'
-                        ? value
-                        : (nextRow.advance ?? lot.advance);
-                nextRow.remaining_balance = calculateRemainingBalance(
-                    nextPrice,
-                    nextAdvance,
-                );
+                const nextStatusId =
+                    (nextRow.lot_status_id as number | undefined) ??
+                    lot.status?.id;
+                if (
+                    transferredStatusId != null &&
+                    nextStatusId === transferredStatusId
+                ) {
+                    const normalizedPrice = toNum(nextPrice);
+                    if (normalizedPrice !== null) {
+                        nextRow.advance = normalizedPrice;
+                        nextRow.remaining_balance = 0;
+                    }
+                } else {
+                    const nextAdvance =
+                        field === 'advance'
+                            ? value
+                            : (nextRow.advance ?? lot.advance);
+                    nextRow.remaining_balance = calculateRemainingBalance(
+                        nextPrice,
+                        nextAdvance,
+                    );
+                }
             }
 
             return { ...prev, [lot.id]: nextRow };
         });
     };
 
-    const buildRowPayloadForSave = (lot: Lot): LotPayload =>
-        buildPayload(lot, {
+    const buildRowPayloadForSave = (lot: Lot): LotPayload => {
+        const price = toNum(getCellValue(lot, 'price')) ?? toNum(lot.price);
+        const transferred = isTransferredStatus(lot);
+
+        return buildPayload(lot, {
+            lot_status_id: getEffectiveStatusId(lot),
             advisor_id:
                 typeof (
                     edited[lot.id]?.advisor_id ??
@@ -404,7 +448,9 @@ export default function ProjectsShow({ project, lotStatuses }: PageProps) {
                     : ((edited[lot.id]?.advisor_id ??
                           lot.advisor?.id ??
                           null) as number | null),
-            advance: toNum(getCellValue(lot, 'advance')) ?? toNum(lot.advance),
+            advance: transferred
+                ? price
+                : (toNum(getCellValue(lot, 'advance')) ?? toNum(lot.advance)),
             area: toNum(getCellValue(lot, 'area')) ?? toNum(lot.area),
             client_dni: getCellValue(lot, 'client_dni').trim() || null,
             client_id:
@@ -440,12 +486,15 @@ export default function ProjectsShow({ project, lotStatuses }: PageProps) {
                 : lot.payment_limit_date
                   ? toDateStr(lot.payment_limit_date)
                   : null,
-            price: toNum(getCellValue(lot, 'price')) ?? toNum(lot.price),
-            remaining_balance: calculateRemainingBalance(
-                toNum(getCellValue(lot, 'price')) ?? toNum(lot.price),
-                toNum(getCellValue(lot, 'advance')) ?? toNum(lot.advance),
-            ),
+            price,
+            remaining_balance: transferred
+                ? 0
+                : calculateRemainingBalance(
+                      price,
+                      toNum(getCellValue(lot, 'advance')) ?? toNum(lot.advance),
+                  ),
         });
+    };
 
     const pendingEditsCount = Object.keys(edited).length;
     const lots = project.lots ?? [];
@@ -785,6 +834,9 @@ export default function ProjectsShow({ project, lotStatuses }: PageProps) {
                     clientJustSelectedRef={clientJustSelectedRef}
                     getCellValue={getCellValue}
                     setCellEdit={setCellEdit}
+                    getEffectiveStatusId={getEffectiveStatusId}
+                    isTransferredStatus={isTransferredStatus}
+                    transferredStatusId={transferredStatusId}
                     buildPayload={buildPayload}
                     buildRowPayloadForSave={buildRowPayloadForSave}
                     updateLot={updateLot}
