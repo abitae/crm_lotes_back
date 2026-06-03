@@ -13,7 +13,7 @@ import {
     Trash2,
     Upload,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { InmoproMetricCard } from '@/components/inmopro/metric-card';
 import { ProjectLocationFieldHelp } from '@/components/inmopro/project-location-field-help';
 import { ProjectLocationLink } from '@/components/inmopro/project-location-link';
@@ -38,7 +38,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { confirmDelete, confirmToggleProjectActive } from '@/lib/swal';
-import type { ProjectLocationOption } from '@/lib/project-location';
+import {
+    normalizeProjectLocationOptions,
+    type ProjectLocationOption,
+} from '@/lib/project-location';
 import { cn } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
@@ -134,7 +137,7 @@ type PageProps = {
         is_active?: string;
     };
     projectTypes: ProjectTypeOption[];
-    locations: ProjectLocationOption[];
+    locations: Array<ProjectLocationOption | string>;
     summary: {
         totalProjects: number;
         totalLots: number;
@@ -152,6 +155,10 @@ export default function ProjectsIndex({
     summary,
 }: PageProps) {
     const items = projects.data;
+    const locationOptions = useMemo(
+        () => normalizeProjectLocationOptions(locations),
+        [locations],
+    );
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
         { title: 'Proyectos', href: '/inmopro/projects' },
@@ -283,7 +290,7 @@ export default function ProjectsIndex({
                                 className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
                             >
                                 <option value="">Todas las ubicaciones</option>
-                                {locations.map((location) => (
+                                {locationOptions.map((location) => (
                                     <option
                                         key={location.value}
                                         value={location.value}

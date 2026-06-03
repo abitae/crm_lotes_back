@@ -9,6 +9,21 @@ export type ProjectLocationOption = {
     label: string;
 };
 
+export function normalizeProjectLocationOptions(
+    locations: Array<ProjectLocationOption | string>,
+): ProjectLocationOption[] {
+    return locations.map((location) => {
+        if (typeof location === 'string') {
+            return { value: location, label: location };
+        }
+
+        return {
+            value: String(location.value ?? ''),
+            label: String(location.label ?? location.value ?? ''),
+        };
+    });
+}
+
 function isCoordinatePair(value: string): boolean {
     const match = value
         .trim()
