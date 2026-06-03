@@ -4,7 +4,7 @@
 
 1. Crear bucket GCS con acceso público de lectura (o CDN delante).
 2. Crear cuenta de servicio con rol **Storage Object Admin**.
-3. Descargar JSON de credenciales y guardarlo fuera del repositorio (por ejemplo `storage/app/gcs-key.json`).
+3. Copiar los campos del JSON de la cuenta de servicio a variables de entorno (no subir el JSON al repositorio).
 4. Variables en `.env`:
 
 ```env
@@ -12,10 +12,16 @@ FILESYSTEM_DISK=gcs
 CAZADOR_PROJECT_ASSET_DISK=gcs
 GOOGLE_CLOUD_PROJECT_ID=tu-proyecto
 GOOGLE_CLOUD_STORAGE_BUCKET=tu-bucket
-GOOGLE_CLOUD_KEY_FILE=/ruta/absoluta/gcs-key.json
-# Opcional: CDN o dominio custom
-# GOOGLE_CLOUD_STORAGE_API_URI=https://cdn.ejemplo.com
+GOOGLE_CLOUD_STORAGE_PATH_PREFIX=lotes
+GOOGLE_CLOUD_ACCOUNT_TYPE=service_account
+GOOGLE_CLOUD_PRIVATE_KEY_ID=
+GOOGLE_CLOUD_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_CLOUD_CLIENT_EMAIL=...@....iam.gserviceaccount.com
+GOOGLE_CLOUD_CLIENT_ID=
+GOOGLE_CLOUD_CLIENT_CERT_URL=
 ```
+
+`GOOGLE_CLOUD_PRIVATE_KEY` debe usar `\n` literales entre comillas en `.env`. En GitHub Actions / Laravel Cloud, define cada valor como secret.
 
 En local puede usarse `FILESYSTEM_DISK=public` sin credenciales GCP.
 
