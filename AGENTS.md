@@ -8,16 +8,7 @@
 - El estado **TRANSFERIDO** puede registrarse desde la vista de proyecto (`/inmopro/projects/{id}`) solo desde **RESERVADO**, con **fecha de escritura** (`notarial_transfer_date`) obligatoria y liquidación de saldo (`advance = price`, `remaining_balance = 0`); también existe el flujo con evidencia en **confirmación de transferencia** (`LotTransferConfirmation`).
 - Las comisiones se generan vía `App\Services\Inmopro\CommissionService::createCommissionsForTransferredLot` al aprobar transferencia o al pasar a TRANSFERIDO desde proyecto (si el lote tiene asesor y aún no tiene comisiones).
 - En **API Cazador**, los **recordatorios** (`ReminderController`) solo aplican a clientes del asesor con tipo **`PROPIO`** (misma regla que tickets de atención y pre-reservas).
-- Para compartir assets de proyecto por WhatsApp: `POST .../assets/share-links` (Bearer) genera `share_url` firmadas; consumo público en `GET .../shared/assets/{asset}` (`ProjectAssetShareService`, `config/cazador.php`).
 - **DNI** y **teléfono** de cliente son **únicos en todo el sistema** al crear o actualizar (Inmopro web y API Cazador). Si hay conflicto, el mensaje indica el vendedor que registró al cliente existente (`ClientDuplicateRegistrationChecker`).
-
-=== .ai/openai-cazador rules ===
-
-# Módulo OpenAI Cazador
-
-- Asistente y API de catálogo para la app Cazador viven en `app/OpenAi/` (ver `.ai/guidelines/openai-cazador.md`).
-- Solo proyectos activos y lotes de catálogo; sin PII de clientes en payloads ni tools.
-- Feature flag `OPENAI_CAZADOR_ENABLED`; rutas bajo `/api/v1/cazador/openai` con `throttle:ai-cazador` y `throttle:ai-cazador-knowledge`.
 
 === .ai/laravel-ai-and-testing rules ===
 
@@ -28,6 +19,20 @@
 - En **tests**, usar siempre `NombreDelAgente::fake()` para no llamar a proveedores externos; aserciones con `assertPrompted` cuando aplique.
 - Rutas que llamen al modelo deben ir **autenticadas**, con validación (Form Request) y **rate limiting** dedicado (`throttle:ai`) para controlar coste y abuso.
 - No enviar a terceros datos personales innecesarios; acotar el contexto del prompt al mínimo imprescindible para la tarea.
+
+=== .ai/openai-cazador rules ===
+
+# Módulo OpenAI Cazador
+
+- Código en `app/OpenAi/` (agentes, tools, servicios, controladores API). **No** mezclar con `app/Ai/Agents/` (web Inmopro, p. ej. seguimiento de lote).
+- Configuración: `config/openai_cazador.php` y `.env` (`OPENAI_CAZADOR_*`, `OPENAI_API_KEY` en `config/ai.php`).
+- Rutas: `routes/openai-cazador.php`, prefijo `/api/v1/cazador/openai`, middleware `advisor.api` + `openai.cazador`.
+- **Catálogo únicamente:** proyectos `is_active`, lotes con filtro `LIBRE` por defecto. Prohibido exponer clientes, asesores, comisiones o pre-reservas en knowledge/chat.
+- Capa de datos: `App\OpenAi\Services\ProjectKnowledgeService` — usada por la API HTTP y por las tools del agente.
+- Agente: `CazadorCatalogAssistant` con tools `ListActiveProjectsTool`, `GetProjectDetailTool`, `SearchAvailableLotsTool`.
+- Rate limits: `throttle:ai-cazador` (chat), `throttle:ai-cazador-knowledge` (lecturas).
+- Tests: `tests/Feature/OpenAi/Cazador/`, siempre `CazadorCatalogAssistant::fake()` para el chat.
+- Documentación API: `docs/API_CAZADOR.md` sección OpenAI; guía app móvil: `docs/API_CAZADOR_OPENAI.md`.
 
 === foundation rules ===
 

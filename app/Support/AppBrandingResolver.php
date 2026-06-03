@@ -4,7 +4,6 @@ namespace App\Support;
 
 use App\Models\AppBranding;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Storage;
 
 class AppBrandingResolver
 {
@@ -32,7 +31,7 @@ class AppBrandingResolver
 
             $logoUrl = null;
             if (filled($row?->logo_path)) {
-                $logoUrl = Storage::disk('public')->url((string) $row->logo_path);
+                $logoUrl = FileStorage::url((string) $row->logo_path);
             }
 
             $tagline = filled($row?->tagline) ? (string) $row->tagline : null;
@@ -44,7 +43,7 @@ class AppBrandingResolver
 
             $faviconUrl = null;
             if (filled($row?->favicon_path)) {
-                $faviconUrl = Storage::disk('public')->url((string) $row->favicon_path);
+                $faviconUrl = FileStorage::url((string) $row->favicon_path);
             }
 
             return [

@@ -44,7 +44,9 @@ class SharedProjectAssetController extends Controller
         $mime = strtolower((string) $asset->mime_type);
 
         $inline = $asset->kind === 'image'
+            || $asset->kind === 'video'
             || str_starts_with($mime, 'image/')
+            || str_starts_with($mime, 'video/')
             || $mime === 'application/pdf';
 
         $type = $inline ? 'inline' : 'attachment';

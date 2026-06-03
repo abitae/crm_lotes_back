@@ -14,6 +14,8 @@ trait ValidatesProjectAssetUploads
         return [
             'image_files' => ['nullable', 'array'],
             'image_files.*' => ['file', 'image', 'max:10240'],
+            'video_files' => ['nullable', 'array'],
+            'video_files.*' => ['file', 'mimetypes:video/mp4,video/quicktime,video/webm,video/x-msvideo', 'max:102400'],
             'document_files' => ['nullable', 'array'],
             'document_files.*' => ['file', 'mimes:pdf,doc,docx,xls,xlsx,ppt,pptx', 'max:15360'],
             'document_titles' => ['required_with:document_files', 'array'],

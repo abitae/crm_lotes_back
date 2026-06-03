@@ -13,6 +13,7 @@ use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotPreReservation;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
+use App\Support\FileStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -111,7 +112,10 @@ class LotPreReservationController extends Controller
             ]);
         }
 
-        $storedPath = $request->file('voucher_image')->store('inmopro/lot-pre-reservations', 'public');
+        $storedPath = FileStorage::storeUploadedFile(
+            $request->file('voucher_image'),
+            'inmopro/lot-pre-reservations',
+        );
         $amounts = $this->distributedAmounts((float) $request->input('amount'), $lotIds->count());
 
         $error = DB::transaction(function () use ($amounts, $client, $lotIds, $ownClientTypeId, $preReservationStatusId, $request, $storedPath): ?string {

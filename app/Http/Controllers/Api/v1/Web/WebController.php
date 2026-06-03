@@ -9,6 +9,7 @@ use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\ProjectAsset;
 use App\Services\Inmopro\ProjectLocationMapsResolver;
+use App\Support\FileStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -81,19 +82,17 @@ class WebController extends Controller
         $this->abortUnlessVisibleOnWeb($project);
         abort_unless($asset->project_id === $project->id && $asset->is_active, 404);
 
-        $disk = Storage::disk(ProjectAsset::storageDisk());
-
-        if (! $disk->exists($asset->file_path)) {
+        if (! FileStorage::exists($asset->file_path)) {
             abort(404);
         }
 
-        $publicUrl = $disk->url($asset->file_path);
+        $publicUrl = FileStorage::url($asset->file_path);
 
-        if ($publicUrl !== '') {
+        if ($publicUrl !== null && $publicUrl !== '') {
             return redirect($publicUrl);
         }
 
-        return $disk->response($asset->file_path, $asset->file_name, [
+        return FileStorage::filesystem()->response($asset->file_path, $asset->file_name, [
             'Content-Type' => $asset->mime_type ?: 'application/octet-stream',
         ]);
     }
@@ -304,7 +303,7 @@ class WebController extends Controller
                 'name' => $project->projectType->name,
                 'code' => $project->projectType->code,
             ] : null,
-            'image_portada' => $project->image_portada,
+            'image_portada' => FileStorage::url($project->image_portada),
             'tipo_web' => $project->tipo_web,
             'city' => $project->city ? [
                 'id' => $project->city->id,
@@ -336,7 +335,7 @@ class WebController extends Controller
             'file_name' => $asset->file_name,
             'mime_type' => $asset->mime_type,
             'file_size' => $asset->file_size,
-            'url' => Storage::disk(ProjectAsset::storageDisk())->url($asset->file_path),
+            'url' => FileStorage::url($asset->file_path),
         ];
     }
 

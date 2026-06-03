@@ -59,16 +59,7 @@ class ProjectAssetShareService
             return false;
         }
 
-        if (Storage::disk($asset->disk)->exists($asset->path)) {
-            return true;
-        }
-
-        // Respaldo local cuando el disco public apunta a storage/app/public
-        if ($asset->disk === 'public') {
-            return is_file(storage_path('app/public/'.$asset->path));
-        }
-
-        return false;
+        return Storage::disk($asset->disk)->exists($asset->path);
     }
 
     /**

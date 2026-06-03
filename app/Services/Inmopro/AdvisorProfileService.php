@@ -5,6 +5,7 @@ namespace App\Services\Inmopro;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\AdvisorProfile;
 use App\Models\Inmopro\AdvisorProfileDocument;
+use App\Support\FileStorage;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 
@@ -91,7 +92,7 @@ class AdvisorProfileService
             }
 
             $directory = sprintf('advisors/%d/profile-documents', $profile->advisor_id);
-            $storedPath = $file->store($directory, 'local');
+            $storedPath = FileStorage::storeUploadedFile($file, $directory);
             $title = isset($titles[$index]) && is_string($titles[$index]) && trim($titles[$index]) !== ''
                 ? trim($titles[$index])
                 : pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);

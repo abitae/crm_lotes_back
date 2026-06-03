@@ -31,6 +31,15 @@ class ProjectAssetStorageTest extends TestCase
         $this->assertMatchesRegularExpression('/^document_3_\d{4}\.pdf$/', $name);
     }
 
+    public function test_generate_stored_file_name_uses_video_prefix_for_videos(): void
+    {
+        $service = app(ProjectAssetStorageService::class);
+
+        $name = $service->generateStoredFileName(5, 'video', 'mp4');
+
+        $this->assertMatchesRegularExpression('/^video_5_\d{4}\.mp4$/', $name);
+    }
+
     public function test_store_saves_image_with_generated_file_name(): void
     {
         Storage::fake('public');

@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Inmopro\UpdateAppBrandingRequest;
 use App\Models\AppBranding;
 use App\Support\AppBrandingResolver;
+use App\Support\FileStorage;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,12 +22,8 @@ class AppBrandingController extends Controller
                 'display_name' => $branding->display_name,
                 'tagline' => $branding->tagline,
                 'primary_color' => $branding->primary_color,
-                'logo_url' => filled($branding->logo_path)
-                    ? Storage::disk('public')->url($branding->logo_path)
-                    : null,
-                'favicon_url' => filled($branding->favicon_path)
-                    ? Storage::disk('public')->url($branding->favicon_path)
-                    : null,
+                'logo_url' => FileStorage::url($branding->logo_path),
+                'favicon_url' => FileStorage::url($branding->favicon_path),
             ],
         ]);
     }
@@ -38,26 +34,24 @@ class AppBrandingController extends Controller
         $validated = $request->validated();
 
         if ($request->hasFile('logo')) {
-            if (filled($branding->logo_path)) {
-                Storage::disk('public')->delete($branding->logo_path);
-            }
-            $branding->logo_path = $request->file('logo')->store('branding', 'public');
+            FileStorage::deleteIfExists($branding->logo_path);
+            $branding->logo_path = FileStorage::storeUploadedFile(
+                $request->file('logo'),
+                'branding',
+            );
         } elseif ($request->boolean('remove_logo')) {
-            if (filled($branding->logo_path)) {
-                Storage::disk('public')->delete($branding->logo_path);
-            }
+            FileStorage::deleteIfExists($branding->logo_path);
             $branding->logo_path = null;
         }
 
         if ($request->hasFile('favicon')) {
-            if (filled($branding->favicon_path)) {
-                Storage::disk('public')->delete($branding->favicon_path);
-            }
-            $branding->favicon_path = $request->file('favicon')->store('branding/favicons', 'public');
+            FileStorage::deleteIfExists($branding->favicon_path);
+            $branding->favicon_path = FileStorage::storeUploadedFile(
+                $request->file('favicon'),
+                'branding/favicons',
+            );
         } elseif ($request->boolean('remove_favicon')) {
-            if (filled($branding->favicon_path)) {
-                Storage::disk('public')->delete($branding->favicon_path);
-            }
+            FileStorage::deleteIfExists($branding->favicon_path);
             $branding->favicon_path = null;
         }
 

@@ -32,6 +32,7 @@ type ProjectCreateForm = {
     precio_web: string | number;
     portada_file: File | null;
     image_files: File[];
+    video_files: File[];
     document_files: File[];
     document_titles: string[];
 };
@@ -64,6 +65,7 @@ export default function ProjectsCreate({
             precio_web: '' as string | number,
             portada_file: null,
             image_files: [],
+            video_files: [],
             document_files: [],
             document_titles: [],
         });
@@ -320,6 +322,27 @@ export default function ProjectsCreate({
                         <InputError
                             message={
                                 errors.image_files || errors['image_files.0']
+                            }
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor="video_files">Vídeos del proyecto</Label>
+                        <Input
+                            id="video_files"
+                            type="file"
+                            multiple
+                            accept="video/mp4,video/quicktime,video/webm,video/x-msvideo"
+                            onChange={(e) =>
+                                setData(
+                                    'video_files',
+                                    Array.from(e.target.files ?? []),
+                                )
+                            }
+                            className="mt-1"
+                        />
+                        <InputError
+                            message={
+                                errors.video_files || errors['video_files.0']
                             }
                         />
                     </div>

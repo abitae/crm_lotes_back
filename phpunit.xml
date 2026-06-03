@@ -32,5 +32,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="FILESYSTEM_DISK" value="public"/>
+        <env name="CAZADOR_PROJECT_ASSET_DISK" value="public"/>
     </php>
 </phpunit>

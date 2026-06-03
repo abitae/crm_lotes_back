@@ -5,6 +5,7 @@ namespace Tests\Feature\Inmopro;
 use App\Models\Inmopro\City;
 use App\Models\Inmopro\Project;
 use App\Models\User;
+use App\Support\FileStorage;
 use Database\Seeders\Inmopro\CitySeeder;
 use Database\Seeders\Inmopro\ProjectTypeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -61,9 +62,9 @@ class ProjectWebFieldsTest extends TestCase
         $this->assertEquals(125000.5, (float) $project->precio_web);
         $this->assertTrue($project->is_web);
         $this->assertSame('lotesenremate.pe', $project->tipo_web);
-        $this->assertNotNull($project->image_portada);
-        $this->assertStringContainsString('/storage/', (string) $project->image_portada);
+        $this->assertSame("projects/{$project->id}/portada.jpg", $project->image_portada);
         Storage::disk('public')->assertExists("projects/{$project->id}/portada.jpg");
+        $this->assertStringContainsString('portada.jpg', (string) FileStorage::url($project->image_portada));
     }
 
     public function test_update_project_can_remove_portada(): void
@@ -83,7 +84,7 @@ class ProjectWebFieldsTest extends TestCase
 
         $storedPath = UploadedFile::fake()->image('old.jpg')->store("projects/{$project->id}", 'public');
         $project->update([
-            'image_portada' => Storage::disk('public')->url($storedPath),
+            'image_portada' => $storedPath,
         ]);
 
         $response = $this->actingAs($user)->post(route('inmopro.projects.update', $project), [

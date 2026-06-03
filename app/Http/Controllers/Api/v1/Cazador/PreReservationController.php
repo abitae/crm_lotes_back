@@ -9,9 +9,9 @@ use App\Models\Inmopro\Client;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotPreReservation;
 use App\Models\Inmopro\LotStatus;
+use App\Support\FileStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class PreReservationController extends Controller
 {
@@ -72,7 +72,10 @@ class PreReservationController extends Controller
         }
 
         $preReservation = DB::transaction(function () use ($advisor, $client, $lot, $request, $preReservationStatusId) {
-            $storedPath = $request->file('voucher_image')->store('cazador/pre-reservations', 'public');
+            $storedPath = FileStorage::storeUploadedFile(
+                $request->file('voucher_image'),
+                'cazador/pre-reservations',
+            );
 
             try {
                 $preReservation = LotPreReservation::create([
@@ -96,7 +99,7 @@ class PreReservationController extends Controller
 
                 return $preReservation;
             } catch (\Throwable $e) {
-                Storage::disk('public')->delete($storedPath);
+                FileStorage::deleteIfExists($storedPath);
 
                 throw $e;
             }

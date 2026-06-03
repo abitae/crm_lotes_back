@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Api\v1\Cazador;
 use App\Http\Controllers\Controller;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\ProjectAsset;
+use App\Support\FileStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProjectController extends Controller
@@ -49,7 +49,7 @@ class ProjectController extends Controller
     {
         abort_unless($asset->project_id === $project->id && $asset->is_active, 404);
 
-        return Storage::disk(ProjectAsset::storageDisk())->download($asset->file_path, $asset->file_name);
+        return FileStorage::filesystem()->download($asset->file_path, $asset->file_name);
     }
 
     /**

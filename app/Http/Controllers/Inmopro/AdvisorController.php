@@ -22,6 +22,7 @@ use App\Models\Inmopro\MembershipType;
 use App\Models\Inmopro\Team;
 use App\Services\Inmopro\AdvisorProfileService;
 use App\Services\Inmopro\AdvisorsExcelImportService;
+use App\Support\FileStorage;
 use App\Support\InertiaListingRedirect;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -29,7 +30,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -466,11 +466,11 @@ class AdvisorController extends Controller
         $document->load('profile');
         abort_unless($document->profile && $document->profile->advisor_id === $advisor->id, 404);
 
-        if (! Storage::disk('local')->exists($document->file_path)) {
+        if (! FileStorage::exists($document->file_path)) {
             abort(404);
         }
 
-        return Storage::disk('local')->response($document->file_path, $document->file_name, [
+        return FileStorage::filesystem()->response($document->file_path, $document->file_name, [
             'Content-Type' => $document->mime_type ?: 'application/octet-stream',
         ]);
     }

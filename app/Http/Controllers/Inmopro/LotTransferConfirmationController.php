@@ -11,6 +11,7 @@ use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\LotTransferConfirmation;
 use App\Models\Inmopro\Project;
 use App\Services\Inmopro\CommissionService;
+use App\Support\FileStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -132,7 +133,10 @@ class LotTransferConfirmationController extends Controller
             ]);
         }
 
-        $storedPath = $request->file('evidence_image')->store('inmopro/lot-transfer-confirmations', 'public');
+        $storedPath = FileStorage::storeUploadedFile(
+            $request->file('evidence_image'),
+            'inmopro/lot-transfer-confirmations',
+        );
 
         DB::transaction(function () use ($lot, $request, $storedPath, $transferredStatusId) {
             LotTransferConfirmation::create([

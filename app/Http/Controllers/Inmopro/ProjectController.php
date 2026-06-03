@@ -19,13 +19,13 @@ use App\Services\Inmopro\LotPersistService;
 use App\Services\Inmopro\ProjectAssetStorageService;
 use App\Services\Inmopro\ProjectLocationMapsResolver;
 use App\Services\Inmopro\ProjectsExcelImportService;
+use App\Support\FileStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -269,7 +269,7 @@ class ProjectController extends Controller
         $project->load('assets');
         $this->deletePortadaFile($project);
         foreach ($project->assets as $asset) {
-            Storage::disk(ProjectAsset::storageDisk())->delete($asset->file_path);
+            FileStorage::deleteIfExists($asset->file_path);
         }
         $project->delete();
 
@@ -292,14 +292,14 @@ class ProjectController extends Controller
     {
         abort_unless($asset->project_id === $project->id, 404);
 
-        return Storage::disk(ProjectAsset::storageDisk())->download($asset->file_path, $asset->file_name);
+        return FileStorage::filesystem()->download($asset->file_path, $asset->file_name);
     }
 
     public function destroyAsset(Project $project, ProjectAsset $asset): RedirectResponse
     {
         abort_unless($asset->project_id === $project->id, 404);
 
-        Storage::disk(ProjectAsset::storageDisk())->delete($asset->file_path);
+        FileStorage::deleteIfExists($asset->file_path);
         $asset->delete();
 
         return back()->with('success', 'Adjunto eliminado correctamente.');
@@ -367,6 +367,7 @@ class ProjectController extends Controller
     {
         unset(
             $validated['image_files'],
+            $validated['video_files'],
             $validated['document_files'],
             $validated['document_titles'],
             $validated['portada_file'],
@@ -398,6 +399,14 @@ class ProjectController extends Controller
             }
 
             $this->createAsset($project, $file, 'image', $nextSortOrder++);
+        }
+
+        foreach (($request->file('video_files') ?? []) as $file) {
+            if (! $file instanceof UploadedFile) {
+                continue;
+            }
+
+            $this->createAsset($project, $file, 'video', $nextSortOrder++);
         }
 
         foreach (($request->file('document_files') ?? []) as $index => $file) {
@@ -471,7 +480,7 @@ class ProjectController extends Controller
             'registry_status' => $project->registry_status,
             'descripcion' => $project->descripcion,
             'precio_web' => $project->precio_web !== null ? (float) $project->precio_web : null,
-            'image_portada' => $project->image_portada,
+            'image_portada' => FileStorage::url($project->image_portada),
             'is_web' => (bool) $project->is_web,
             'tipo_web' => $project->tipo_web,
             'assets' => $project->assets
@@ -485,6 +494,11 @@ class ProjectController extends Controller
                 ->all(),
             'documents' => $project->assets
                 ->where('kind', 'document')
+                ->map(fn (ProjectAsset $asset) => $this->assetPayload($project, $asset))
+                ->values()
+                ->all(),
+            'videos' => $project->assets
+                ->where('kind', 'video')
                 ->map(fn (ProjectAsset $asset) => $this->assetPayload($project, $asset))
                 ->values()
                 ->all(),
@@ -584,57 +598,35 @@ class ProjectController extends Controller
         $this->deletePortadaFile($project);
 
         $extension = $file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'jpg';
-        $path = $file->storeAs(
+        $path = FileStorage::storeUploadedFile(
+            $file,
             "projects/{$project->id}",
             'portada.'.$extension,
-            'public',
         );
 
-        $url = Storage::disk('public')->url($path);
-
         $project->update([
-            'image_portada' => $url !== '' ? $url : null,
+            'image_portada' => $path,
         ]);
     }
 
     private function deletePortadaFile(Project $project): void
     {
-        $path = $this->portadaPathFromUrl($project->image_portada);
-
-        if ($path !== null && Storage::disk('public')->exists($path)) {
-            Storage::disk('public')->delete($path);
-        }
-    }
-
-    private function portadaPathFromUrl(?string $url): ?string
-    {
-        if (! filled($url)) {
-            return null;
-        }
-
-        $prefix = rtrim(Storage::disk('public')->url(''), '/').'/';
-
-        if (! str_starts_with($url, $prefix)) {
-            return null;
-        }
-
-        return ltrim(substr($url, strlen($prefix)), '/');
+        FileStorage::deleteIfExists($project->image_portada);
     }
 
     private function assetPreviewUrl(ProjectAsset $asset): ?string
     {
-        if ($asset->kind !== 'image' && ! str_starts_with((string) $asset->mime_type, 'image/')) {
+        $isImage = $asset->kind === 'image' || str_starts_with((string) $asset->mime_type, 'image/');
+        $isVideo = $asset->kind === 'video' || str_starts_with((string) $asset->mime_type, 'video/');
+
+        if (! $isImage && ! $isVideo) {
             return null;
         }
 
-        $disk = Storage::disk(ProjectAsset::storageDisk());
-
-        if (! $disk->exists($asset->file_path)) {
+        if (! FileStorage::exists($asset->file_path)) {
             return null;
         }
 
-        $url = $disk->url($asset->file_path);
-
-        return $url !== '' ? $url : null;
+        return FileStorage::url($asset->file_path);
     }
 }

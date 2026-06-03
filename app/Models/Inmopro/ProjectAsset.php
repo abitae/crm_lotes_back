@@ -2,6 +2,7 @@
 
 namespace App\Models\Inmopro;
 
+use App\Support\FileStorage;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,7 @@ class ProjectAsset extends Model
 {
     public static function storageDisk(): string
     {
-        return (string) config('cazador.project_asset_disk', 'public');
+        return FileStorage::disk();
     }
 
     /**

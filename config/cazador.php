@@ -18,6 +18,8 @@ return [
     */
     'asset_share_url_root' => env('CAZADOR_ASSET_SHARE_URL_ROOT'),
 
-    'project_asset_disk' => env('CAZADOR_PROJECT_ASSET_DISK', 'public'),
+    'default_storage_disk' => env('FILESYSTEM_DISK', 'public'),
+
+    'project_asset_disk' => env('CAZADOR_PROJECT_ASSET_DISK', env('FILESYSTEM_DISK', 'public')),
 
 ];

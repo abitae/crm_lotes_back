@@ -223,7 +223,7 @@ Paginación del resultado **filtrado** (mismo `tipo_web` y filtros opcionales).
 | `lots_count`      | int         | Lotes registrados                                                                                 |
 | `free_lots_count` | int         | Lotes en estado `LIBRE`                                                                           |
 | `project_type`    | object|null | `{ id, name, code }`                                                                              |
-| `image_portada`   | string|null | URL pública de la portada (preferida para tarjetas)                                               |
+| `image_portada`   | string|null | URL pública de la portada (GCS/CDN o `/storage/` en local; preferida para tarjetas)               |
 | `tipo_web`        | string|null | Sitio destino: `lotesenremate.pe` o `inviertexpress.pe`                                           |
 | `city`            | object|null | `{ id, name, department }`                                                                        |
 | `province`        | string|null | Provincia                                                                                         |
@@ -249,7 +249,7 @@ Paginación del resultado **filtrado** (mismo `tipo_web` y filtros opcionales).
 | `file_name` | string | Nombre de archivo                                               |
 | `mime_type` | string | MIME                                                            |
 | `file_size` | int    | Bytes                                                           |
-| `url`       | string | URL absoluta del archivo (usar en `<img>`, `<video>`, descarga) |
+| `url`       | string | URL absoluta del archivo en GCS/CDN o storage local (usar en `<img>`, `<video>`, descarga) |
 
 
 ---
@@ -273,7 +273,7 @@ Paginación del resultado **filtrado** (mismo `tipo_web` y filtros opcionales).
 Cada imagen o vídeo trae `url` lista para usar:
 
 ```html
-<img src="https://api.ejemplo.com/storage/projects/1/images/foto.jpg" alt="..." />
+<img src="https://storage.googleapis.com/tu-bucket/projects/1/images/foto.jpg" alt="..." />
 ```
 
 No necesitas token ni cabeceras extra para cargar ese recurso. Si `url` devuelve 404, muestra un placeholder en tu UI.

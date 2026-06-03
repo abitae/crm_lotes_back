@@ -16,7 +16,7 @@ import type { BreadcrumbItem } from '@/types';
 
 type ProjectAsset = {
     id: number;
-    kind: 'image' | 'document';
+    kind: 'image' | 'document' | 'video';
     title?: string | null;
     file_name: string;
     download_url: string;
@@ -61,6 +61,7 @@ type ProjectEditForm = {
     portada_file: File | null;
     remove_portada: boolean;
     image_files: File[];
+    video_files: File[];
     document_files: File[];
     document_titles: string[];
     _method?: 'put';
@@ -101,6 +102,7 @@ export default function ProjectsEdit({
             portada_file: null,
             remove_portada: false,
             image_files: [],
+            video_files: [],
             document_files: [],
             document_titles: [],
         });
@@ -112,6 +114,10 @@ export default function ProjectsEdit({
     const existingDocuments = useMemo(
         () =>
             (project.assets ?? []).filter((asset) => asset.kind === 'document'),
+        [project.assets],
+    );
+    const existingVideos = useMemo(
+        () => (project.assets ?? []).filter((asset) => asset.kind === 'video'),
         [project.assets],
     );
 
@@ -411,6 +417,34 @@ export default function ProjectsEdit({
                         )}
                     </div>
                     <div>
+                        <Label htmlFor="video_files">Añadir vídeos</Label>
+                        <Input
+                            id="video_files"
+                            type="file"
+                            multiple
+                            accept="video/mp4,video/quicktime,video/webm,video/x-msvideo"
+                            onChange={(e) =>
+                                setData(
+                                    'video_files',
+                                    Array.from(e.target.files ?? []),
+                                )
+                            }
+                            className="mt-1"
+                        />
+                        <InputError
+                            message={
+                                errors.video_files || errors['video_files.0']
+                            }
+                        />
+                        {data.video_files.length > 0 && (
+                            <ul className="mt-2 list-inside list-disc text-sm text-slate-600">
+                                {data.video_files.map((file) => (
+                                    <li key={file.name}>{file.name}</li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                    <div>
                         <Label htmlFor="document_files">
                             Añadir documentos
                         </Label>
@@ -543,6 +577,70 @@ export default function ProjectsEdit({
                                                     Eliminar
                                                 </Button>
                                             </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {existingVideos.length > 0 && (
+                        <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+                            <h3 className="text-sm font-bold tracking-wide text-slate-500 uppercase">
+                                Vídeos actuales
+                            </h3>
+                            <div className="space-y-2">
+                                {existingVideos.map((asset) => (
+                                    <div
+                                        key={asset.id}
+                                        className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
+                                    >
+                                        <div>
+                                            <p className="font-medium text-slate-800">
+                                                {asset.title || asset.file_name}
+                                            </p>
+                                            <p className="text-xs text-slate-500">
+                                                Vídeo
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            {asset.preview_url && (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        window.open(
+                                                            asset.preview_url!,
+                                                            '_blank',
+                                                        )
+                                                    }
+                                                >
+                                                    Ver
+                                                </Button>
+                                            )}
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() =>
+                                                    window.open(
+                                                        asset.download_url,
+                                                        '_blank',
+                                                    )
+                                                }
+                                            >
+                                                Descargar
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="destructive"
+                                                onClick={() =>
+                                                    router.delete(
+                                                        `/inmopro/projects/${project.id}/assets/${asset.id}`,
+                                                    )
+                                                }
+                                            >
+                                                Eliminar
+                                            </Button>
                                         </div>
                                     </div>
                                 ))}
