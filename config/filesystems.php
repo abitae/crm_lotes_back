@@ -62,12 +62,12 @@ return [
 
         'gcs' => [
             'driver' => 'gcs',
-            'key_file_path' => env('GOOGLE_CLOUD_KEY_FILE'),
-            'project_id' => env('GOOGLE_CLOUD_PROJECT_ID'),
-            'bucket' => env('GOOGLE_CLOUD_STORAGE_BUCKET'),
-            'path_prefix' => env('GOOGLE_CLOUD_STORAGE_PATH_PREFIX', ''),
-            'storage_api_uri' => env('GOOGLE_CLOUD_STORAGE_API_URI'),
-            'api_endpoint' => env('GOOGLE_CLOUD_STORAGE_API_ENDPOINT'),
+            'key_file_path' => env('GOOGLE_CLOUD_KEY_FILE') ?? storage_path('app/gcs-key.json'),
+            'project_id' => env('GOOGLE_CLOUD_PROJECT_ID') ?? 'hip-heading-449219-p2',
+            'bucket' => env('GOOGLE_CLOUD_STORAGE_BUCKET') ?? 'storage_abitae',
+            'path_prefix' => env('GOOGLE_CLOUD_STORAGE_PATH_PREFIX') ?? 'lotes',
+            'storage_api_uri' => env('GOOGLE_CLOUD_STORAGE_API_URI') ?? 'https://storage.googleapis.com',
+            'api_endpoint' => env('GOOGLE_CLOUD_STORAGE_API_ENDPOINT') ?? 'https://storage.googleapis.com',
             'visibility' => 'public',
             'metadata' => ['cacheControl' => 'public, max-age=86400'],
             'throw' => false,
