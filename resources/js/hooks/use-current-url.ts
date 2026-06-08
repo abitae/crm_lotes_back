@@ -19,9 +19,21 @@ export type UseCurrentUrlReturn = {
     whenCurrentUrl: WhenCurrentUrlFn;
 };
 
+function pathnameFromPageUrl(url: string): string {
+    if (url.startsWith('/')) {
+        return url.split('?')[0]?.split('#')[0] ?? url;
+    }
+
+    try {
+        return new URL(url, 'http://inertia.ssr').pathname;
+    } catch {
+        return url;
+    }
+}
+
 export function useCurrentUrl(): UseCurrentUrlReturn {
     const page = usePage();
-    const currentUrlPath = new URL(page.url, window?.location.origin).pathname;
+    const currentUrlPath = pathnameFromPageUrl(page.url);
 
     const isCurrentUrl: IsCurrentUrlFn = (
         urlToCheck: NonNullable<InertiaLinkProps['href']>,

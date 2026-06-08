@@ -25,12 +25,20 @@ class FileStorage
         }
 
         if (static::isAbsoluteUrl($pathOrUrl)) {
-            return $pathOrUrl;
+            return static::normalizePublicUrl($pathOrUrl);
         }
 
-        $url = static::filesystem()->url(static::normalizePath($pathOrUrl));
+        $path = static::normalizePath($pathOrUrl);
 
-        return $url !== '' ? $url : null;
+        $url = static::disk() === 'gcs'
+            ? static::gcsPublicUrl($path)
+            : static::filesystem()->url($path);
+
+        if ($url === '') {
+            return null;
+        }
+
+        return static::normalizePublicUrl($url);
     }
 
     public static function exists(?string $pathOrUrl): bool
@@ -63,7 +71,7 @@ class FileStorage
                 throw new \RuntimeException('No se pudo guardar el archivo.');
             }
 
-            return $storedPath;
+            return static::normalizePath($storedPath);
         }
 
         $storedPath = $file->store($directory, static::disk());
@@ -72,7 +80,7 @@ class FileStorage
             throw new \RuntimeException('No se pudo guardar el archivo.');
         }
 
-        return $storedPath;
+        return static::normalizePath($storedPath);
     }
 
     /**
@@ -127,12 +135,47 @@ class FileStorage
             $prefixes[] = $appUrl.'/storage/';
         }
 
-        $custom = env('GOOGLE_CLOUD_STORAGE_URL');
+        $custom = config('filesystems.disks.gcs.url');
         if (filled($custom)) {
-            $prefixes[] = rtrim((string) $custom, '/').'/';
+            $base = rtrim(static::normalizePublicUrl((string) $custom), '/');
+            $bucket = (string) config('filesystems.disks.gcs.bucket', '');
+            if ($bucket !== '' && ! str_contains($base, '/'.$bucket)) {
+                $base .= '/'.$bucket;
+            }
+            $prefixes[] = $base.'/';
         }
 
         return array_values(array_unique($prefixes));
+    }
+
+    public static function gcsPublicUrl(string $path): string
+    {
+        $bucket = (string) config('filesystems.disks.gcs.bucket');
+        $prefix = trim((string) config('filesystems.disks.gcs.path_prefix', ''), '/');
+        $objectPath = $prefix !== '' ? $prefix.'/'.$path : $path;
+        $objectPath = ltrim(str_replace('\\', '/', $objectPath), '/');
+
+        $customBase = config('filesystems.disks.gcs.url');
+        if (filled($customBase)) {
+            $base = rtrim(static::normalizePublicUrl((string) $customBase), '/');
+
+            if ($bucket !== '' && (str_ends_with($base, '/'.$bucket) || str_contains($base, '/'.$bucket.'/'))) {
+                return $base.'/'.ltrim($objectPath, '/');
+            }
+
+            if ($bucket !== '') {
+                return $base.'/'.$bucket.'/'.ltrim($objectPath, '/');
+            }
+
+            return $base.'/'.ltrim($objectPath, '/');
+        }
+
+        return 'https://storage.googleapis.com/'.$bucket.'/'.ltrim($objectPath, '/');
+    }
+
+    public static function normalizePublicUrl(string $url): string
+    {
+        return str_replace('\\', '/', $url);
     }
 
     public static function isAbsoluteUrl(string $value): bool

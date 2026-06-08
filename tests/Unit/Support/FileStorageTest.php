@@ -30,4 +30,49 @@ class FileStorageTest extends TestCase
 
         $this->assertSame($url, FileStorage::url($url));
     }
+
+    public function test_gcs_public_url_includes_bucket_and_path_prefix(): void
+    {
+        config([
+            'cazador.default_storage_disk' => 'gcs',
+            'filesystems.disks.gcs.bucket' => 'storage_abitae',
+            'filesystems.disks.gcs.path_prefix' => 'lotes',
+            'filesystems.disks.gcs.url' => null,
+        ]);
+
+        $this->assertSame(
+            'https://storage.googleapis.com/storage_abitae/lotes/branding/logo.png',
+            FileStorage::url('branding/logo.png'),
+        );
+    }
+
+    public function test_gcs_public_url_adds_bucket_when_custom_base_is_api_host(): void
+    {
+        config([
+            'cazador.default_storage_disk' => 'gcs',
+            'filesystems.disks.gcs.bucket' => 'storage_abitae',
+            'filesystems.disks.gcs.path_prefix' => 'lotes',
+            'filesystems.disks.gcs.url' => 'https://storage.googleapis.com',
+        ]);
+
+        $this->assertSame(
+            'https://storage.googleapis.com/storage_abitae/lotes/branding/favicon.png',
+            FileStorage::url('branding/favicon.png'),
+        );
+    }
+
+    public function test_url_normalizes_windows_path_separators(): void
+    {
+        config([
+            'cazador.default_storage_disk' => 'gcs',
+            'filesystems.disks.gcs.bucket' => 'storage_abitae',
+            'filesystems.disks.gcs.path_prefix' => 'lotes',
+            'filesystems.disks.gcs.url' => null,
+        ]);
+
+        $this->assertSame(
+            'https://storage.googleapis.com/storage_abitae/lotes/branding/logo.png',
+            FileStorage::url('branding\\logo.png'),
+        );
+    }
 }

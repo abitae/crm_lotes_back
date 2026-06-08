@@ -74,7 +74,7 @@ const compareLotNumbers = (a: string, b: string): number =>
 
 function formatMoney(value?: string): string {
     if (value == null || value === '') {
-        return 'â€”';
+        return '—';
     }
 
     return currencyFormatter.format(Number(value));
@@ -82,10 +82,10 @@ function formatMoney(value?: string): string {
 
 function formatArea(value?: string): string {
     if (value == null || value === '') {
-        return 'â€”';
+        return '—';
     }
 
-    return `${numberFormatter.format(Number(value))} mÂ²`;
+    return `${numberFormatter.format(Number(value))} m²`;
 }
 
 function isLikelyUrl(value?: string | null): boolean {
@@ -417,7 +417,7 @@ export default function Inventory({
                                                                             {
                                                                                 lot.area
                                                                             }
-                                                                            mÂ²
+                                                                            m²
                                                                         </span>
                                                                     </button>
                                                                 ),
@@ -479,7 +479,7 @@ function ProjectMapCard({
                         Mapa del proyecto
                     </p>
                     <h2 className="mt-2 text-xl font-black text-slate-950 dark:text-white">
-                        UbicaciÃ³n en Google Maps
+                        Ubicación en Google Maps
                     </h2>
                 </div>
                 <div className="rounded-xl bg-emerald-50 p-3 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
@@ -500,10 +500,10 @@ function ProjectMapCard({
                     <div className="flex h-full flex-col items-center justify-center p-8 text-center">
                         <MapPin className="mb-4 h-9 w-9 text-slate-300 dark:text-slate-700" />
                         <p className="font-black text-slate-700 dark:text-slate-200">
-                            Sin ubicaciÃ³n registrada
+                            Sin ubicación registrada
                         </p>
                         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                            Agregue coordenadas o una ubicaciÃ³n al proyecto para
+                            Agregue coordenadas o una ubicación al proyecto para
                             mostrar el mapa.
                         </p>
                     </div>
@@ -520,7 +520,7 @@ function ProjectMapCard({
                     />
                 ) : (
                     <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
-                        El mapa aparecerÃ¡ cuando el proyecto tenga ubicaciÃ³n.
+                        El mapa aparecerá cuando el proyecto tenga ubicación.
                     </p>
                 )}
             </div>
@@ -547,7 +547,7 @@ function SelectedLotSummary({
                     Seleccione un lote
                 </p>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                    Al presionar un lote se abrirÃ¡ su ficha completa.
+                    Al presionar un lote se abrirá su ficha completa.
                 </p>
             </section>
         );
@@ -562,7 +562,7 @@ function SelectedLotSummary({
             <div className="space-y-5 p-5">
                 <div>
                     <p className="text-xs font-black tracking-[0.22em] text-slate-400 uppercase dark:text-slate-500">
-                        Ãšltima ficha consultada
+                        Última ficha consultada
                     </p>
                     <h3 className="mt-2 text-2xl font-black text-slate-950 dark:text-white">
                         Lote {lot.block}-{lot.number}
@@ -574,7 +574,7 @@ function SelectedLotSummary({
 
                 <div className="grid grid-cols-2 gap-3">
                     <MiniStat label="Precio" value={formatMoney(lot.price)} />
-                    <MiniStat label="Ãrea" value={formatArea(lot.area)} />
+                    <MiniStat label="Área" value={formatArea(lot.area)} />
                 </div>
 
                 <Button
@@ -609,7 +609,7 @@ function LotDetailDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="flex max-h-[94vh] w-[min(100vw-1rem,82rem)] max-w-none flex-col overflow-hidden border-slate-200 bg-white p-0 dark:border-slate-800 dark:bg-slate-950">
+            <DialogContent className="flex max-h-[min(94vh,920px)] w-[min(96vw,80rem)] max-w-none flex-col gap-0 overflow-hidden border-slate-200 bg-white p-0 sm:max-w-none dark:border-slate-800 dark:bg-slate-950">
                 {lot && (
                     <>
                         <div className="shrink-0 border-b border-slate-100 bg-[#fbf9f8] p-5 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
@@ -662,7 +662,7 @@ function LotDetailDialog({
                                 />
                                 <FichaMetric
                                     icon={Ruler}
-                                    label="Ãrea"
+                                    label="Área"
                                     value={formatArea(lot.area)}
                                 />
                                 <FichaMetric
@@ -677,11 +677,11 @@ function LotDetailDialog({
                                 />
                             </div>
 
-                            <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+                            <div className="grid gap-5 lg:grid-cols-2">
                                 <FichaPanel title="Datos del lote">
-                                    <div className="grid gap-3 sm:grid-cols-2">
+                                    <div className="grid gap-3 md:grid-cols-2">
                                         <DetailRow label="Proyecto">
-                                            {project?.name ?? 'â€”'}
+                                            {project?.name ?? '—'}
                                         </DetailRow>
                                         <DetailRow label="Estado">
                                             <span
@@ -698,10 +698,10 @@ function LotDetailDialog({
                                         <DetailRow label="Manzana">
                                             {lot.block}
                                         </DetailRow>
-                                        <DetailRow label="NÃºmero">
+                                        <DetailRow label="Número">
                                             {lot.number}
                                         </DetailRow>
-                                        <DetailRow label="Ãrea">
+                                        <DetailRow label="Área">
                                             {formatArea(lot.area)}
                                         </DetailRow>
                                         <DetailRow label="Precio">
@@ -721,15 +721,15 @@ function LotDetailDialog({
                                         <DetailRow label="Avance">
                                             {Number(lot.price || 0) > 0
                                                 ? `${Math.round((Number(lot.advance || 0) / Number(lot.price)) * 100)}% pagado`
-                                                : 'â€”'}
+                                                : '—'}
                                         </DetailRow>
                                     </div>
                                 </FichaPanel>
                             </div>
 
-                            <div className="grid gap-5 xl:grid-cols-2">
+                            <div className="grid gap-5 lg:grid-cols-2">
                                 <FichaPanel title="Cliente y asesor">
-                                    <div className="grid gap-3 sm:grid-cols-2">
+                                    <div className="grid gap-3 md:grid-cols-2">
                                         <DetailRow label="Cliente">
                                             {lot.client_id || clientName ? (
                                                 lot.client?.id ? (
@@ -743,14 +743,14 @@ function LotDetailDialog({
                                                         {clientName}
                                                     </Link>
                                                 ) : (
-                                                    clientName ?? 'â€”'
+                                                    clientName ?? '—'
                                                 )
                                             ) : (
-                                                'â€”'
+                                                '—'
                                             )}
                                         </DetailRow>
                                         <DetailRow label="DNI">
-                                            {lot.client_dni ?? 'â€”'}
+                                            {lot.client_dni ?? '—'}
                                         </DetailRow>
                                         <DetailRow label="Asesor">
                                             {lot.advisor_id &&
@@ -765,27 +765,27 @@ function LotDetailDialog({
                                                     {advisorName}
                                                 </Link>
                                             ) : (
-                                                advisorName ?? 'â€”'
+                                                advisorName ?? '—'
                                             )}
                                         </DetailRow>
                                     </div>
                                 </FichaPanel>
 
-                                <FichaPanel title="OperaciÃ³n y contrato">
-                                    <div className="grid gap-3 sm:grid-cols-2">
-                                        <DetailRow label="Fecha lÃ­mite de pago">
+                                <FichaPanel title="Operación y contrato">
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                        <DetailRow label="Fecha límite de pago">
                                             {formatDate(
                                                 lot.payment_limit_date,
                                             )}
                                         </DetailRow>
-                                        <DetailRow label="NÂ° operaciÃ³n">
-                                            {lot.operation_number ?? 'â€”'}
+                                        <DetailRow label="N° operación">
+                                            {lot.operation_number ?? '—'}
                                         </DetailRow>
                                         <DetailRow label="Fecha de contrato">
                                             {formatDate(lot.contract_date)}
                                         </DetailRow>
-                                        <DetailRow label="NÂ° contrato">
-                                            {lot.contract_number ?? 'â€”'}
+                                        <DetailRow label="N° contrato">
+                                            {lot.contract_number ?? '—'}
                                         </DetailRow>
                                         <DetailRow label="Transferencia notarial">
                                             {formatDate(
@@ -883,14 +883,14 @@ function FichaMetric({
     value: string;
 }) {
     return (
-        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+        <div className="min-w-[10rem] rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm dark:bg-slate-950 dark:text-emerald-300">
                 <Icon className="h-5 w-5" />
             </div>
             <p className="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase dark:text-slate-500">
                 {label}
             </p>
-            <p className="mt-2 text-xl font-black text-slate-950 dark:text-white">
+            <p className="mt-2 text-xl font-black break-words text-slate-950 dark:text-white">
                 {value}
             </p>
         </div>
@@ -905,12 +905,12 @@ function FichaPanel({
     children: ReactNode;
 }) {
     return (
-        <section className="rounded-2xl border border-slate-100 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <section className="min-w-0 rounded-2xl border border-slate-100 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
             <h3 className="mb-4 flex items-center gap-2 text-xs font-black tracking-[0.2em] text-slate-500 uppercase dark:text-slate-400">
-                <UserRound className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+                <UserRound className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300" />
                 {title}
             </h3>
-            <div className="space-y-3">{children}</div>
+            <div className="min-w-0 space-y-3">{children}</div>
         </section>
     );
 }
@@ -923,11 +923,11 @@ function DetailRow({
     children: ReactNode;
 }) {
     return (
-        <div className="flex flex-col gap-1 rounded-xl bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between dark:bg-slate-950">
-            <dt className="text-xs font-black tracking-wide text-slate-400 uppercase dark:text-slate-500">
+        <div className="grid gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-[minmax(7.5rem,9.5rem)_minmax(0,1fr)] sm:items-center sm:gap-4 dark:bg-slate-950">
+            <dt className="shrink-0 text-xs font-black tracking-wide text-slate-400 uppercase dark:text-slate-500">
                 {label}
             </dt>
-            <dd className="text-sm font-bold text-slate-800 dark:text-slate-100">
+            <dd className="min-w-0 text-sm font-bold break-words text-slate-800 dark:text-slate-100">
                 {children}
             </dd>
         </div>

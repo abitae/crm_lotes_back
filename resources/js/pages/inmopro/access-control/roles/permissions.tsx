@@ -1,5 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import type { FormEvent } from 'react';
+import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -27,6 +28,23 @@ export default function AccessControlRolePermissions({
         } else {
             set.add(id);
         }
+        setData('permission_ids', [...set]);
+    };
+
+    const isGroupFullySelected = (group: Group): boolean =>
+        group.permissions.length > 0 &&
+        group.permissions.every((permission) => data.permission_ids.includes(permission.id));
+
+    const toggleGroup = (group: Group) => {
+        const set = new Set(data.permission_ids);
+        const groupIds = group.permissions.map((permission) => permission.id);
+
+        if (isGroupFullySelected(group)) {
+            groupIds.forEach((id) => set.delete(id));
+        } else {
+            groupIds.forEach((id) => set.add(id));
+        }
+
         setData('permission_ids', [...set]);
     };
 
@@ -69,9 +87,22 @@ export default function AccessControlRolePermissions({
                             key={group.label}
                             className="rounded-2xl border border-border bg-card text-card-foreground p-4 dark:border-slate-700 dark:bg-slate-950/40"
                         >
-                            <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                {group.label}
-                            </h3>
+                            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                    {group.label}
+                                </h3>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => toggleGroup(group)}
+                                    disabled={group.permissions.length === 0}
+                                >
+                                    {isGroupFullySelected(group)
+                                        ? 'Quitar todos'
+                                        : 'Seleccionar todos'}
+                                </Button>
+                            </div>
                             <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                 {group.permissions.map((p) => (
                                     <li key={p.id}>
