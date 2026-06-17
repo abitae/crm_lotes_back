@@ -21,7 +21,6 @@ export default function TopAdvisorsReport({
     exportBaseUrl,
     projects,
     teams,
-    lotStatuses,
 }: {
     title: string;
     description: string;
@@ -33,7 +32,6 @@ export default function TopAdvisorsReport({
     exportBaseUrl: string;
     projects: { id: number; name: string }[];
     teams: { id: number; name: string }[];
-    lotStatuses: { id: number; name: string; code: string }[];
 }) {
     return (
         <ReportPageShell
@@ -58,14 +56,6 @@ export default function TopAdvisorsReport({
                     {projects.map((p) => (
                         <option key={p.id} value={p.id}>
                             {p.name}
-                        </option>
-                    ))}
-                </select>
-                <select name="lot_status_id" defaultValue={String(filters.lot_status_id ?? '')} className="rounded-xl border px-3 py-2 text-sm">
-                    <option value="">Todos los estados de lote</option>
-                    {lotStatuses.map((status) => (
-                        <option key={status.id} value={status.id}>
-                            {status.name}
                         </option>
                     ))}
                 </select>

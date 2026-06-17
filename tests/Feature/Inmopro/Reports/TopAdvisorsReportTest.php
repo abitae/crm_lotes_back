@@ -7,7 +7,6 @@ use App\Models\Inmopro\AdvisorLevel;
 use App\Models\Inmopro\City;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
-use App\Models\Inmopro\LotTransferConfirmation;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\ProjectType;
 use App\Models\Inmopro\Team;
@@ -20,7 +19,7 @@ class TopAdvisorsReportTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_top_advisors_includes_sales_and_transfer_counts(): void
+    public function test_top_advisors_includes_transferred_lots_by_notarial_transfer_date(): void
     {
         $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
         $status = LotStatus::create(['name' => 'Transferido', 'code' => 'TRANSFERIDO', 'color' => '#64748b', 'sort_order' => 2]);
@@ -33,7 +32,7 @@ class TopAdvisorsReportTest extends TestCase
         ]);
         $project = Project::create(['name' => 'P1', 'location' => 'X', 'total_lots' => 10, 'blocks' => ['A']]);
         $user = User::factory()->create();
-        $lot = Lot::create([
+        Lot::create([
             'project_id' => $project->id,
             'advisor_id' => $advisor->id,
             'block' => 'A',
@@ -41,15 +40,8 @@ class TopAdvisorsReportTest extends TestCase
             'area' => 100,
             'price' => 30000,
             'lot_status_id' => $status->id,
-            'contract_date' => '2026-03-05',
-        ]);
-        LotTransferConfirmation::create([
-            'lot_id' => $lot->id,
-            'status' => LotTransferConfirmation::STATUS_APPROVED,
-            'evidence_path' => 'evidence/test.jpg',
-            'requested_by' => $user->id,
-            'reviewed_by' => $user->id,
-            'reviewed_at' => '2026-03-10 10:00:00',
+            'contract_date' => '2026-02-01',
+            'notarial_transfer_date' => '2026-03-10',
         ]);
 
         $this->actingAs($user)
@@ -62,7 +54,8 @@ class TopAdvisorsReportTest extends TestCase
                 ->component('inmopro/reports/top-advisors')
                 ->where('rows.0.advisor_name', 'Top Asesor')
                 ->where('rows.0.sold_amount', 30000)
-                ->where('rows.0.transfer_count', 1));
+                ->where('rows.0.transfer_count', 1)
+                ->where('rows.0.transfer_amount', 30000));
     }
 
     public function test_top_advisors_sold_amount_uses_lot_price_without_percentage_meta(): void
@@ -92,6 +85,7 @@ class TopAdvisorsReportTest extends TestCase
             'price' => 40000,
             'lot_status_id' => $status->id,
             'contract_date' => '2026-03-05',
+            'notarial_transfer_date' => '2026-03-12',
         ]);
 
         $user = User::factory()->create();
@@ -107,7 +101,7 @@ class TopAdvisorsReportTest extends TestCase
                 ->missing('criteriaNote'));
     }
 
-    public function test_top_advisors_can_filter_by_lot_status(): void
+    public function test_top_advisors_only_counts_transferred_lots_with_notarial_date_in_range(): void
     {
         $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
         $reservedStatus = LotStatus::create(['name' => 'Reservado', 'code' => 'RESERVADO', 'color' => '#f59e0b', 'sort_order' => 1]);
@@ -131,9 +125,10 @@ class TopAdvisorsReportTest extends TestCase
             'price' => 10000,
             'lot_status_id' => $reservedStatus->id,
             'contract_date' => '2026-03-05',
+            'notarial_transfer_date' => '2026-03-08',
         ]);
 
-        $transferredLot = Lot::create([
+        Lot::create([
             'project_id' => $project->id,
             'advisor_id' => $advisor->id,
             'block' => 'A',
@@ -142,41 +137,31 @@ class TopAdvisorsReportTest extends TestCase
             'price' => 20000,
             'lot_status_id' => $transferredStatus->id,
             'contract_date' => '2026-03-06',
+            'notarial_transfer_date' => '2026-03-10',
         ]);
 
-        LotTransferConfirmation::create([
-            'lot_id' => $transferredLot->id,
-            'status' => LotTransferConfirmation::STATUS_APPROVED,
-            'evidence_path' => 'evidence/test.jpg',
-            'requested_by' => $user->id,
-            'reviewed_by' => $user->id,
-            'reviewed_at' => '2026-03-10 10:00:00',
+        Lot::create([
+            'project_id' => $project->id,
+            'advisor_id' => $advisor->id,
+            'block' => 'A',
+            'number' => '3',
+            'area' => 100,
+            'price' => 50000,
+            'lot_status_id' => $transferredStatus->id,
+            'contract_date' => '2026-03-06',
+            'notarial_transfer_date' => '2026-04-05',
         ]);
 
         $this->actingAs($user)
             ->get(route('inmopro.reports.top-advisors.index', [
                 'start_date' => '2026-03-01',
                 'end_date' => '2026-03-31',
-                'lot_status_id' => $reservedStatus->id,
             ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('filters.lot_status_id', $reservedStatus->id)
-                ->where('rows.0.advisor_name', 'Asesor Estados')
-                ->where('rows.0.sold_amount', 10000)
-                ->where('rows.0.transfer_count', 0));
-
-        $this->actingAs($user)
-            ->get(route('inmopro.reports.top-advisors.index', [
-                'start_date' => '2026-03-01',
-                'end_date' => '2026-03-31',
-                'lot_status_id' => $transferredStatus->id,
-            ]))
-            ->assertOk()
-            ->assertInertia(fn ($page) => $page
-                ->where('filters.lot_status_id', $transferredStatus->id)
                 ->where('rows.0.advisor_name', 'Asesor Estados')
                 ->where('rows.0.sold_amount', 20000)
-                ->where('rows.0.transfer_count', 1));
+                ->where('rows.0.transfer_count', 1)
+                ->where('rows.0.transfer_amount', 20000));
     }
 }

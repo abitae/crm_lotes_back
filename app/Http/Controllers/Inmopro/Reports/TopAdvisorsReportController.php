@@ -6,8 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Inmopro\Reports\Concerns\ExportsReportDetail;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\Lot;
-use App\Models\Inmopro\LotTransferConfirmation;
-use App\Services\Inmopro\Reports\LotReportQueryBuilder;
+use App\Models\Inmopro\LotStatus;
 use App\Services\Inmopro\Reports\ReportDateRangeResolver;
 use App\Services\Inmopro\Reports\ReportFilterOptions;
 use Illuminate\Database\Eloquent\Builder;
@@ -24,7 +23,6 @@ class TopAdvisorsReportController extends Controller
 
     public function __construct(
         private readonly ReportDateRangeResolver $dateRangeResolver,
-        private readonly LotReportQueryBuilder $lotQueryBuilder,
         private readonly ReportFilterOptions $filterOptions,
     ) {}
 
@@ -72,6 +70,25 @@ class TopAdvisorsReportController extends Controller
     }
 
     /**
+     * @param  array{project_id: int|null, team_id: int|null, start_date: string, end_date: string}  $filters
+     * @return Builder<Lot>
+     */
+    private function transferredLotsQuery(array $filters): Builder
+    {
+        return Lot::query()
+            ->whereHas('status', fn (Builder $query) => $query->where('code', LotStatus::CODE_TRANSFERIDO))
+            ->when($filters['project_id'], fn (Builder $query, int $projectId) => $query->where('project_id', $projectId))
+            ->when($filters['team_id'], fn (Builder $query, int $teamId) => $query->whereHas(
+                'advisor',
+                fn (Builder $advisorQuery) => $advisorQuery->where('team_id', $teamId)
+            ))
+            ->whereDate('notarial_transfer_date', '>=', $filters['start_date'])
+            ->whereDate('notarial_transfer_date', '<=', $filters['end_date'])
+            ->whereNotNull('advisor_id')
+            ->whereNotNull('notarial_transfer_date');
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function buildPayload(Request $request): array
@@ -80,82 +97,50 @@ class TopAdvisorsReportController extends Controller
         $filters = [
             'project_id' => $request->filled('project_id') ? $request->integer('project_id') : null,
             'team_id' => $request->filled('team_id') ? $request->integer('team_id') : null,
-            'lot_status_id' => $request->filled('lot_status_id') ? $request->integer('lot_status_id') : null,
             'start_date' => $dateRange['start_date'],
             'end_date' => $dateRange['end_date'],
         ];
 
         $options = $this->filterOptions->all();
 
-        $advisorsQuery = Advisor::query()
+        $advisors = Advisor::query()
             ->with('team:id,name,color')
-            ->when($filters['team_id'], fn (Builder $q, int $teamId) => $q->where('team_id', $teamId))
-            ->orderBy('name');
+            ->when($filters['team_id'], fn (Builder $query, int $teamId) => $query->where('team_id', $teamId))
+            ->orderBy('name')
+            ->get(['id', 'name', 'team_id']);
 
-        $advisors = $advisorsQuery->get(['id', 'name', 'team_id']);
-
-        $soldByAdvisor = Lot::query()
-            ->when(
-                $filters['lot_status_id'],
-                fn (Builder $q) => $q->where('lots.lot_status_id', $filters['lot_status_id']),
-                fn (Builder $q) => $this->lotQueryBuilder->excludingLibreAndPreReserva($q),
-            )
-            ->when($filters['project_id'], fn (Builder $q, int $pid) => $q->where('lots.project_id', $pid))
-            ->when($filters['team_id'], fn (Builder $q, int $tid) => $q->whereHas('advisor', fn (Builder $aq) => $aq->where('team_id', $tid)))
-            ->whereDate('lots.contract_date', '>=', $filters['start_date'])
-            ->whereDate('lots.contract_date', '<=', $filters['end_date'])
-            ->whereNotNull('lots.advisor_id')
+        $statsByAdvisor = $this->transferredLotsQuery($filters)
             ->select(
                 'lots.advisor_id',
-                DB::raw('SUM(lots.price) as sold_amount')
-            )
-            ->groupBy('lots.advisor_id')
-            ->pluck('sold_amount', 'advisor_id');
-
-        $transferStats = Lot::query()
-            ->join('lot_transfer_confirmations as ltc', function ($join): void {
-                $join->on('ltc.lot_id', '=', 'lots.id')
-                    ->where('ltc.status', '=', LotTransferConfirmation::STATUS_APPROVED);
-            })
-            ->when(
-                $filters['lot_status_id'],
-                fn (Builder $q) => $q->where('lots.lot_status_id', $filters['lot_status_id']),
-                fn (Builder $q) => $this->lotQueryBuilder->excludingLibreAndPreReserva($q),
-            )
-            ->when($filters['project_id'], fn (Builder $q, int $pid) => $q->where('lots.project_id', $pid))
-            ->when($filters['team_id'], fn (Builder $q, int $tid) => $q->whereHas('advisor', fn (Builder $aq) => $aq->where('team_id', $tid)))
-            ->whereBetween(DB::raw('DATE(ltc.reviewed_at)'), [$filters['start_date'], $filters['end_date']])
-            ->whereNotNull('lots.advisor_id')
-            ->select(
-                'lots.advisor_id',
-                DB::raw('COUNT(DISTINCT lots.id) as transfer_count'),
+                DB::raw('COUNT(*) as transfer_count'),
                 DB::raw('SUM(lots.price) as transfer_amount')
             )
             ->groupBy('lots.advisor_id')
             ->get()
             ->keyBy('advisor_id');
 
-        $rows = $advisors->map(function (Advisor $advisor) use ($soldByAdvisor, $transferStats): array {
-            $transfer = $transferStats->get($advisor->id);
+        $rows = $advisors->map(function (Advisor $advisor) use ($statsByAdvisor): array {
+            $stats = $statsByAdvisor->get($advisor->id);
+            $amount = round((float) ($stats->transfer_amount ?? 0), 2);
 
             return [
                 'id' => $advisor->id,
                 'advisor_name' => $advisor->name,
                 'team_name' => $advisor->team?->name,
                 'color' => $advisor->team?->color,
-                'sold_amount' => round((float) ($soldByAdvisor[$advisor->id] ?? 0), 2),
-                'transfer_count' => (int) ($transfer->transfer_count ?? 0),
-                'transfer_amount' => round((float) ($transfer->transfer_amount ?? 0), 2),
+                'sold_amount' => $amount,
+                'transfer_count' => (int) ($stats->transfer_count ?? 0),
+                'transfer_amount' => $amount,
             ];
         })
-            ->filter(fn (array $row) => $row['sold_amount'] > 0 || $row['transfer_count'] > 0)
+            ->filter(fn (array $row) => $row['transfer_count'] > 0)
             ->sortByDesc('sold_amount')
             ->values()
             ->all();
 
         return [
             'title' => 'Top cazadores (vendedores)',
-            'description' => 'Ranking por monto de cada lote (fecha de contrato) y transferencias aprobadas en el periodo.',
+            'description' => 'Ranking por lotes en estado transferido según fecha de escritura en el periodo.',
             'filters' => $filters,
             'rows' => $rows,
             'summary' => [
