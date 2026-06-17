@@ -13,7 +13,7 @@ class ReportsCatalog
             [
                 'slug' => 'sales',
                 'title' => 'Ventas por proyecto, equipo o vendedor',
-                'description' => 'Consolidado de ventas, metas, cobranza y saldo pendiente por fecha de contrato.',
+                'description' => 'Consolidado de lotes transferidos por fecha de escritura, ponderado por % meta del tipo de proyecto.',
                 'route' => 'inmopro.reports.sales.index',
                 'filters' => ['Proyecto', 'Equipo', 'Vendedor', 'Rango de fechas'],
             ],

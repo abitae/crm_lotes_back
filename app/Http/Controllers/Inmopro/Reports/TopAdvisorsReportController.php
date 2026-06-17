@@ -41,10 +41,10 @@ class TopAdvisorsReportController extends Controller
         $mpdf = new Mpdf([
             'mode' => 'utf-8',
             'format' => 'A4-L',
-            'margin_left' => 10,
-            'margin_right' => 10,
-            'margin_top' => 12,
-            'margin_bottom' => 12,
+            'margin_left' => 8,
+            'margin_right' => 8,
+            'margin_top' => 10,
+            'margin_bottom' => 10,
         ]);
         $mpdf->WriteHTML($html);
         $pdf = $mpdf->Output('', 'S');

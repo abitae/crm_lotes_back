@@ -90,6 +90,25 @@ class LotReportQueryBuilder
     /**
      * @return Builder<Lot>
      */
+    public function transferredOnly(Builder $query): Builder
+    {
+        return $this->whereStatusCode($query, LotStatus::CODE_TRANSFERIDO);
+    }
+
+    /**
+     * @return Builder<Lot>
+     */
+    public function whereNotarialTransferDateBetween(Builder $query, string $start, string $end): Builder
+    {
+        return $query
+            ->whereNotNull('notarial_transfer_date')
+            ->whereDate('notarial_transfer_date', '>=', $start)
+            ->whereDate('notarial_transfer_date', '<=', $end);
+    }
+
+    /**
+     * @return Builder<Lot>
+     */
     public function whereContractDateBetween(Builder $query, string $start, string $end): Builder
     {
         return $query

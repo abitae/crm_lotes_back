@@ -233,6 +233,7 @@ class InmoproReportsTest extends TestCase
             'remaining_balance' => 15000,
             'lot_status_id' => $soldStatus->id,
             'contract_date' => '2026-03-10',
+            'notarial_transfer_date' => '2026-03-10',
         ]);
 
         LotPayment::create([

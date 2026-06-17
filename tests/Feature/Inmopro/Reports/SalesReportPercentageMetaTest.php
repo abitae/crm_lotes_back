@@ -67,12 +67,17 @@ class SalesReportPercentageMetaTest extends TestCase
             'price' => 20000,
             'lot_status_id' => $status->id,
             'contract_date' => '2026-03-10',
+            'notarial_transfer_date' => '2026-03-12',
         ]);
 
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->get(route('inmopro.reports.sales.index', ['view' => 'projects']))
+            ->get(route('inmopro.reports.sales.index', [
+                'view' => 'projects',
+                'start_date' => '2026-03-01',
+                'end_date' => '2026-03-31',
+            ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('rows.0.sold_amount', 10000)
@@ -81,10 +86,96 @@ class SalesReportPercentageMetaTest extends TestCase
         $type->update(['percentage_meta' => 0]);
 
         $this->actingAs($user)
-            ->get(route('inmopro.reports.sales.index', ['view' => 'projects']))
+            ->get(route('inmopro.reports.sales.index', [
+                'view' => 'projects',
+                'start_date' => '2026-03-01',
+                'end_date' => '2026-03-31',
+            ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('rows.0.sold_amount', 0)
                 ->where('rows.0.goal_amount', 80000));
+    }
+
+    public function test_sales_report_only_counts_transferred_lots_by_notarial_transfer_date(): void
+    {
+        $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
+
+        $reservedStatus = LotStatus::create([
+            'name' => 'Reservado', 'code' => 'RESERVADO', 'color' => '#f59e0b', 'sort_order' => 1,
+        ]);
+        $transferredStatus = LotStatus::create([
+            'name' => 'Transferido', 'code' => 'TRANSFERIDO', 'color' => '#64748b', 'sort_order' => 2,
+        ]);
+        $team = Team::create([
+            'name' => 'T1', 'code' => 'T1', 'description' => 'T', 'color' => '#000',
+            'sort_order' => 1, 'is_active' => true,
+        ]);
+        $level = AdvisorLevel::create([
+            'name' => 'L1', 'code' => 'L1', 'direct_rate' => 5, 'pyramid_rate' => 2,
+            'color' => '#000', 'sort_order' => 1,
+        ]);
+        $city = City::create([
+            'name' => 'Lima', 'code' => 'LIM', 'department' => 'Lima', 'sort_order' => 1, 'is_active' => true,
+        ]);
+        $advisor = Advisor::create([
+            'dni' => '22222222', 'name' => 'Asesor Fechas', 'phone' => '999', 'email' => 'fechas@t.com',
+            'city_id' => $city->id, 'team_id' => $team->id, 'advisor_level_id' => $level->id, 'personal_quota' => 50000,
+        ]);
+        $project = Project::create([
+            'name' => 'Proyecto Fechas',
+            'location' => 'X',
+            'total_lots' => 10,
+            'blocks' => ['A'],
+        ]);
+
+        Lot::create([
+            'project_id' => $project->id,
+            'advisor_id' => $advisor->id,
+            'block' => 'A',
+            'number' => '1',
+            'area' => 100,
+            'price' => 10000,
+            'lot_status_id' => $reservedStatus->id,
+            'contract_date' => '2026-03-05',
+            'notarial_transfer_date' => '2026-03-08',
+        ]);
+
+        Lot::create([
+            'project_id' => $project->id,
+            'advisor_id' => $advisor->id,
+            'block' => 'A',
+            'number' => '2',
+            'area' => 100,
+            'price' => 20000,
+            'lot_status_id' => $transferredStatus->id,
+            'contract_date' => '2026-03-06',
+            'notarial_transfer_date' => '2026-03-10',
+        ]);
+
+        Lot::create([
+            'project_id' => $project->id,
+            'advisor_id' => $advisor->id,
+            'block' => 'A',
+            'number' => '3',
+            'area' => 100,
+            'price' => 50000,
+            'lot_status_id' => $transferredStatus->id,
+            'contract_date' => '2026-03-06',
+            'notarial_transfer_date' => '2026-04-05',
+        ]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('inmopro.reports.sales.index', [
+                'view' => 'projects',
+                'start_date' => '2026-03-01',
+                'end_date' => '2026-03-31',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('rows.0.sold_amount', 20000)
+                ->where('rows.0.lots_count', 1));
     }
 }

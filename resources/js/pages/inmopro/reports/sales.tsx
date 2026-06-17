@@ -301,9 +301,8 @@ export default function Reports({
                                 Reporte por {viewLabel.toLowerCase()}
                             </h1>
                             <p className="text-sm text-slate-300">
-                                Consolidado de ventas, metas, cobranza efectiva y saldo pendiente según fecha de contrato.
-                                Las ventas para meta usan precio del lote × porcentaje del tipo de proyecto. Excluye lotes
-                                libre o pre-reserva.
+                                Consolidado de lotes transferidos según fecha de escritura. Las ventas usan precio del
+                                lote × porcentaje del tipo de proyecto. Solo incluye lotes en estado transferido.
                             </p>
                             <p className="text-xs font-semibold text-slate-400">
                                 {filterSummary || 'Sin filtros aplicados'} · Generado el {generatedAt}
@@ -370,7 +369,7 @@ export default function Reports({
                 >
                     <p className="text-xs leading-relaxed text-slate-600 md:col-span-3 xl:col-span-6">
                         <span className="font-bold text-slate-800">Fechas:</span> si no eliges rango, se usa{' '}
-                        <strong>desde el 1 del mes actual hasta hoy</strong> (fecha de contrato del lote). Déjalas vacías
+                        <strong>desde el 1 del mes actual hasta hoy</strong> (fecha de escritura del lote). Déjalas vacías
                         y pulsa Filtrar para restablecer ese rango.
                     </p>
                     <p className="text-xs leading-relaxed text-slate-600 md:col-span-3 xl:col-span-6">

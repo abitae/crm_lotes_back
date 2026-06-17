@@ -46,12 +46,15 @@ class SalesReportService
 
         $lots = $this->lotQueryBuilder
             ->base()
-            ->tap(fn (Builder $query) => $this->lotQueryBuilder->excludingLibreAndPreReserva($query))
+            ->tap(fn (Builder $query) => $this->lotQueryBuilder->transferredOnly($query))
+            ->tap(fn (Builder $query) => $this->lotQueryBuilder->whereNotarialTransferDateBetween(
+                $query,
+                $filters['start_date'],
+                $filters['end_date']
+            ))
             ->when($filters['project_id'], fn (Builder $builder, int $projectId) => $builder->where('project_id', $projectId))
             ->when($filters['advisor_id'], fn (Builder $builder, int $advisorId) => $builder->where('advisor_id', $advisorId))
             ->when($filters['team_id'], fn (Builder $builder, int $teamId) => $builder->whereHas('advisor', fn (Builder $advisorQuery) => $advisorQuery->where('team_id', $teamId)))
-            ->whereDate('contract_date', '>=', $filters['start_date'])
-            ->whereDate('contract_date', '<=', $filters['end_date'])
             ->get();
 
         $filteredAdvisors = $advisors
