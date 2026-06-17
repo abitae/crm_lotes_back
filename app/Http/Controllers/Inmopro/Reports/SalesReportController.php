@@ -55,7 +55,6 @@ class SalesReportController extends Controller
 
         $entityColumn = match ($payload['view']) {
             'teams' => 'Equipo',
-            'advisors' => 'Vendedor',
             default => 'Proyecto',
         };
 
@@ -73,7 +72,6 @@ class SalesReportController extends Controller
                 'Meta fila (S/)',
                 '% Cumplimiento',
                 'Cobrado (S/)',
-                'Pendiente (S/)',
                 'Lotes',
             ], ';');
 
@@ -84,7 +82,6 @@ class SalesReportController extends Controller
                     number_format((float) $row['goal_amount'], 2, '.', ''),
                     (string) $row['pct'],
                     number_format((float) $row['collected_amount'], 2, '.', ''),
-                    number_format((float) $row['pending_amount'], 2, '.', ''),
                     (string) $row['lots_count'],
                 ], ';');
             }

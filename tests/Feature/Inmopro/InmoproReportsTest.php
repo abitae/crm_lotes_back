@@ -54,7 +54,7 @@ class InmoproReportsTest extends TestCase
                 ->where('rows.0.goal_amount', 80000));
     }
 
-    public function test_authenticated_users_can_filter_advisor_reports_by_dates(): void
+    public function test_authenticated_users_can_filter_reports_by_advisor_and_dates(): void
     {
         $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
         $context = $this->createReportContext();
@@ -62,7 +62,7 @@ class InmoproReportsTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('inmopro.reports.sales.index', [
-                'view' => 'advisors',
+                'view' => 'projects',
                 'advisor_id' => $context['advisor']->id,
                 'start_date' => '2026-03-01',
                 'end_date' => '2026-03-31',
@@ -70,24 +70,36 @@ class InmoproReportsTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('inmopro/reports/sales')
-                ->where('view', 'advisors')
+                ->where('view', 'projects')
                 ->where('filters.advisor_id', $context['advisor']->id)
                 ->where('filters.start_date', '2026-03-01')
                 ->where('filters.end_date', '2026-03-31')
-                ->where('rows.0.label', $context['advisor']->name));
+                ->where('rows.0.label', $context['project']->name));
 
         $this->actingAs($user)
             ->get(route('inmopro.reports.sales.index', [
-                'view' => 'advisors',
+                'view' => 'projects',
+                'advisor_id' => $context['advisor']->id,
                 'start_date' => '2026-04-01',
                 'end_date' => '2026-04-30',
             ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('inmopro/reports/sales')
-                ->where('rows.0.label', $context['advisor']->name)
-                ->where('rows.0.sold_amount', 0)
-                ->where('rows.0.lots_count', 0));
+                ->has('rows', 0));
+    }
+
+    public function test_sales_report_view_advisors_falls_back_to_projects(): void
+    {
+        $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
+        $this->createReportContext();
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('inmopro.reports.sales.index', ['view' => 'advisors']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('view', 'projects'));
     }
 
     public function test_reports_default_date_range_is_first_of_month_through_today(): void

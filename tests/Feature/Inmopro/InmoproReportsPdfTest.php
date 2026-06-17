@@ -37,7 +37,7 @@ class InmoproReportsPdfTest extends TestCase
         $user = User::factory()->create();
         $this->actingAs($user);
 
-        foreach (['projects', 'teams', 'advisors'] as $view) {
+        foreach (['projects', 'teams'] as $view) {
             $response = $this->get(route('inmopro.reports.pdf', ['view' => $view]));
             $response->assertOk();
             $response->assertHeader('Content-Type', 'application/pdf');

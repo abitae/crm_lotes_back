@@ -2,7 +2,6 @@ import { Head, router } from '@inertiajs/react';
 import type { ComponentType, FormEvent } from 'react';
 import { useMemo } from 'react';
 import {
-    BarChart3,
     CalendarRange,
     FileSpreadsheet,
     FileDown,
@@ -17,10 +16,6 @@ import {
     BarChart,
     CartesianGrid,
     Cell,
-    Bar as StackedBar,
-    BarChart as StackedBarChart,
-    CartesianGrid as StackedCartesianGrid,
-    Legend,
     ResponsiveContainer,
     Tooltip,
     XAxis,
@@ -60,14 +55,13 @@ type ReportRow = {
     sold_amount: number;
     goal_amount: number;
     collected_amount: number;
-    pending_amount: number;
     lots_count: number;
     pct: number;
     color?: string | null;
     team_name?: string | null;
 };
 type Filters = {
-    view: 'projects' | 'teams' | 'advisors';
+    view: 'projects' | 'teams';
     project_id?: number | null;
     team_id?: number | null;
     advisor_id?: number | null;
@@ -78,7 +72,6 @@ type Summary = {
     sold_amount: number;
     goal_amount: number;
     collected_amount: number;
-    pending_amount: number;
     lots_count: number;
     entities_count: number;
     pct: number;
@@ -97,9 +90,6 @@ type FilterLabels = {
 function entityColumnLabel(v: Filters['view']): string {
     if (v === 'teams') {
         return 'Equipo';
-    }
-    if (v === 'advisors') {
-        return 'Vendedor';
     }
 
     return 'Proyecto';
@@ -178,26 +168,14 @@ export default function Reports({
         [rows],
     );
 
-    const stackRows = useMemo(
-        () =>
-            rows.slice(0, 10).map((row) => ({
-                name: row.label.length > 18 ? `${row.label.slice(0, 16)}…` : row.label,
-                fullName: row.label,
-                Cobrado: row.collected_amount,
-                Pendiente: row.pending_amount,
-            })),
-        [rows],
-    );
-
     const tableTotals = useMemo(() => {
         return rows.reduce(
             (acc, row) => ({
                 sold: acc.sold + row.sold_amount,
                 collected: acc.collected + row.collected_amount,
-                pending: acc.pending + row.pending_amount,
                 lots: acc.lots + row.lots_count,
             }),
-            { sold: 0, collected: 0, pending: 0, lots: 0 },
+            { sold: 0, collected: 0, lots: 0 },
         );
     }, [rows]);
 
@@ -379,12 +357,8 @@ export default function Reports({
                         <a href={reportSettingsUrl} className="font-semibold text-sky-700 underline hover:text-sky-800">
                             Meta general de reportes
                         </a>{' '}
-                        (no es la suma de metas por fila: ver indicador &quot;Σ metas fila&quot;). La meta por vendedor
-                        es la <strong>cuota personal</strong> en{' '}
-                        <a href="/inmopro/advisors" className="font-semibold text-sky-700 underline hover:text-sky-800">
-                            Asesores
-                        </a>
-                        . En vista <strong>Equipos</strong>, la meta por fila es la <strong>meta grupal</strong> del team;
+                        (no es la suma de metas por fila: ver indicador &quot;Σ metas fila&quot;). En vista{' '}
+                        <strong>Equipos</strong>, la meta por fila es la <strong>meta grupal</strong> del team;
                         si está en 0, se usa la suma de cuotas del equipo.
                     </p>
                     <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
@@ -396,7 +370,6 @@ export default function Reports({
                         >
                             <option value="projects">Por proyecto</option>
                             <option value="teams">Por equipo</option>
-                            <option value="advisors">Por vendedor</option>
                         </select>
                     </label>
                     <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
@@ -469,12 +442,11 @@ export default function Reports({
                     </div>
                 </form>
 
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
                     <MetricCard label="Ventas" value={summary.sold_amount} icon={TrendingUp} tone="emerald" />
                     <MetricCard label="Meta general" value={summary.goal_amount} icon={Target} tone="sky" />
                     <MetricCard label="Σ metas fila" value={summary.rows_goal_sum} icon={Target} tone="slate" subtitle="Suma de metas de cada fila" />
                     <MetricCard label="Cobrado" value={summary.collected_amount} icon={Wallet} tone="slate" />
-                    <MetricCard label="Pendiente" value={summary.pending_amount} icon={BarChart3} tone="amber" />
                     <MetricCard label={`${viewLabel} (filas)`} value={summary.entities_count} icon={Users} tone="rose" raw />
                 </div>
 
@@ -547,53 +519,6 @@ export default function Reports({
                     </div>
                 </div>
 
-                <div className="rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm">
-                    <div className="mb-4">
-                        <h2 className="text-lg font-black text-slate-900">Composición cobrado vs pendiente</h2>
-                        <p className="mt-1 text-xs text-slate-500">Primeras 10 filas del ranking · barras apiladas (S/)</p>
-                    </div>
-                    {stackRows.length === 0 ? (
-                        <EmptyState />
-                    ) : (
-                        <div className="h-[340px] w-full min-w-0">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <StackedBarChart data={stackRows} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-                                    <StackedCartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                    <XAxis
-                                        dataKey="name"
-                                        interval={0}
-                                        angle={-28}
-                                        textAnchor="end"
-                                        height={64}
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fontSize: 10 }}
-                                    />
-                                    <YAxis
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fontSize: 11 }}
-                                        tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))}
-                                    />
-                                    <Tooltip
-                                        cursor={{ fill: '#f8fafc' }}
-                                        contentStyle={{ borderRadius: '16px', border: '1px solid #e2e8f0' }}
-                                        formatter={chartTooltipFormatter}
-                                        labelFormatter={(_, payload) =>
-                                            payload?.[0]?.payload?.fullName != null
-                                                ? String(payload[0].payload.fullName)
-                                                : ''
-                                        }
-                                    />
-                                    <Legend wrapperStyle={{ fontSize: 12 }} />
-                                    <StackedBar dataKey="Cobrado" stackId="cash" fill="#10b981" radius={[0, 0, 0, 0]} maxBarSize={44} />
-                                    <StackedBar dataKey="Pendiente" stackId="cash" fill="#f59e0b" radius={[6, 6, 0, 0]} maxBarSize={44} />
-                                </StackedBarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </div>
-
                 <div className="overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm">
                     <div className="border-b border-slate-100 px-6 py-4">
                         <h2 className="text-lg font-black text-slate-900">Detalle por {viewLabel.toLowerCase()}</h2>
@@ -611,7 +536,7 @@ export default function Reports({
                         <>
                             <div className="hidden md:block">
                                 <div className="overflow-x-auto">
-                                    <table className="w-full min-w-[1000px] text-left text-sm">
+                                    <table className="w-full min-w-[860px] text-left text-sm">
                                         <caption className="sr-only">
                                             Reporte de ventas por {entityColumnLabel(view)} con montos en soles
                                         </caption>
@@ -631,9 +556,6 @@ export default function Reports({
                                                 </th>
                                                 <th scope="col" className="px-6 py-3 font-bold text-slate-500">
                                                     Cobrado
-                                                </th>
-                                                <th scope="col" className="px-6 py-3 font-bold text-slate-500">
-                                                    Pendiente
                                                 </th>
                                                 <th scope="col" className="px-6 py-3 font-bold text-slate-500">
                                                     Lotes
@@ -661,9 +583,6 @@ export default function Reports({
                                                     <td className="px-6 py-4 font-semibold text-emerald-700">
                                                         {formatPen(row.collected_amount)}
                                                     </td>
-                                                    <td className="px-6 py-4 font-semibold text-amber-700">
-                                                        {formatPen(row.pending_amount)}
-                                                    </td>
                                                     <td className="px-6 py-4 tabular-nums text-slate-600">{row.lots_count}</td>
                                                 </tr>
                                             ))}
@@ -675,7 +594,6 @@ export default function Reports({
                                                 <td className="px-6 py-4 text-slate-400">—</td>
                                                 <td className="px-6 py-4 text-slate-400">—</td>
                                                 <td className="px-6 py-4 text-emerald-800">{formatPen(tableTotals.collected)}</td>
-                                                <td className="px-6 py-4 text-amber-800">{formatPen(tableTotals.pending)}</td>
                                                 <td className="px-6 py-4 tabular-nums text-slate-800">{tableTotals.lots}</td>
                                             </tr>
                                         </tfoot>
@@ -711,10 +629,6 @@ export default function Reports({
                                                 <dt className="text-slate-500">Cobrado</dt>
                                                 <dd className="font-bold text-emerald-700">{formatPen(row.collected_amount)}</dd>
                                             </div>
-                                            <div>
-                                                <dt className="text-slate-500">Pendiente</dt>
-                                                <dd className="font-bold text-amber-700">{formatPen(row.pending_amount)}</dd>
-                                            </div>
                                             <div className="col-span-2">
                                                 <dt className="text-slate-500">Lotes</dt>
                                                 <dd className="font-semibold text-slate-700">{row.lots_count}</dd>
@@ -729,7 +643,6 @@ export default function Reports({
                                     <p className="text-xs uppercase text-slate-500">Totales</p>
                                     <p className="mt-1 text-sm">Ventas: {formatPen(tableTotals.sold)}</p>
                                     <p className="text-sm">Cobrado: {formatPen(tableTotals.collected)}</p>
-                                    <p className="text-sm">Pendiente: {formatPen(tableTotals.pending)}</p>
                                     <p className="text-sm">Lotes: {tableTotals.lots}</p>
                                 </div>
                             </div>

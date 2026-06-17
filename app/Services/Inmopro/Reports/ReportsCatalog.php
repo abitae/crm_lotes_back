@@ -12,7 +12,7 @@ class ReportsCatalog
         return [
             [
                 'slug' => 'sales',
-                'title' => 'Ventas por proyecto, equipo o vendedor',
+                'title' => 'Ventas por proyecto o equipo',
                 'description' => 'Consolidado de lotes transferidos por fecha de escritura, ponderado por % meta del tipo de proyecto.',
                 'route' => 'inmopro.reports.sales.index',
                 'filters' => ['Proyecto', 'Equipo', 'Vendedor', 'Rango de fechas'],

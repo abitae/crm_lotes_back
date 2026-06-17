@@ -63,9 +63,8 @@ class SalesReportService
             ->values();
 
         $rows = match ($view) {
-            'projects' => $this->buildProjectRows($projects, $lots),
             'teams' => $this->buildTeamRows($teams, $filteredAdvisors, $lots),
-            default => $this->buildAdvisorRows($filteredAdvisors, $lots),
+            default => $this->buildProjectRows($projects, $lots),
         };
 
         $generalSalesGoal = (float) ReportSalesConfig::current()->general_sales_goal;
@@ -74,7 +73,6 @@ class SalesReportService
             'sold_amount' => round((float) collect($rows)->sum('sold_amount'), 2),
             'goal_amount' => round($generalSalesGoal, 2),
             'collected_amount' => round((float) collect($rows)->sum('collected_amount'), 2),
-            'pending_amount' => round((float) collect($rows)->sum('pending_amount'), 2),
             'lots_count' => (int) collect($rows)->sum('lots_count'),
             'entities_count' => count($rows),
         ];
@@ -109,11 +107,11 @@ class SalesReportService
     {
         $view = (string) $request->input('view', 'projects');
 
-        if (! in_array($view, ['projects', 'teams', 'advisors'], true)) {
-            return 'projects';
+        if ($view === 'teams') {
+            return 'teams';
         }
 
-        return $view;
+        return 'projects';
     }
 
     /**
@@ -166,29 +164,6 @@ class SalesReportService
     }
 
     /**
-     * @param  Collection<int, Advisor>  $advisors
-     * @param  Collection<int, Lot>  $lots
-     * @return array<int, array<string, mixed>>
-     */
-    private function buildAdvisorRows(Collection $advisors, Collection $lots): array
-    {
-        return $advisors->map(function (Advisor $advisor) use ($lots): array {
-            $advisorLots = $lots->where('advisor_id', $advisor->id)->values();
-
-            return $this->makeRow(
-                $advisor->id,
-                $advisor->name,
-                $advisorLots,
-                (float) $advisor->personal_quota,
-                [
-                    'team_name' => $advisor->team?->name,
-                    'color' => $advisor->team?->color,
-                ]
-            );
-        })->filter(fn (array $row) => $row['lots_count'] > 0 || $row['goal_amount'] > 0)->sortByDesc('sold_amount')->values()->all();
-    }
-
-    /**
      * @param  Collection<int, Lot>  $lots
      * @param  array<string, mixed>  $extra
      * @return array<string, mixed>
@@ -197,7 +172,6 @@ class SalesReportService
     {
         $soldAmount = (float) $lots->sum(fn (Lot $lot) => $this->goalAttributedAmount->forLot($lot));
         $collectedAmount = (float) $lots->sum(fn (Lot $lot) => $this->collectedAmountForLot($lot));
-        $pendingAmount = (float) $lots->sum(fn (Lot $lot) => (float) ($lot->remaining_balance ?? 0));
         $lotsCount = $lots->count();
         $pct = $goalAmount > 0 ? (int) round(($soldAmount / $goalAmount) * 100) : 0;
 
@@ -207,7 +181,6 @@ class SalesReportService
             'sold_amount' => round($soldAmount, 2),
             'goal_amount' => round($goalAmount, 2),
             'collected_amount' => round($collectedAmount, 2),
-            'pending_amount' => round($pendingAmount, 2),
             'lots_count' => $lotsCount,
             'pct' => $pct,
             ...$extra,
@@ -257,7 +230,6 @@ class SalesReportService
     {
         return match ($view) {
             'teams' => 'Equipos',
-            'advisors' => 'Vendedores',
             default => 'Proyectos',
         };
     }

@@ -63,8 +63,8 @@
                 <span class="summary-value">S/ {{ number_format($summary['collected_amount'], 2, ',', '.') }}</span>
             </td>
             <td>
-                <span class="summary-label">Pendiente</span>
-                <span class="summary-value">S/ {{ number_format($summary['pending_amount'], 2, ',', '.') }}</span>
+                <span class="summary-label">Lotes</span>
+                <span class="summary-value">{{ $summary['lots_count'] }}</span>
             </td>
         </tr>
     </table>
@@ -95,7 +95,6 @@
                     <th>Meta (S/)</th>
                     <th>%</th>
                     <th>Cobrado (S/)</th>
-                    <th>Pendiente (S/)</th>
                     <th>Lotes</th>
                 </tr>
             </thead>
@@ -107,7 +106,6 @@
                         <td>{{ number_format($row['goal_amount'], 2, ',', '.') }}</td>
                         <td>{{ $row['pct'] }}%</td>
                         <td>{{ number_format($row['collected_amount'], 2, ',', '.') }}</td>
-                        <td>{{ number_format($row['pending_amount'], 2, ',', '.') }}</td>
                         <td>{{ $row['lots_count'] }}</td>
                     </tr>
                 @endforeach
@@ -120,7 +118,6 @@
                         <td>—</td>
                         <td>—</td>
                         <td>{{ number_format(collect($rows)->sum('collected_amount'), 2, ',', '.') }}</td>
-                        <td>{{ number_format(collect($rows)->sum('pending_amount'), 2, ',', '.') }}</td>
                         <td>{{ collect($rows)->sum('lots_count') }}</td>
                     </tr>
                 </tfoot>
