@@ -13,6 +13,7 @@ type Props = {
     generatedAt: string;
     exportBaseUrl: string;
     exportQuery?: Record<string, string | number | boolean | null | undefined>;
+    exportActions?: ReactNode;
     children: ReactNode;
     breadcrumbs?: BreadcrumbItem[];
 };
@@ -24,6 +25,7 @@ export function ReportPageShell({
     generatedAt,
     exportBaseUrl,
     exportQuery = {},
+    exportActions,
     children,
     breadcrumbs,
 }: Props) {
@@ -58,7 +60,9 @@ export function ReportPageShell({
                             ) : null}
                             <p className="text-xs text-slate-400">Generado el {generatedAt}</p>
                         </div>
-                        <ReportExportActions baseUrl={exportBaseUrl} query={exportQuery} />
+                        {exportActions ?? (
+                            <ReportExportActions baseUrl={exportBaseUrl} query={exportQuery} />
+                        )}
                     </div>
                 </section>
                 {children}

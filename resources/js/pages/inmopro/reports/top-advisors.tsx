@@ -1,5 +1,6 @@
 import { ReportDateFilters } from '@/components/inmopro/reports/ReportDateFilters';
 import { ReportPageShell } from '@/components/inmopro/reports/ReportPageShell';
+import { TopAdvisorsExportActions } from '@/components/inmopro/reports/TopAdvisorsExportActions';
 import { formatPen } from '@/lib/report-utils';
 
 type Row = {
@@ -41,6 +42,7 @@ export default function TopAdvisorsReport({
             generatedAt={generatedAt}
             exportBaseUrl={exportBaseUrl}
             exportQuery={filters}
+            exportActions={<TopAdvisorsExportActions baseUrl={exportBaseUrl} query={filters} />}
         >
             <ReportDateFilters basePath="/inmopro/reports/top-advisors" filters={filters}>
                 <select name="team_id" defaultValue={String(filters.team_id ?? '')} className="rounded-xl border px-3 py-2 text-sm">

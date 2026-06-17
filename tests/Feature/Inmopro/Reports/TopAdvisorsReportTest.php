@@ -58,7 +58,7 @@ class TopAdvisorsReportTest extends TestCase
                 ->where('rows.0.transfer_amount', 30000));
     }
 
-    public function test_top_advisors_sold_amount_uses_lot_price_without_percentage_meta(): void
+    public function test_top_advisors_sold_amount_applies_project_type_percentage_meta(): void
     {
         $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
         $status = LotStatus::create(['name' => 'Transferido', 'code' => 'TRANSFERIDO', 'color' => '#64748b', 'sort_order' => 2]);
@@ -97,8 +97,54 @@ class TopAdvisorsReportTest extends TestCase
             ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('rows.0.sold_amount', 40000)
-                ->missing('criteriaNote'));
+                ->where('rows.0.sold_amount', 20000)
+                ->where('rows.0.transfer_amount', 20000)
+                ->where('rows.0.transfer_count', 1));
+    }
+
+    public function test_top_advisors_express_project_type_applies_twenty_percent_meta(): void
+    {
+        $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
+        $status = LotStatus::create(['name' => 'Transferido', 'code' => 'TRANSFERIDO', 'color' => '#64748b', 'sort_order' => 2]);
+        $type = ProjectType::create([
+            'name' => 'Express', 'code' => 'EXPRESS', 'description' => null, 'color' => '#000',
+            'sort_order' => 1, 'percentage_meta' => 20, 'is_active' => true,
+        ]);
+        $team = Team::create(['name' => 'T1', 'code' => 'T1', 'description' => 'T', 'color' => '#000', 'sort_order' => 1, 'is_active' => true]);
+        $level = AdvisorLevel::create(['name' => 'L1', 'code' => 'L1', 'direct_rate' => 5, 'pyramid_rate' => 2, 'color' => '#000', 'sort_order' => 1]);
+        $city = City::create(['name' => 'Lima', 'code' => 'LIM', 'department' => 'Lima', 'sort_order' => 1, 'is_active' => true]);
+        $advisor = Advisor::create([
+            'dni' => '87654324', 'name' => 'Asesor Express', 'phone' => '999', 'email' => 'express@t.com',
+            'city_id' => $city->id, 'team_id' => $team->id, 'advisor_level_id' => $level->id, 'personal_quota' => 0,
+        ]);
+        $project = Project::create([
+            'name' => 'P Express', 'project_type_id' => $type->id, 'location' => 'X', 'total_lots' => 10, 'blocks' => ['A'],
+        ]);
+        Lot::create([
+            'project_id' => $project->id,
+            'advisor_id' => $advisor->id,
+            'block' => 'A',
+            'number' => '1',
+            'area' => 100,
+            'price' => 100000,
+            'lot_status_id' => $status->id,
+            'contract_date' => '2026-03-05',
+            'notarial_transfer_date' => '2026-03-12',
+        ]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('inmopro.reports.top-advisors.index', [
+                'start_date' => '2026-03-01',
+                'end_date' => '2026-03-31',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('rows.0.advisor_name', 'Asesor Express')
+                ->where('rows.0.sold_amount', 20000)
+                ->where('rows.0.transfer_amount', 20000)
+                ->where('rows.0.transfer_count', 1));
     }
 
     public function test_top_advisors_only_counts_transferred_lots_with_notarial_date_in_range(): void
@@ -163,5 +209,41 @@ class TopAdvisorsReportTest extends TestCase
                 ->where('rows.0.sold_amount', 20000)
                 ->where('rows.0.transfer_count', 1)
                 ->where('rows.0.transfer_amount', 20000));
+    }
+
+    public function test_top_advisors_pdf_returns_inline_landscape_document(): void
+    {
+        $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
+        $status = LotStatus::create(['name' => 'Transferido', 'code' => 'TRANSFERIDO', 'color' => '#64748b', 'sort_order' => 2]);
+        $team = Team::create(['name' => 'T1', 'code' => 'T1', 'description' => 'T', 'color' => '#000', 'sort_order' => 1, 'is_active' => true]);
+        $level = AdvisorLevel::create(['name' => 'L1', 'code' => 'L1', 'direct_rate' => 5, 'pyramid_rate' => 2, 'color' => '#000', 'sort_order' => 1]);
+        $city = City::create(['name' => 'Lima', 'code' => 'LIM', 'department' => 'Lima', 'sort_order' => 1, 'is_active' => true]);
+        $advisor = Advisor::create([
+            'dni' => '87654325', 'name' => 'PDF Asesor', 'phone' => '999', 'email' => 'pdf@t.com',
+            'city_id' => $city->id, 'team_id' => $team->id, 'advisor_level_id' => $level->id, 'personal_quota' => 0,
+        ]);
+        $project = Project::create(['name' => 'P PDF', 'location' => 'X', 'total_lots' => 10, 'blocks' => ['A']]);
+        Lot::create([
+            'project_id' => $project->id,
+            'advisor_id' => $advisor->id,
+            'block' => 'A',
+            'number' => '1',
+            'area' => 100,
+            'price' => 15000,
+            'lot_status_id' => $status->id,
+            'contract_date' => '2026-03-05',
+            'notarial_transfer_date' => '2026-03-12',
+        ]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('inmopro.reports.top-advisors.pdf', [
+                'start_date' => '2026-03-01',
+                'end_date' => '2026-03-31',
+            ]))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf')
+            ->assertHeader('content-disposition', 'inline; filename="top-cazadores-2026-03-15.pdf"');
     }
 }

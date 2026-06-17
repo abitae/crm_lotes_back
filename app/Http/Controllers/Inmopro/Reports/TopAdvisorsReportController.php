@@ -13,8 +13,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\View;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
+use Mpdf\Mpdf;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TopAdvisorsReportController extends Controller
@@ -34,19 +36,25 @@ class TopAdvisorsReportController extends Controller
     public function pdf(Request $request): Response
     {
         $payload = $this->buildPayload($request);
-        $payload['tableHeaders'] = ['Vendedor', 'Equipo', 'Ventas', 'Transferencias', 'Monto transferido'];
-        $payload['tableBody'] = array_map(
-            fn (array $row) => [
-                $row['advisor_name'],
-                $row['team_name'] ?? '',
-                number_format((float) $row['sold_amount'], 2),
-                (string) $row['transfer_count'],
-                number_format((float) $row['transfer_amount'], 2),
-            ],
-            $payload['rows']
-        );
+        $html = View::make('inmopro.reports.top-advisors-pdf', $payload)->render();
 
-        return $this->pdfResponse($request, $payload, 'inmopro.reports.detail-pdf', 'top-cazadores');
+        $mpdf = new Mpdf([
+            'mode' => 'utf-8',
+            'format' => 'A4-L',
+            'margin_left' => 10,
+            'margin_right' => 10,
+            'margin_top' => 12,
+            'margin_bottom' => 12,
+        ]);
+        $mpdf->WriteHTML($html);
+        $pdf = $mpdf->Output('', 'S');
+
+        $filename = 'top-cazadores-'.now()->format('Y-m-d').'.pdf';
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+        ]);
     }
 
     public function csv(Request $request): StreamedResponse
@@ -76,16 +84,18 @@ class TopAdvisorsReportController extends Controller
     private function transferredLotsQuery(array $filters): Builder
     {
         return Lot::query()
+            ->join('projects', 'projects.id', '=', 'lots.project_id')
+            ->leftJoin('project_types', 'project_types.id', '=', 'projects.project_type_id')
             ->whereHas('status', fn (Builder $query) => $query->where('code', LotStatus::CODE_TRANSFERIDO))
-            ->when($filters['project_id'], fn (Builder $query, int $projectId) => $query->where('project_id', $projectId))
+            ->when($filters['project_id'], fn (Builder $query, int $projectId) => $query->where('lots.project_id', $projectId))
             ->when($filters['team_id'], fn (Builder $query, int $teamId) => $query->whereHas(
                 'advisor',
                 fn (Builder $advisorQuery) => $advisorQuery->where('team_id', $teamId)
             ))
-            ->whereDate('notarial_transfer_date', '>=', $filters['start_date'])
-            ->whereDate('notarial_transfer_date', '<=', $filters['end_date'])
-            ->whereNotNull('advisor_id')
-            ->whereNotNull('notarial_transfer_date');
+            ->whereDate('lots.notarial_transfer_date', '>=', $filters['start_date'])
+            ->whereDate('lots.notarial_transfer_date', '<=', $filters['end_date'])
+            ->whereNotNull('lots.advisor_id')
+            ->whereNotNull('lots.notarial_transfer_date');
     }
 
     /**
@@ -113,7 +123,7 @@ class TopAdvisorsReportController extends Controller
             ->select(
                 'lots.advisor_id',
                 DB::raw('COUNT(*) as transfer_count'),
-                DB::raw('SUM(lots.price) as transfer_amount')
+                DB::raw('SUM(lots.price * COALESCE(project_types.percentage_meta, 100) / 100) as transfer_amount')
             )
             ->groupBy('lots.advisor_id')
             ->get()
@@ -140,7 +150,8 @@ class TopAdvisorsReportController extends Controller
 
         return [
             'title' => 'Top cazadores (vendedores)',
-            'description' => 'Ranking por lotes en estado transferido según fecha de escritura en el periodo.',
+            'description' => 'Ranking por lotes transferidos según fecha de escritura. Monto = precio del lote × % meta del tipo de proyecto.',
+            'criteriaNote' => 'Solo lotes en estado transferido. Periodo según fecha de escritura. Monto ponderado por el % meta configurado en tipos de proyecto.',
             'filters' => $filters,
             'rows' => $rows,
             'summary' => [
