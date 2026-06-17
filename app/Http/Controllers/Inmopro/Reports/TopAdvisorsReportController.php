@@ -80,6 +80,7 @@ class TopAdvisorsReportController extends Controller
         $filters = [
             'project_id' => $request->filled('project_id') ? $request->integer('project_id') : null,
             'team_id' => $request->filled('team_id') ? $request->integer('team_id') : null,
+            'lot_status_id' => $request->filled('lot_status_id') ? $request->integer('lot_status_id') : null,
             'start_date' => $dateRange['start_date'],
             'end_date' => $dateRange['end_date'],
         ];
@@ -94,9 +95,11 @@ class TopAdvisorsReportController extends Controller
         $advisors = $advisorsQuery->get(['id', 'name', 'team_id']);
 
         $soldByAdvisor = Lot::query()
-            ->join('projects', 'projects.id', '=', 'lots.project_id')
-            ->leftJoin('project_types', 'project_types.id', '=', 'projects.project_type_id')
-            ->tap(fn (Builder $q) => $this->lotQueryBuilder->excludingLibreAndPreReserva($q))
+            ->when(
+                $filters['lot_status_id'],
+                fn (Builder $q) => $q->where('lots.lot_status_id', $filters['lot_status_id']),
+                fn (Builder $q) => $this->lotQueryBuilder->excludingLibreAndPreReserva($q),
+            )
             ->when($filters['project_id'], fn (Builder $q, int $pid) => $q->where('lots.project_id', $pid))
             ->when($filters['team_id'], fn (Builder $q, int $tid) => $q->whereHas('advisor', fn (Builder $aq) => $aq->where('team_id', $tid)))
             ->whereDate('lots.contract_date', '>=', $filters['start_date'])
@@ -104,7 +107,7 @@ class TopAdvisorsReportController extends Controller
             ->whereNotNull('lots.advisor_id')
             ->select(
                 'lots.advisor_id',
-                DB::raw('SUM(lots.price * COALESCE(project_types.percentage_meta, 100) / 100) as sold_amount')
+                DB::raw('SUM(lots.price) as sold_amount')
             )
             ->groupBy('lots.advisor_id')
             ->pluck('sold_amount', 'advisor_id');
@@ -114,6 +117,11 @@ class TopAdvisorsReportController extends Controller
                 $join->on('ltc.lot_id', '=', 'lots.id')
                     ->where('ltc.status', '=', LotTransferConfirmation::STATUS_APPROVED);
             })
+            ->when(
+                $filters['lot_status_id'],
+                fn (Builder $q) => $q->where('lots.lot_status_id', $filters['lot_status_id']),
+                fn (Builder $q) => $this->lotQueryBuilder->excludingLibreAndPreReserva($q),
+            )
             ->when($filters['project_id'], fn (Builder $q, int $pid) => $q->where('lots.project_id', $pid))
             ->when($filters['team_id'], fn (Builder $q, int $tid) => $q->whereHas('advisor', fn (Builder $aq) => $aq->where('team_id', $tid)))
             ->whereBetween(DB::raw('DATE(ltc.reviewed_at)'), [$filters['start_date'], $filters['end_date']])
@@ -147,8 +155,7 @@ class TopAdvisorsReportController extends Controller
 
         return [
             'title' => 'Top cazadores (vendedores)',
-            'description' => 'Ranking por ventas (fecha de contrato) y transferencias aprobadas en el periodo.',
-            'criteriaNote' => 'Cazador = vendedor asignado al lote. Ventas = precio × % meta del tipo de proyecto. Transferencia = confirmación APROBADA según fecha de revisión.',
+            'description' => 'Ranking por monto de cada lote (fecha de contrato) y transferencias aprobadas en el periodo.',
             'filters' => $filters,
             'rows' => $rows,
             'summary' => [

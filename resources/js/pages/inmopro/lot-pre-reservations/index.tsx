@@ -1,7 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Check, Eye, ImagePlus, Plus, Search, X } from 'lucide-react';
 import type { ChangeEvent, FormEvent } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import InputError from '@/components/input-error';
 import AppLayout from '@/layouts/app-layout';
 import Pagination, { type PaginationLink } from '@/components/pagination';
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { formatDateTime } from '@/lib/date';
+import { formatPen } from '@/lib/report-utils';
 import { showSuccessToast } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
 
@@ -52,6 +53,9 @@ type PreReservation = {
         id: number;
         block: string;
         number: string;
+        price?: string | number | null;
+        advance?: string | number | null;
+        remaining_balance?: string | number | null;
         project?: { name: string } | null;
         status?: { name: string; code: string } | null;
     } | null;
@@ -91,6 +95,14 @@ function includesSearch(
     return String(value ?? '')
         .toLowerCase()
         .includes(search);
+}
+
+function formatLotMoney(value?: string | number | null): string {
+    if (value == null || value === '') {
+        return '—';
+    }
+
+    return formatPen(Number(value));
 }
 
 function distributeAmounts(total: string, count: number): string[] {
@@ -135,6 +147,9 @@ export default function LotPreReservationsIndex({
         project_id: filters.project_id ? String(filters.project_id) : '',
         advisor_id: filters.advisor_id ? String(filters.advisor_id) : '',
     });
+    const [advisorFilterSearch, setAdvisorFilterSearch] = useState('');
+    const [advisorFilterOpen, setAdvisorFilterOpen] = useState(false);
+    const advisorFilterRef = useRef<HTMLDivElement>(null);
     const [registerOpen, setRegisterOpen] = useState(false);
     const [selectedPreReservation, setSelectedPreReservation] =
         useState<PreReservation | null>(null);
@@ -234,6 +249,18 @@ export default function LotPreReservationsIndex({
     const selectedAdvisor = advisors.find(
         (advisor) => String(advisor.id) === registerForm.data.advisor_id,
     );
+    const selectedFilterAdvisor = advisors.find(
+        (advisor) => String(advisor.id) === form.data.advisor_id,
+    );
+    const filteredFilterAdvisors = useMemo(() => {
+        const search = normalizeSearch(advisorFilterSearch);
+
+        if (!search) {
+            return advisors;
+        }
+
+        return advisors.filter((advisor) => advisor.name.toLowerCase().includes(search));
+    }, [advisorFilterSearch, advisors]);
     const selectedClient = clients.find(
         (client) => String(client.id) === registerForm.data.client_id,
     );
@@ -254,6 +281,32 @@ export default function LotPreReservationsIndex({
             { preserveState: true },
         );
     };
+
+    const clearAdvisorFilter = () => {
+        form.setData('advisor_id', '');
+        setAdvisorFilterSearch('');
+        setAdvisorFilterOpen(false);
+    };
+
+    const selectAdvisorFilter = (advisorId: number) => {
+        form.setData('advisor_id', String(advisorId));
+        setAdvisorFilterOpen(false);
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (
+                advisorFilterRef.current &&
+                !advisorFilterRef.current.contains(event.target as Node)
+            ) {
+                setAdvisorFilterOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     useEffect(() => {
         return () => {
@@ -438,37 +491,37 @@ export default function LotPreReservationsIndex({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Pre-reservas - Inmopro" />
-            <div className="space-y-6 p-4">
-                <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-4 p-3 sm:space-y-5 sm:p-4 md:p-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                        <h2 className="text-2xl font-black text-slate-800">
+                        <h2 className="text-xl font-black text-slate-800 sm:text-2xl">
                             Pre-reservas de unidades
                         </h2>
-                        <p className="text-sm text-slate-500">
+                        <p className="mt-1 text-xs text-slate-500 sm:text-sm">
                             Registre, revise y resuelva solicitudes desde una
                             sola bandeja operativa.
                         </p>
                     </div>
-                    <Button type="button" onClick={openRegisterDialog}>
+                    <Button type="button" onClick={openRegisterDialog} className="h-9 w-full sm:w-auto">
                         <Plus className="h-4 w-4" />
                         Registrar pre-reserva
                     </Button>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
-                    <div className="rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm">
+                <div className="grid gap-3 sm:grid-cols-3 sm:gap-4">
+                    <div className="rounded-2xl border border-border bg-card p-4 text-card-foreground shadow-sm">
                         <p className="text-[10px] font-black text-slate-400 uppercase">
                             Solicitudes visibles
                         </p>
-                        <p className="mt-3 text-3xl font-black text-slate-900">
+                        <p className="mt-2 text-2xl font-black text-slate-900 sm:mt-3 sm:text-3xl">
                             {preReservations.data.length}
                         </p>
                     </div>
-                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
                         <p className="text-[10px] font-black text-amber-500 uppercase">
                             Pendientes
                         </p>
-                        <p className="mt-3 text-3xl font-black text-amber-700">
+                        <p className="mt-2 text-2xl font-black text-amber-700 sm:mt-3 sm:text-3xl">
                             {
                                 preReservations.data.filter(
                                     (preReservation) =>
@@ -477,11 +530,11 @@ export default function LotPreReservationsIndex({
                             }
                         </p>
                     </div>
-                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
                         <p className="text-[10px] font-black text-emerald-500 uppercase">
                             Lotes disponibles
                         </p>
-                        <p className="mt-3 text-3xl font-black text-emerald-700">
+                        <p className="mt-2 text-2xl font-black text-emerald-700 sm:mt-3 sm:text-3xl">
                             {availableLots.length}
                         </p>
                     </div>
@@ -489,194 +542,221 @@ export default function LotPreReservationsIndex({
 
                 <form
                     onSubmit={submitFilters}
-                    className="grid gap-4 rounded-2xl border border-border bg-card p-4 text-card-foreground md:grid-cols-4"
+                    className="space-y-3 rounded-2xl border border-border bg-card p-3 text-card-foreground shadow-sm sm:p-4"
                 >
-                    <select
-                        value={form.data.status}
-                        onChange={(event) =>
-                            form.setData('status', event.target.value)
-                        }
-                        className="rounded-lg border border-slate-200 px-3 py-2"
-                    >
-                        <option value="">Todos los estados</option>
-                        <option value="PENDIENTE">Pendiente</option>
-                        <option value="APROBADA">Aprobada</option>
-                        <option value="RECHAZADA">Rechazada</option>
-                    </select>
-                    <select
-                        value={form.data.project_id}
-                        onChange={(event) =>
-                            form.setData('project_id', event.target.value)
-                        }
-                        className="rounded-lg border border-slate-200 px-3 py-2"
-                    >
-                        <option value="">Todos los proyectos</option>
-                        {projects.map((project) => (
-                            <option key={project.id} value={project.id}>
-                                {project.name}
-                            </option>
-                        ))}
-                    </select>
-                    <select
-                        value={form.data.advisor_id}
-                        onChange={(event) =>
-                            form.setData('advisor_id', event.target.value)
-                        }
-                        className="rounded-lg border border-slate-200 px-3 py-2"
-                    >
-                        <option value="">Todos los vendedores</option>
-                        {advisors.map((advisor) => (
-                            <option key={advisor.id} value={advisor.id}>
-                                {advisor.name}
-                            </option>
-                        ))}
-                    </select>
-                    <Button type="submit">Filtrar</Button>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        <select
+                            value={form.data.status}
+                            onChange={(event) =>
+                                form.setData('status', event.target.value)
+                            }
+                            className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none"
+                        >
+                            <option value="">Todos los estados</option>
+                            <option value="PENDIENTE">Pendiente</option>
+                            <option value="APROBADA">Aprobada</option>
+                            <option value="RECHAZADA">Rechazada</option>
+                        </select>
+                        <select
+                            value={form.data.project_id}
+                            onChange={(event) =>
+                                form.setData('project_id', event.target.value)
+                            }
+                            className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none"
+                        >
+                            <option value="">Todos los proyectos</option>
+                            {projects.map((project) => (
+                                <option key={project.id} value={project.id}>
+                                    {project.name}
+                                </option>
+                            ))}
+                        </select>
+                        <div ref={advisorFilterRef} className="relative sm:col-span-2 lg:col-span-1">
+                            <div className="flex gap-1">
+                                <div className="relative min-w-0 flex-1">
+                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                                    <Input
+                                        value={advisorFilterOpen ? advisorFilterSearch : (selectedFilterAdvisor?.name ?? advisorFilterSearch)}
+                                        onChange={(event) => {
+                                            setAdvisorFilterSearch(event.target.value);
+                                            setAdvisorFilterOpen(true);
+                                        }}
+                                        onFocus={() => setAdvisorFilterOpen(true)}
+                                        placeholder="Buscar asesor"
+                                        className="h-9 bg-slate-50 pl-9 text-sm"
+                                    />
+                                </div>
+                                {form.data.advisor_id ? (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9 shrink-0"
+                                        onClick={clearAdvisorFilter}
+                                        title="Quitar asesor"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                ) : null}
+                            </div>
+                            {advisorFilterOpen ? (
+                                <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                                    {filteredFilterAdvisors.length === 0 ? (
+                                        <p className="px-3 py-2 text-xs text-slate-500">Sin resultados</p>
+                                    ) : (
+                                        filteredFilterAdvisors.map((advisor) => {
+                                            const selected = form.data.advisor_id === String(advisor.id);
+
+                                            return (
+                                                <button
+                                                    key={advisor.id}
+                                                    type="button"
+                                                    onClick={() => selectAdvisorFilter(advisor.id)}
+                                                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${selected ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-slate-50'}`}
+                                                >
+                                                    <span className="truncate font-medium">{advisor.name}</span>
+                                                    {selected ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
+                                                </button>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+                    <div className="flex justify-end">
+                        <Button type="submit" className="h-9 w-full sm:w-auto">
+                            Filtrar
+                        </Button>
+                    </div>
                 </form>
 
-                <div className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground">
+                <div className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="bg-slate-50">
+                        <table className="w-full min-w-[880px] text-xs">
+                            <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wide text-slate-500">
                                 <tr>
-                                    <th className="px-4 py-3 text-left font-bold text-slate-600">
-                                        Unidad
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-bold text-slate-600">
-                                        Cliente
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-bold text-slate-600">
-                                        Vendedor
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-bold text-slate-600">
-                                        Estado
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-bold text-slate-600">
-                                        Monto
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-bold text-slate-600">
-                                        Fecha
-                                    </th>
-                                    <th className="px-4 py-3 text-right font-bold text-slate-600">
-                                        Acciones
-                                    </th>
+                                    <th className="px-2 py-2 text-left">Unidad</th>
+                                    <th className="px-2 py-2 text-left">Cliente</th>
+                                    <th className="px-2 py-2 text-left">Asesor</th>
+                                    <th className="px-2 py-2 text-right">Montos</th>
+                                    <th className="px-2 py-2 text-left">Estado</th>
+                                    <th className="px-2 py-2 text-left">Fecha</th>
+                                    <th className="px-2 py-2 text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {preReservations.data.map((preReservation) => (
-                                    <tr key={preReservation.id}>
-                                        <td className="px-4 py-3">
-                                            <div className="font-medium text-slate-800">
-                                                {preReservation.lot?.project
-                                                    ?.name ?? '-'}
-                                            </div>
-                                            <div className="text-xs text-slate-500">
-                                                {preReservation.lot
-                                                    ? `${preReservation.lot.block}-${preReservation.lot.number}`
-                                                    : '-'}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="font-medium text-slate-800">
-                                                {preReservation.client?.name ??
-                                                    '-'}
-                                            </div>
-                                            <div className="text-xs text-slate-500">
-                                                {preReservation.client?.city
-                                                    ?.name ?? 'Sin ciudad'}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="font-medium text-slate-800">
-                                                {preReservation.advisor?.name ??
-                                                    '-'}
-                                            </div>
-                                            <div className="text-xs text-slate-500">
-                                                {preReservation.advisor?.team
-                                                    ?.name ?? '-'}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="text-slate-700">
-                                                {preReservation.status}
-                                            </div>
-                                            {preReservation.rejection_reason ? (
-                                                <div className="mt-1 text-xs text-red-600">
-                                                    {
-                                                        preReservation.rejection_reason
-                                                    }
-                                                </div>
-                                            ) : null}
-                                        </td>
-                                        <td className="px-4 py-3 font-medium text-slate-700">
-                                            S/{' '}
-                                            {moneyFormatter.format(
-                                                Number(preReservation.amount),
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600">
-                                            <div>
-                                                {formatDateTime(
-                                                    preReservation.created_at,
-                                                )}
-                                            </div>
-                                            {preReservation.reviewed_at ? (
-                                                <div className="text-xs text-slate-400">
-                                                    Revision:{' '}
-                                                    {formatDateTime(
-                                                        preReservation.reviewed_at,
-                                                    )}
-                                                </div>
-                                            ) : null}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex justify-end gap-2">
-                                                <a
-                                                    href={`/storage/${preReservation.voucher_path}`}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </a>
-                                                {preReservation.status ===
-                                                'PENDIENTE' ? (
-                                                    <>
-                                                        <Button
-                                                            type="button"
-                                                            size="sm"
-                                                            onClick={() =>
-                                                                openApproveDialog(
-                                                                    preReservation,
-                                                                )
-                                                            }
-                                                        >
-                                                            <Check className="h-4 w-4" />
-                                                            Aprobar
-                                                        </Button>
-                                                        <Button
-                                                            type="button"
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() =>
-                                                                openRejectDialog(
-                                                                    preReservation,
-                                                                )
-                                                            }
-                                                        >
-                                                            <X className="h-4 w-4" />
-                                                            Rechazar
-                                                        </Button>
-                                                    </>
-                                                ) : null}
-                                            </div>
+                                {preReservations.data.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="px-2 py-6 text-center text-xs text-slate-500">
+                                            No se encontraron pre-reservas para los filtros seleccionados.
                                         </td>
                                     </tr>
-                                ))}
+                                ) : (
+                                    preReservations.data.map((preReservation) => (
+                                        <tr key={preReservation.id} className="align-top hover:bg-slate-50/60">
+                                            <td className="px-2 py-1.5">
+                                                <div className="font-semibold text-slate-800">
+                                                    {preReservation.lot
+                                                        ? `${preReservation.lot.block}-${preReservation.lot.number}`
+                                                        : '—'}
+                                                </div>
+                                                <div className="truncate text-[10px] text-slate-500">
+                                                    {preReservation.lot?.project?.name ?? '—'}
+                                                </div>
+                                            </td>
+                                            <td className="px-2 py-1.5">
+                                                <div className="max-w-[130px] truncate font-medium text-slate-800">
+                                                    {preReservation.client?.name ?? '—'}
+                                                </div>
+                                                <div className="truncate text-[10px] text-slate-500">
+                                                    {preReservation.client?.city?.name ?? 'Sin ciudad'}
+                                                </div>
+                                            </td>
+                                            <td className="px-2 py-1.5">
+                                                <div className="max-w-[110px] truncate font-medium text-slate-800">
+                                                    {preReservation.advisor?.name ?? '—'}
+                                                </div>
+                                                <div className="truncate text-[10px] text-slate-500">
+                                                    {preReservation.advisor?.team?.name ?? '—'}
+                                                </div>
+                                            </td>
+                                            <td className="px-2 py-1.5 text-right tabular-nums">
+                                                <div className="text-slate-800">
+                                                    {formatLotMoney(preReservation.lot?.price)}
+                                                </div>
+                                                <div className="text-[10px] text-emerald-700">
+                                                    Sep. {formatLotMoney(preReservation.amount)}
+                                                </div>
+                                                <div className="text-[10px] text-slate-500">
+                                                    Rest. {formatLotMoney(preReservation.lot?.remaining_balance)}
+                                                </div>
+                                            </td>
+                                            <td className="px-2 py-1.5">
+                                                <div className="font-medium text-slate-700">
+                                                    {preReservation.status}
+                                                </div>
+                                                {preReservation.rejection_reason ? (
+                                                    <div className="mt-0.5 text-[10px] text-red-600">
+                                                        {preReservation.rejection_reason}
+                                                    </div>
+                                                ) : null}
+                                            </td>
+                                            <td className="px-2 py-1.5 text-slate-600">
+                                                <div>{formatDateTime(preReservation.created_at)}</div>
+                                                {preReservation.reviewed_at ? (
+                                                    <div className="text-[10px] text-slate-400">
+                                                        {formatDateTime(preReservation.reviewed_at)}
+                                                    </div>
+                                                ) : null}
+                                            </td>
+                                            <td className="px-2 py-1.5">
+                                                <div className="flex flex-wrap justify-end gap-1">
+                                                    <a
+                                                        href={`/storage/${preReservation.voucher_path}`}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
+                                                        title="Ver voucher"
+                                                    >
+                                                        <Eye className="h-3.5 w-3.5" />
+                                                    </a>
+                                                    {preReservation.status === 'PENDIENTE' ? (
+                                                        <>
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                className="h-7 px-2 text-xs"
+                                                                onClick={() =>
+                                                                    openApproveDialog(preReservation)
+                                                                }
+                                                            >
+                                                                <Check className="h-3.5 w-3.5" />
+                                                                <span className="hidden sm:inline">Aprobar</span>
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="h-7 px-2 text-xs"
+                                                                onClick={() =>
+                                                                    openRejectDialog(preReservation)
+                                                                }
+                                                            >
+                                                                <X className="h-3.5 w-3.5" />
+                                                                <span className="hidden sm:inline">Rechazar</span>
+                                                            </Button>
+                                                        </>
+                                                    ) : null}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
-                    <div className="border-t border-slate-100 px-4 py-3">
+                    <div className="border-t border-slate-100 px-3 py-2">
                         <Pagination links={preReservations.links} />
                     </div>
                 </div>

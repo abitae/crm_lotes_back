@@ -65,7 +65,7 @@ class TopAdvisorsReportTest extends TestCase
                 ->where('rows.0.transfer_count', 1));
     }
 
-    public function test_top_advisors_sold_amount_respects_percentage_meta(): void
+    public function test_top_advisors_sold_amount_uses_lot_price_without_percentage_meta(): void
     {
         $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
         $status = LotStatus::create(['name' => 'Transferido', 'code' => 'TRANSFERIDO', 'color' => '#64748b', 'sort_order' => 2]);
@@ -103,6 +103,80 @@ class TopAdvisorsReportTest extends TestCase
             ]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('rows.0.sold_amount', 20000));
+                ->where('rows.0.sold_amount', 40000)
+                ->missing('criteriaNote'));
+    }
+
+    public function test_top_advisors_can_filter_by_lot_status(): void
+    {
+        $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
+        $reservedStatus = LotStatus::create(['name' => 'Reservado', 'code' => 'RESERVADO', 'color' => '#f59e0b', 'sort_order' => 1]);
+        $transferredStatus = LotStatus::create(['name' => 'Transferido', 'code' => 'TRANSFERIDO', 'color' => '#64748b', 'sort_order' => 2]);
+        $team = Team::create(['name' => 'T1', 'code' => 'T1', 'description' => 'T', 'color' => '#000', 'sort_order' => 1, 'is_active' => true]);
+        $level = AdvisorLevel::create(['name' => 'L1', 'code' => 'L1', 'direct_rate' => 5, 'pyramid_rate' => 2, 'color' => '#000', 'sort_order' => 1]);
+        $city = City::create(['name' => 'Lima', 'code' => 'LIM', 'department' => 'Lima', 'sort_order' => 1, 'is_active' => true]);
+        $advisor = Advisor::create([
+            'dni' => '87654323', 'name' => 'Asesor Estados', 'phone' => '999', 'email' => 'estados@t.com',
+            'city_id' => $city->id, 'team_id' => $team->id, 'advisor_level_id' => $level->id, 'personal_quota' => 0,
+        ]);
+        $project = Project::create(['name' => 'P Estados', 'location' => 'X', 'total_lots' => 10, 'blocks' => ['A']]);
+        $user = User::factory()->create();
+
+        Lot::create([
+            'project_id' => $project->id,
+            'advisor_id' => $advisor->id,
+            'block' => 'A',
+            'number' => '1',
+            'area' => 100,
+            'price' => 10000,
+            'lot_status_id' => $reservedStatus->id,
+            'contract_date' => '2026-03-05',
+        ]);
+
+        $transferredLot = Lot::create([
+            'project_id' => $project->id,
+            'advisor_id' => $advisor->id,
+            'block' => 'A',
+            'number' => '2',
+            'area' => 100,
+            'price' => 20000,
+            'lot_status_id' => $transferredStatus->id,
+            'contract_date' => '2026-03-06',
+        ]);
+
+        LotTransferConfirmation::create([
+            'lot_id' => $transferredLot->id,
+            'status' => LotTransferConfirmation::STATUS_APPROVED,
+            'evidence_path' => 'evidence/test.jpg',
+            'requested_by' => $user->id,
+            'reviewed_by' => $user->id,
+            'reviewed_at' => '2026-03-10 10:00:00',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('inmopro.reports.top-advisors.index', [
+                'start_date' => '2026-03-01',
+                'end_date' => '2026-03-31',
+                'lot_status_id' => $reservedStatus->id,
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('filters.lot_status_id', $reservedStatus->id)
+                ->where('rows.0.advisor_name', 'Asesor Estados')
+                ->where('rows.0.sold_amount', 10000)
+                ->where('rows.0.transfer_count', 0));
+
+        $this->actingAs($user)
+            ->get(route('inmopro.reports.top-advisors.index', [
+                'start_date' => '2026-03-01',
+                'end_date' => '2026-03-31',
+                'lot_status_id' => $transferredStatus->id,
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('filters.lot_status_id', $transferredStatus->id)
+                ->where('rows.0.advisor_name', 'Asesor Estados')
+                ->where('rows.0.sold_amount', 20000)
+                ->where('rows.0.transfer_count', 1));
     }
 }

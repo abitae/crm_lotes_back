@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Inmopro\ApproveLotTransferConfirmationRequest;
 use App\Http\Requests\Inmopro\RejectLotTransferConfirmationRequest;
 use App\Http\Requests\Inmopro\StoreLotTransferConfirmationRequest;
+use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\LotTransferConfirmation;
@@ -29,7 +30,6 @@ class LotTransferConfirmationController extends Controller
         abort_unless($request->user()?->can('inmopro.lot-transfer-confirmations.index'), 403);
 
         $search = trim((string) $request->string('search'));
-        $advisorSearch = trim((string) $request->string('advisor_search'));
         $pendingReview = $request->boolean('pending_review');
         $allowedStatusCodes = [
             LotStatus::CODE_RESERVADO,
@@ -69,11 +69,7 @@ class LotTransferConfirmationController extends Controller
                         });
                 });
             })
-            ->when($advisorSearch !== '', function ($query) use ($advisorSearch) {
-                $query->whereHas('advisor', function ($advisorQuery) use ($advisorSearch) {
-                    $advisorQuery->where('name', 'like', "%{$advisorSearch}%");
-                });
-            })
+            ->when($request->filled('advisor_id'), fn ($query) => $query->where('advisor_id', $request->integer('advisor_id')))
             ->when($pendingReview, function ($query) {
                 $query->whereHas('latestTransferConfirmation', function ($transferQuery) {
                     $transferQuery->where('status', LotTransferConfirmation::STATUS_PENDING);
@@ -91,10 +87,11 @@ class LotTransferConfirmationController extends Controller
                 'project_id' => $request->input('project_id'),
                 'lot_status_id' => $request->input('lot_status_id'),
                 'search' => $request->input('search'),
-                'advisor_search' => $request->input('advisor_search'),
+                'advisor_id' => $request->input('advisor_id'),
                 'pending_review' => $pendingReview ? '1' : null,
             ],
-            'projects' => Project::query()->orderBy('name')->get(['id', 'name']),
+            'projects' => Project::query()->active()->orderBy('name')->get(['id', 'name']),
+            'advisors' => Advisor::query()->orderBy('name')->get(['id', 'name']),
             'lotStatuses' => LotStatus::query()
                 ->whereIn('code', $allowedStatusCodes)
                 ->orderBy('sort_order')

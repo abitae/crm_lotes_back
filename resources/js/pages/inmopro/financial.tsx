@@ -131,21 +131,19 @@ export default function Financial({
                     </button>
                 </form>
 
-                <div className="overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm">
-                    <div className="border-b border-slate-100 px-6 py-4">
-                        <h2 className={inmoproUi.sectionTitle}>Detalle de operaciones</h2>
+                <div className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm sm:rounded-3xl">
+                    <div className="border-b border-slate-100 px-3 py-2 sm:px-4">
+                        <h2 className="text-sm font-black text-slate-900 sm:text-base">Detalle de operaciones</h2>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[900px] text-left text-sm">
-                            <thead className={inmoproUi.tableHead}>
+                        <table className="w-full min-w-[760px] text-xs">
+                            <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wide text-slate-500">
                                 <tr>
-                                    <th className={`px-6 py-3 ${inmoproUi.tableHeadCell}`}>Fecha / Lote</th>
-                                    <th className={`px-6 py-3 ${inmoproUi.tableHeadCell}`}>Cliente</th>
-                                    <th className={`px-6 py-3 ${inmoproUi.tableHeadCell}`}>Proyecto</th>
-                                    <th className={`px-6 py-3 ${inmoproUi.tableHeadCell}`}>Precio</th>
-                                    <th className={`px-6 py-3 ${inmoproUi.tableHeadCell}`}>Cobrado</th>
-                                    <th className={`px-6 py-3 ${inmoproUi.tableHeadCell}`}>Saldo</th>
-                                    <th className={`px-6 py-3 ${inmoproUi.tableHeadCell}`}>% avance</th>
+                                    <th className="px-2 py-2 text-left">Lote</th>
+                                    <th className="px-2 py-2 text-left">Cliente</th>
+                                    <th className="px-2 py-2 text-left">Proyecto</th>
+                                    <th className="px-2 py-2 text-right">Montos</th>
+                                    <th className="px-2 py-2 text-right">Avance</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${inmoproUi.divide}`}>
@@ -155,37 +153,35 @@ export default function Financial({
                                     const progress = price > 0 ? Math.round((collected / price) * 100) : 0;
 
                                     return (
-                                        <tr key={lot.id} className={inmoproUi.tableRowHover}>
-                                            <td className="px-6 py-4">
-                                                <p className="font-black text-slate-900">
+                                        <tr key={lot.id} className={`align-top ${inmoproUi.tableRowHover}`}>
+                                            <td className="px-2 py-1.5">
+                                                <p className="font-semibold text-slate-900">
                                                     {lot.block}-{lot.number}
                                                 </p>
-                                                <p className="text-xs text-slate-500">
+                                                <p className="text-[10px] text-slate-500">
                                                     {lot.contract_date ? formatDate(lot.contract_date) : 'Sin contrato'}
                                                 </p>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <p className="font-semibold text-slate-800">
+                                            <td className="px-2 py-1.5">
+                                                <p className="max-w-[120px] truncate font-medium text-slate-800">
                                                     {lot.client?.name ?? 'Sin cliente'}
                                                 </p>
-                                                <p className="text-xs text-slate-500">
-                                                    DNI: {lot.client?.dni ?? 'Sin DNI'}
+                                                <p className="truncate text-[10px] text-slate-500">
+                                                    {lot.client?.dni ?? 'Sin DNI'}
                                                 </p>
                                             </td>
-                                            <td className="px-6 py-4 text-slate-600">
+                                            <td className="max-w-[110px] truncate px-2 py-1.5 text-slate-600">
                                                 {lot.project?.name ?? 'Sin proyecto'}
                                             </td>
-                                            <td className="px-6 py-4 font-semibold text-slate-800">
-                                                S/ {price.toLocaleString()}
+                                            <td className="px-2 py-1.5 text-right tabular-nums">
+                                                <div className="text-slate-800">S/ {price.toLocaleString()}</div>
+                                                <div className="text-[10px] text-emerald-700">Cob. S/ {collected.toLocaleString()}</div>
+                                                <div className="text-[10px] text-amber-600">
+                                                    Sal. S/ {Number(lot.remaining_balance ?? 0).toLocaleString()}
+                                                </div>
                                             </td>
-                                            <td className="px-6 py-4 font-semibold text-emerald-600">
-                                                S/ {collected.toLocaleString()}
-                                            </td>
-                                            <td className="px-6 py-4 font-semibold text-amber-600">
-                                                S/ {Number(lot.remaining_balance ?? 0).toLocaleString()}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                                            <td className="px-2 py-1.5 text-right">
+                                                <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
                                                     {progress}%
                                                 </span>
                                             </td>
@@ -197,15 +193,15 @@ export default function Financial({
                     </div>
 
                     {lots.data.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center p-20 text-center">
-                            <Search className="mb-4 h-8 w-8 text-slate-300" />
-                            <h4 className="font-black uppercase text-slate-800">Sin resultados</h4>
-                            <p className="text-sm text-slate-400">
+                        <div className="flex flex-col items-center justify-center p-12 text-center sm:p-16">
+                            <Search className="mb-3 h-7 w-7 text-slate-300" />
+                            <h4 className="text-sm font-black uppercase text-slate-800">Sin resultados</h4>
+                            <p className="text-xs text-slate-400">
                                 No se encontraron operaciones para los filtros aplicados.
                             </p>
                         </div>
                     ) : (
-                        <div className="border-t border-slate-100 px-4 py-3">
+                        <div className="border-t border-slate-100 px-3 py-2">
                             <Pagination links={lots.links} />
                         </div>
                     )}

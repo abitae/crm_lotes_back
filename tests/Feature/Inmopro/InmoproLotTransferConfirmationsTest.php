@@ -65,7 +65,7 @@ class InmoproLotTransferConfirmationsTest extends TestCase
                 ->where('filters.project_id', null)
                 ->where('filters.lot_status_id', null)
                 ->where('filters.search', null)
-                ->where('filters.advisor_search', null)
+                ->where('filters.advisor_id', null)
                 ->where('filters.pending_review', null)
             );
     }
@@ -117,7 +117,7 @@ class InmoproLotTransferConfirmationsTest extends TestCase
             );
     }
 
-    public function test_index_can_search_by_advisor_name(): void
+    public function test_index_can_filter_by_advisor(): void
     {
         $user = $this->createTransferManager();
         $advisorMatch = Advisor::query()->firstOrFail();
@@ -132,13 +132,13 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         $this->actingAs($user)
             ->get(route('inmopro.lot-transfer-confirmations.index', [
                 'search' => 'ALPHAONLY',
-                'advisor_search' => 'Alpha',
+                'advisor_id' => $advisorMatch->id,
             ]))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('inmopro/lot-transfer-confirmations/index')
                 ->where('filters.search', 'ALPHAONLY')
-                ->where('filters.advisor_search', 'Alpha')
+                ->where('filters.advisor_id', (string) $advisorMatch->id)
                 ->where('lots.total', 1)
                 ->where('lots.data.0.id', $matchingLot->id)
                 ->where('lots.data.0.advisor.name', 'Asesor Alpha')
@@ -159,7 +159,7 @@ class InmoproLotTransferConfirmationsTest extends TestCase
                 'project_id' => $lot->project_id,
                 'lot_status_id' => $this->statusIds['TRANSFERIDO'],
                 'search' => 'GAMMAONLY',
-                'advisor_search' => 'Gamma',
+                'advisor_id' => $advisor->id,
                 'pending_review' => '1',
             ]))
             ->assertOk()
@@ -169,7 +169,7 @@ class InmoproLotTransferConfirmationsTest extends TestCase
                 ->where('filters.project_id', (string) $lot->project_id)
                 ->where('filters.lot_status_id', (string) $this->statusIds['TRANSFERIDO'])
                 ->where('filters.search', 'GAMMAONLY')
-                ->where('filters.advisor_search', 'Gamma')
+                ->where('filters.advisor_id', (string) $advisor->id)
                 ->where('filters.pending_review', '1')
                 ->where('lots.total', 1)
                 ->where('lots.data.0.id', $lot->id)

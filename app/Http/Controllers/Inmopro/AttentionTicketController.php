@@ -34,17 +34,25 @@ class AttentionTicketController extends Controller
             $query->where('status', $request->input('status'));
         }
 
+        if ($request->filled('project_id')) {
+            $query->where('project_id', $request->integer('project_id'));
+        }
+
+        if ($request->filled('advisor_id')) {
+            $query->where('advisor_id', $request->integer('advisor_id'));
+        }
+
         $tickets = $query->paginate(15)->withQueryString();
 
         return Inertia::render('inmopro/operations/attention-tickets/index', [
             'tickets' => $tickets,
-            'filters' => $request->only('status', 'create'),
+            'filters' => $request->only('status', 'create', 'project_id', 'advisor_id'),
             'advisors' => Advisor::query()->orderBy('name')->get(['id', 'name']),
             'clients' => Client::query()
                 ->with('advisor:id,name')
                 ->orderBy('name')
                 ->get(['id', 'name', 'advisor_id']),
-            'projects' => Project::query()->orderBy('name')->get(['id', 'name', 'location']),
+            'projects' => Project::query()->active()->orderBy('name')->get(['id', 'name', 'location']),
             'ticketTypes' => AttentionTicketType::query()
                 ->where('is_active', true)
                 ->orderBy('sort_order')

@@ -122,42 +122,44 @@ export default function Commissions({
                     </button>
                 </form>
 
-                <div className="overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm">
-                    <div className="border-b border-slate-100 px-6 py-4">
-                        <h2 className="text-lg font-black text-slate-900">Liquidacion de comisiones</h2>
+                <div className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm sm:rounded-3xl">
+                    <div className="border-b border-slate-100 px-3 py-2 sm:px-4">
+                        <h2 className="text-sm font-black text-slate-900 sm:text-base">Liquidacion de comisiones</h2>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[980px] text-left text-sm">
-                            <thead className="bg-slate-50">
+                        <table className="w-full min-w-[720px] text-xs">
+                            <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wide text-slate-500">
                                 <tr>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Fecha / Asesor</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Lote / Proyecto</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Tipo</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">% aplicado</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Importe</th>
-                                    <th className="px-6 py-3 text-right font-bold text-slate-500">Estado</th>
+                                    <th className="px-2 py-2 text-left">Asesor</th>
+                                    <th className="px-2 py-2 text-left">Lote</th>
+                                    <th className="px-2 py-2 text-left">Tipo</th>
+                                    <th className="px-2 py-2 text-right">%</th>
+                                    <th className="px-2 py-2 text-right">Importe</th>
+                                    <th className="px-2 py-2 text-right">Estado</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {commissions.data.map((commission) => (
-                                    <tr key={commission.id} className="hover:bg-slate-50/60">
-                                        <td className="px-6 py-4">
-                                            <p className="font-black text-slate-900">{commission.advisor?.name ?? 'Sin asesor'}</p>
-                                            <p className="text-xs text-slate-500">
+                                    <tr key={commission.id} className="align-top hover:bg-slate-50/60">
+                                        <td className="px-2 py-1.5">
+                                            <p className="max-w-[120px] truncate font-semibold text-slate-900">
+                                                {commission.advisor?.name ?? 'Sin asesor'}
+                                            </p>
+                                            <p className="text-[10px] text-slate-500">
                                                 {commission.date} · {commission.advisor?.level?.name ?? 'Sin nivel'}
                                             </p>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-600">
-                                            <p className="font-semibold text-slate-800">
+                                        <td className="px-2 py-1.5">
+                                            <p className="font-medium text-slate-800">
                                                 {commission.lot?.block}-{commission.lot?.number}
                                             </p>
-                                            <p className="text-xs text-slate-500">
+                                            <p className="max-w-[110px] truncate text-[10px] text-slate-500">
                                                 {commission.lot?.project?.name ?? 'Sin proyecto'}
                                             </p>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-2 py-1.5">
                                             <span
-                                                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${
+                                                className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${
                                                     commission.type === 'DIRECTA'
                                                         ? 'bg-blue-100 text-blue-700'
                                                         : 'bg-slate-100 text-slate-700'
@@ -166,24 +168,24 @@ export default function Commissions({
                                                 {commission.type}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 font-semibold text-slate-700">
+                                        <td className="px-2 py-1.5 text-right font-medium text-slate-700 tabular-nums">
                                             {commission.percentage}%
                                         </td>
-                                        <td className="px-6 py-4 font-black text-emerald-600">
+                                        <td className="px-2 py-1.5 text-right font-semibold text-emerald-600 tabular-nums">
                                             S/ {Number(commission.amount).toLocaleString()}
                                         </td>
-                                        <td className="px-6 py-4 text-right">
+                                        <td className="px-2 py-1.5 text-right">
                                             {commission.status?.code === 'PENDIENTE' ? (
                                                 <button
                                                     type="button"
                                                     onClick={() => void markAsPaid(commission)}
-                                                    className="inline-flex items-center gap-1.5 rounded-xl border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs font-black uppercase text-amber-700"
+                                                    className="inline-flex items-center gap-1 rounded-md border border-amber-100 bg-amber-50 px-2 py-1 text-[10px] font-bold uppercase text-amber-700"
                                                 >
-                                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                                    Marcar pagado
+                                                    <CheckCircle2 className="h-3 w-3" />
+                                                    <span className="hidden sm:inline">Pagar</span>
                                                 </button>
                                             ) : (
-                                                <span className="rounded-xl bg-emerald-100 px-3 py-1.5 text-xs font-black uppercase text-emerald-700">
+                                                <span className="inline-flex rounded-md bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase text-emerald-700">
                                                     Pagado
                                                 </span>
                                             )}
@@ -195,14 +197,14 @@ export default function Commissions({
                     </div>
 
                     {commissions.data.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-24 text-center">
-                            <Percent className="mb-4 h-10 w-10 text-slate-300" />
-                            <p className="text-sm font-black uppercase tracking-wide text-slate-500">
+                        <div className="flex flex-col items-center justify-center py-16 text-center sm:py-20">
+                            <Percent className="mb-3 h-8 w-8 text-slate-300" />
+                            <p className="text-xs font-black uppercase tracking-wide text-slate-500 sm:text-sm">
                                 No hay comisiones para este rango
                             </p>
                         </div>
                     ) : (
-                        <div className="border-t border-slate-100 px-4 py-3">
+                        <div className="border-t border-slate-100 px-3 py-2">
                             <Pagination links={commissions.links} />
                         </div>
                     )}

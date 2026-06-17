@@ -7,6 +7,7 @@ import { toYmdLocal } from '@/lib/report-utils';
 type DateFilters = {
     start_date?: string | null;
     end_date?: string | null;
+    [key: string]: string | number | boolean | null | undefined;
 };
 
 type Props = {
@@ -16,12 +17,55 @@ type Props = {
     children?: React.ReactNode;
 };
 
+function preservedFilterFields(
+    filters: DateFilters,
+    extraFields: Record<string, string | number | boolean | null | undefined>,
+): Record<string, string> {
+    const preserved: Record<string, string> = {};
+
+    Object.entries(filters).forEach(([key, value]) => {
+        if (key === 'start_date' || key === 'end_date') {
+            return;
+        }
+
+        if (value !== null && value !== undefined && value !== '') {
+            preserved[key] = String(value);
+        }
+    });
+
+    Object.entries(extraFields).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+            preserved[key] = String(value);
+        }
+    });
+
+    return preserved;
+}
+
+function queryFromForm(
+    form: HTMLFormElement,
+    extraFields: Record<string, string | number | boolean | null | undefined>,
+): Record<string, string> {
+    const query = preservedFilterFields({}, extraFields);
+    const formData = new FormData(form);
+
+    formData.forEach((value, key) => {
+        const normalized = String(value);
+
+        if (normalized !== '') {
+            query[key] = normalized;
+        }
+    });
+
+    return query;
+}
+
 export function ReportDateFilters({ basePath, filters, extraFields = {}, children }: Props) {
     const navigate = (patch: Partial<DateFilters>) => {
         router.get(
             basePath,
             {
-                ...extraFields,
+                ...preservedFilterFields(filters, extraFields),
                 start_date: patch.start_date ?? filters.start_date ?? undefined,
                 end_date: patch.end_date ?? filters.end_date ?? undefined,
             },
@@ -61,16 +105,7 @@ export function ReportDateFilters({ basePath, filters, extraFields = {}, childre
 
     const onSubmit = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const fd = new FormData(e.currentTarget);
-        router.get(
-            basePath,
-            {
-                ...extraFields,
-                start_date: (fd.get('start_date') as string) || undefined,
-                end_date: (fd.get('end_date') as string) || undefined,
-            },
-            { preserveScroll: true },
-        );
+        router.get(basePath, queryFromForm(e.currentTarget, extraFields), { preserveScroll: true });
     };
 
     return (

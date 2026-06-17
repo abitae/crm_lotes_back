@@ -153,107 +153,110 @@ export default function AccountsReceivable({
                     </button>
                 </form>
 
-                <div className="overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm">
-                    <div className="border-b border-slate-100 px-6 py-4">
-                        <h2 className="text-lg font-black text-slate-900">Cartera de cuentas por cobrar</h2>
-                        <p className="mt-1 text-sm text-slate-500">
-                            Vista tabular de lotes financiados, saldos y acciones de cobro.
+                <div className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm sm:rounded-3xl">
+                    <div className="border-b border-slate-100 px-3 py-2 sm:px-4">
+                        <h2 className="text-sm font-black text-slate-900 sm:text-base">Cartera de cuentas por cobrar</h2>
+                        <p className="mt-0.5 text-[10px] text-slate-500 sm:text-xs">
+                            Lotes financiados, saldos y acciones de cobro.
                         </p>
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[1100px] text-left text-sm">
-                            <thead className="bg-slate-50">
+                        <table className="w-full min-w-[860px] text-xs">
+                            <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wide text-slate-500">
                                 <tr>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Lote</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Proyecto</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Cliente</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Estado lote</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Precio</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Cobrado</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Saldo</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Cuotas</th>
-                                    <th className="px-6 py-3 font-bold text-slate-500">Mora</th>
-                                    <th className="px-6 py-3 text-right font-bold text-slate-500">Acciones</th>
+                                    <th className="px-2 py-2 text-left">Lote</th>
+                                    <th className="px-2 py-2 text-left">Cliente</th>
+                                    <th className="px-2 py-2 text-left">Estado</th>
+                                    <th className="px-2 py-2 text-right">Montos</th>
+                                    <th className="px-2 py-2 text-center">Cuotas</th>
+                                    <th className="px-2 py-2 text-left">Mora</th>
+                                    <th className="px-2 py-2 text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {lots.data.map((lot) => (
-                                    <tr key={lot.id} className="hover:bg-slate-50/70">
-                                        <td className="px-6 py-4 font-black text-slate-900">
-                                            {lot.block}-{lot.number}
+                                    <tr key={lot.id} className="align-top hover:bg-slate-50/70">
+                                        <td className="px-2 py-1.5">
+                                            <div className="font-semibold text-slate-900">
+                                                {lot.block}-{lot.number}
+                                            </div>
+                                            <div className="max-w-[120px] truncate text-[10px] text-slate-500">
+                                                {lot.project?.name ?? 'Sin proyecto'}
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-600">
-                                            {lot.project?.name ?? 'Sin proyecto'}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600">
+                                        <td className="max-w-[110px] truncate px-2 py-1.5 text-slate-600">
                                             {lot.client?.name ?? 'Sin cliente'}
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-2 py-1.5">
                                             <span
-                                                className={`rounded-full px-2.5 py-1 text-xs font-bold ${lot.status?.color ? 'text-white' : 'bg-slate-100 text-slate-700'}`}
+                                                className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${lot.status?.color ? 'text-white' : 'bg-slate-100 text-slate-700'}`}
                                                 style={lot.status?.color ? { backgroundColor: lot.status.color } : undefined}
                                             >
                                                 {lot.status?.name ?? 'Sin estado'}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 font-semibold text-slate-800">
-                                            S/ {Number(lot.price).toLocaleString()}
+                                        <td className="px-2 py-1.5 text-right tabular-nums">
+                                            <div className="text-slate-800">S/ {Number(lot.price).toLocaleString()}</div>
+                                            <div className="text-[10px] text-emerald-700">Cob. S/ {lot.total_paid.toLocaleString()}</div>
+                                            <div className="text-[10px] text-amber-600">
+                                                Sal. S/ {Number(lot.remaining_balance ?? 0).toLocaleString()}
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 font-semibold text-emerald-600">
-                                            S/ {lot.total_paid.toLocaleString()}
-                                        </td>
-                                        <td className="px-6 py-4 font-semibold text-amber-600">
-                                            S/ {Number(lot.remaining_balance ?? 0).toLocaleString()}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600">{lot.installments.length}</td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-2 py-1.5 text-center text-slate-600">{lot.installments.length}</td>
+                                        <td className="px-2 py-1.5">
                                             {lot.overdue_installments > 0 ? (
-                                                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">
-                                                    {lot.overdue_installments} vencidas
+                                                <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                                                    {lot.overdue_installments}
                                                 </span>
                                             ) : (
-                                                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                                                    Al dia
+                                                <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                                                    OK
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex justify-end gap-2">
+                                        <td className="px-2 py-1.5">
+                                            <div className="flex flex-wrap justify-end gap-1">
                                                 <Button
                                                     type="button"
                                                     variant="outline"
                                                     size="sm"
+                                                    className="h-7 px-2 text-xs"
+                                                    title="Ver detalle"
                                                     onClick={() => {
                                                         setSelectedLot(lot);
                                                         setDetailOpen(true);
                                                     }}
                                                 >
-                                                    <Eye className="h-4 w-4" />
-                                                    Detalle
+                                                    <Eye className="h-3.5 w-3.5" />
+                                                    <span className="hidden sm:inline">Detalle</span>
                                                 </Button>
                                                 <Button
                                                     type="button"
                                                     variant="outline"
                                                     size="sm"
+                                                    className="h-7 px-2 text-xs"
+                                                    title="Nueva cuota"
                                                     onClick={() => {
                                                         setSelectedLot(lot);
                                                         setInstallmentOpen(true);
                                                     }}
                                                 >
-                                                    <Plus className="h-4 w-4" />
-                                                    Cuota
+                                                    <Plus className="h-3.5 w-3.5" />
+                                                    <span className="hidden sm:inline">Cuota</span>
                                                 </Button>
                                                 <Button
                                                     type="button"
                                                     size="sm"
+                                                    className="h-7 px-2 text-xs"
+                                                    title="Registrar abono"
                                                     onClick={() => {
                                                         setSelectedLot(lot);
                                                         setPaymentOpen(true);
                                                     }}
                                                 >
-                                                    <HandCoins className="h-4 w-4" />
-                                                    Abono
+                                                    <HandCoins className="h-3.5 w-3.5" />
+                                                    <span className="hidden sm:inline">Abono</span>
                                                 </Button>
                                             </div>
                                         </td>
@@ -263,7 +266,7 @@ export default function AccountsReceivable({
                         </table>
                     </div>
 
-                    <div className="border-t border-slate-100 px-4 py-3">
+                    <div className="border-t border-slate-100 px-3 py-2">
                         <Pagination links={lots.links} />
                     </div>
                 </div>

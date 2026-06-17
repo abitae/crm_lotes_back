@@ -20,7 +20,7 @@ class ReportsCatalog
             [
                 'slug' => 'top-advisors',
                 'title' => 'Top cazadores (vendedores)',
-                'description' => 'Ranking por monto vendido y cantidad de transferencias aprobadas en el periodo.',
+                'description' => 'Ranking por monto de cada lote y transferencias aprobadas en el periodo.',
                 'route' => 'inmopro.reports.top-advisors.index',
                 'filters' => ['Equipo', 'Proyecto', 'Rango de fechas'],
             ],
