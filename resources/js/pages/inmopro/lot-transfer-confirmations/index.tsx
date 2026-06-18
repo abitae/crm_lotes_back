@@ -554,49 +554,44 @@ export default function LotTransferConfirmationsIndex({
                     setRegisterPreview(null);
                 }
             }}>
-                <DialogContent className="sm:max-w-3xl">
-                    <DialogHeader>
-                        <DialogTitle>Registrar transferencia</DialogTitle>
-                        <DialogDescription>
-                            Suba la evidencia desde este modal para marcar el lote como transferido y dejarlo pendiente de revisión.
+                <DialogContent className="flex max-h-[min(90vh,34rem)] w-[calc(100vw-1.5rem)] flex-col gap-2 overflow-hidden p-3 sm:max-w-lg">
+                    <DialogHeader className="shrink-0 gap-1">
+                        <DialogTitle className="text-base">Registrar transferencia</DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Adjunte el voucher para marcar el lote como transferido.
                         </DialogDescription>
                     </DialogHeader>
                     {selectedLot ? (
-                        <form onSubmit={submitRegister} className="space-y-5">
-                            <div className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2">
-                                <div>
-                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Lote</p>
-                                    <p className="mt-1 text-base font-semibold text-slate-800">
+                        <form onSubmit={submitRegister} className="flex min-h-0 flex-1 flex-col gap-2">
+                            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                                    <p className="font-semibold text-slate-800">
                                         {selectedLot.block}-{selectedLot.number}
+                                        <span className="font-normal text-slate-500">
+                                            {' · '}{selectedLot.project?.name ?? 'Sin proyecto'}
+                                        </span>
                                     </p>
-                                    <p className="text-sm text-slate-500">{selectedLot.project?.name ?? 'Sin proyecto'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Cliente y asesor</p>
-                                    <p className="mt-1 text-base font-semibold text-slate-800">
+                                    <p className="mt-0.5 truncate text-slate-500">
                                         {selectedLot.client?.name ?? 'Sin cliente'}
-                                    </p>
-                                    <p className="text-sm text-slate-500">{selectedLot.advisor?.name ?? 'Sin asesor'}</p>
-                                    <p className="mt-2 text-xs text-slate-500">
-                                        Separacion: {formatLotMoney(selectedLot.advance)} · Restante: {formatLotMoney(selectedLot.remaining_balance)}
+                                        {' · '}{selectedLot.advisor?.name ?? 'Sin asesor'}
+                                        {' · Sep. '}{formatLotMoney(selectedLot.advance)}
+                                        {' · Rest. '}{formatLotMoney(selectedLot.remaining_balance)}
                                     </p>
                                 </div>
-                            </div>
 
-                            <div className="space-y-3">
                                 <label
                                     htmlFor="register_transfer_image"
-                                    className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center transition hover:border-emerald-400 hover:bg-emerald-50"
+                                    className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2.5 transition hover:border-emerald-400 hover:bg-emerald-50"
                                 >
-                                    <div className="rounded-full bg-white p-3 shadow-sm">
-                                        <ImagePlus className="h-6 w-6 text-emerald-600" />
+                                    <div className="rounded-full bg-white p-1.5 shadow-sm">
+                                        <ImagePlus className="h-4 w-4 text-emerald-600" />
                                     </div>
-                                    <p className="mt-4 font-semibold text-slate-800">
-                                        {registerForm.data.evidence_image ? 'Cambiar evidencia' : 'Seleccionar evidencia de transferencia'}
-                                    </p>
-                                    <p className="mt-1 text-sm text-slate-500">
-                                        Formatos permitidos: JPG, PNG, WEBP. Máximo 5 MB.
-                                    </p>
+                                    <div className="min-w-0 flex-1 text-left">
+                                        <p className="text-xs font-semibold text-slate-800">
+                                            {registerForm.data.evidence_image ? 'Cambiar evidencia' : 'Seleccionar evidencia'}
+                                        </p>
+                                        <p className="text-[11px] text-slate-500">JPG, PNG, WEBP · máx. 5 MB</p>
+                                    </div>
                                 </label>
                                 <input
                                     id="register_transfer_image"
@@ -606,32 +601,24 @@ export default function LotTransferConfirmationsIndex({
                                     className="hidden"
                                 />
                                 <InputError message={registerForm.errors.evidence_image} />
-                            </div>
 
-                            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                                 {registerPreview ? (
-                                    <img
-                                        src={registerPreview}
-                                        alt="Vista previa de la evidencia"
-                                        className="max-h-[420px] w-full object-contain"
-                                    />
-                                ) : (
-                                    <div className="flex min-h-[260px] flex-col items-center justify-center px-6 py-10 text-center">
-                                        <ImagePlus className="h-10 w-10 text-slate-300" />
-                                        <p className="mt-3 font-medium text-slate-600">Vista previa de la imagen</p>
-                                        <p className="mt-1 text-sm text-slate-400">
-                                            La imagen seleccionada aparecerá aquí antes de registrar la transferencia.
-                                        </p>
+                                    <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                                        <img
+                                            src={registerPreview}
+                                            alt="Vista previa de la evidencia"
+                                            className="max-h-36 w-full object-contain sm:max-h-44"
+                                        />
                                     </div>
-                                )}
+                                ) : null}
                             </div>
 
-                            <DialogFooter>
-                                <Button type="button" variant="outline" onClick={() => setRegisterOpen(false)}>
+                            <DialogFooter className="shrink-0 gap-2 border-t border-slate-100 pt-2">
+                                <Button type="button" variant="outline" size="sm" onClick={() => setRegisterOpen(false)}>
                                     Cancelar
                                 </Button>
-                                <Button type="submit" disabled={registerForm.processing}>
-                                    Registrar transferencia
+                                <Button type="submit" size="sm" disabled={registerForm.processing}>
+                                    Registrar
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -647,48 +634,44 @@ export default function LotTransferConfirmationsIndex({
                     approveForm.reset();
                 }
             }}>
-                <DialogContent className="sm:max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>Aprobar transferencia</DialogTitle>
-                        <DialogDescription>
-                            Revise la evidencia cargada, registre una reseña y confirme la aprobación.
+                <DialogContent className="flex max-h-[min(90vh,32rem)] w-[calc(100vw-1.5rem)] flex-col gap-2 overflow-hidden p-3 sm:max-w-lg">
+                    <DialogHeader className="shrink-0 gap-1">
+                        <DialogTitle className="text-base">Aprobar transferencia</DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Revise la evidencia y confirme la aprobación.
                         </DialogDescription>
                     </DialogHeader>
                     {selectedTransfer ? (
-                        <form onSubmit={approve} className="space-y-4">
-                            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                                <img
-                                    src={`/storage/${selectedTransfer.evidence_path}`}
-                                    alt={`Evidencia transferencia ${selectedTransfer.id}`}
-                                    className="max-h-[420px] w-full object-contain"
-                                />
+                        <form onSubmit={approve} className="flex min-h-0 flex-1 flex-col gap-2">
+                            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
+                                <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                                    <img
+                                        src={`/storage/${selectedTransfer.evidence_path}`}
+                                        alt={`Evidencia transferencia ${selectedTransfer.id}`}
+                                        className="max-h-36 w-full object-contain sm:max-h-44"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label htmlFor="transfer_review_notes" className="text-xs font-medium text-slate-700">
+                                        Reseña de aprobación
+                                    </label>
+                                    <textarea
+                                        id="transfer_review_notes"
+                                        value={approveForm.data.review_notes}
+                                        onChange={(event) => approveForm.setData('review_notes', event.target.value)}
+                                        rows={2}
+                                        className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none"
+                                        placeholder="Detalle breve de la validación"
+                                    />
+                                    <InputError message={approveForm.errors.review_notes} />
+                                </div>
                             </div>
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Objetivo de la revisión</p>
-                                <p className="mt-1 text-sm text-slate-600">
-                                    Confirme que la evidencia coincide con la operación antes de aprobar y dejar las comisiones generadas.
-                                </p>
-                            </div>
-                            <div className="space-y-2">
-                                <label htmlFor="transfer_review_notes" className="text-sm font-medium text-slate-700">
-                                    Reseña de aprobación
-                                </label>
-                                <textarea
-                                    id="transfer_review_notes"
-                                    value={approveForm.data.review_notes}
-                                    onChange={(event) => approveForm.setData('review_notes', event.target.value)}
-                                    rows={4}
-                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none"
-                                    placeholder="Detalle breve de la validación realizada"
-                                />
-                                <InputError message={approveForm.errors.review_notes} />
-                            </div>
-                            <DialogFooter>
-                                <Button type="button" variant="outline" onClick={() => setApproveOpen(false)}>
+                            <DialogFooter className="shrink-0 gap-2 border-t border-slate-100 pt-2">
+                                <Button type="button" variant="outline" size="sm" onClick={() => setApproveOpen(false)}>
                                     Cancelar
                                 </Button>
-                                <Button type="submit" disabled={approveForm.processing}>
-                                    Aprobar transferencia
+                                <Button type="submit" size="sm" disabled={approveForm.processing}>
+                                    Aprobar
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -704,37 +687,39 @@ export default function LotTransferConfirmationsIndex({
                     rejectForm.reset();
                 }
             }}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Rechazar transferencia</DialogTitle>
-                        <DialogDescription>
-                            Indique el motivo del rechazo para devolver el lote al estado reservado.
+                <DialogContent className="flex max-h-[min(90vh,28rem)] w-[calc(100vw-1.5rem)] flex-col gap-2 overflow-hidden p-3 sm:max-w-md">
+                    <DialogHeader className="shrink-0 gap-1">
+                        <DialogTitle className="text-base">Rechazar transferencia</DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Indique el motivo para devolver el lote a reservado.
                         </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={submitReject} className="space-y-4">
-                        {selectedTransfer ? (
-                            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                                <img
-                                    src={`/storage/${selectedTransfer.evidence_path}`}
-                                    alt={`Evidencia transferencia ${selectedTransfer.id}`}
-                                    className="max-h-[260px] w-full object-contain"
-                                />
-                            </div>
-                        ) : null}
-                        <textarea
-                            value={rejectForm.data.rejection_reason}
-                            onChange={(event) => rejectForm.setData('rejection_reason', event.target.value)}
-                            rows={4}
-                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none"
-                            placeholder="Motivo del rechazo"
-                        />
-                        <InputError message={rejectForm.errors.rejection_reason} />
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setRejectOpen(false)}>
+                    <form onSubmit={submitReject} className="flex min-h-0 flex-1 flex-col gap-2">
+                        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
+                            {selectedTransfer ? (
+                                <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                                    <img
+                                        src={`/storage/${selectedTransfer.evidence_path}`}
+                                        alt={`Evidencia transferencia ${selectedTransfer.id}`}
+                                        className="max-h-28 w-full object-contain sm:max-h-36"
+                                    />
+                                </div>
+                            ) : null}
+                            <textarea
+                                value={rejectForm.data.rejection_reason}
+                                onChange={(event) => rejectForm.setData('rejection_reason', event.target.value)}
+                                rows={2}
+                                className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none"
+                                placeholder="Motivo del rechazo"
+                            />
+                            <InputError message={rejectForm.errors.rejection_reason} />
+                        </div>
+                        <DialogFooter className="shrink-0 gap-2 border-t border-slate-100 pt-2">
+                            <Button type="button" variant="outline" size="sm" onClick={() => setRejectOpen(false)}>
                                 Cancelar
                             </Button>
-                            <Button type="submit" disabled={rejectForm.processing}>
-                                Confirmar rechazo
+                            <Button type="submit" size="sm" disabled={rejectForm.processing}>
+                                Rechazar
                             </Button>
                         </DialogFooter>
                     </form>
