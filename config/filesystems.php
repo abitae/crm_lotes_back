@@ -1,5 +1,7 @@
 <?php
 
+use League\Flysystem\GoogleCloudStorage\UniformBucketLevelAccessVisibility;
+
 return [
 
     /*
@@ -80,7 +82,8 @@ return [
             'url' => env('GOOGLE_CLOUD_STORAGE_URL'),
             'storage_api_uri' => env('GOOGLE_CLOUD_STORAGE_API_URI'),
             'api_endpoint' => env('GOOGLE_CLOUD_STORAGE_API_ENDPOINT', 'https://storage.googleapis.com'),
-            'visibility' => 'public',
+            'visibility' => 'noPredefinedVisibility',
+            'visibility_handler' => UniformBucketLevelAccessVisibility::class,
             'metadata' => ['cacheControl' => 'public, max-age=86400'],
             'throw' => false,
             'report' => false,
