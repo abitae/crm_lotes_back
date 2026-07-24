@@ -179,6 +179,8 @@ class ClientController extends Controller
     {
         $client->delete();
 
-        return redirect()->route('inmopro.clients.index', InertiaListingRedirect::clientsIndexQuery($request));
+        return redirect()
+            ->route('inmopro.clients.index', InertiaListingRedirect::clientsIndexQuery($request))
+            ->with('success', 'Cliente eliminado.');
     }
 }

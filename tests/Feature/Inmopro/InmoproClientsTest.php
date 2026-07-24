@@ -287,6 +287,37 @@ class InmoproClientsTest extends TestCase
         ]);
     }
 
+    public function test_authenticated_users_can_delete_client(): void
+    {
+        $user = User::factory()->create();
+        $client = Client::query()->firstOrFail();
+        $this->actingAs($user);
+
+        $this->delete(route('inmopro.clients.destroy', $client))
+            ->assertRedirect(route('inmopro.clients.index'));
+
+        $this->assertDatabaseMissing('clients', ['id' => $client->id]);
+    }
+
+    public function test_destroy_client_redirect_preserves_listing_query_string(): void
+    {
+        $user = User::factory()->create();
+        $client = Client::query()->firstOrFail();
+        $this->actingAs($user);
+
+        $this->delete(route('inmopro.clients.destroy', [
+            'client' => $client,
+            'page' => '2',
+            'search' => 'Juan',
+        ]))
+            ->assertRedirect(route('inmopro.clients.index', [
+                'page' => '2',
+                'search' => 'Juan',
+            ]));
+
+        $this->assertDatabaseMissing('clients', ['id' => $client->id]);
+    }
+
     public function test_clients_import_preview_reports_missing_required_fields(): void
     {
         $user = User::factory()->create();

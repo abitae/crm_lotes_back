@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Download, Eye, FileSpreadsheet, Mail, Phone, Search, Upload, UserPlus, Users } from 'lucide-react';
+import { Download, Eye, FileSpreadsheet, Mail, Phone, Search, Trash2, Upload, UserPlus, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { InmoproMetricCard } from '@/components/inmopro/metric-card';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { clientsListingQuerySuffix } from '@/lib/inmopro-listing-query';
+import { confirmDelete } from '@/lib/swal';
 import { cn } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
@@ -108,6 +109,18 @@ export default function ClientsIndex({
     }
 
     const exportHref = `/inmopro/clients/export-excel${exportQuery.toString() ? `?${exportQuery.toString()}` : ''}`;
+
+    const handleDestroy = async (client: Client) => {
+        const lotsCount = client.lots_count ?? 0;
+        const warningText =
+            lotsCount > 0
+                ? `Esta acción no se puede deshacer. Los ${lotsCount} lote(s) asociado(s) quedarán sin cliente vinculado.`
+                : undefined;
+
+        if (await confirmDelete(`¿Eliminar al cliente "${client.name}"?`, warningText)) {
+            router.delete(`/inmopro/clients/${client.id}${listQs}`);
+        }
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -271,11 +284,23 @@ export default function ClientsIndex({
                                                     </td>
                                                     <td className="px-4 py-3 text-right tabular-nums text-slate-600">{client.lots_count ?? 0}</td>
                                                     <td className="px-4 py-3 text-right">
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                                                            <Link href={`/inmopro/clients/${client.id}${listQs}`} title="Ver">
-                                                                <Eye className="h-4 w-4" />
-                                                            </Link>
-                                                        </Button>
+                                                        <div className="flex justify-end gap-1">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                                                                <Link href={`/inmopro/clients/${client.id}${listQs}`} title="Ver">
+                                                                    <Eye className="h-4 w-4" />
+                                                                </Link>
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-slate-500 hover:bg-red-50 hover:text-red-600"
+                                                                title="Eliminar"
+                                                                onClick={() => void handleDestroy(client)}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
