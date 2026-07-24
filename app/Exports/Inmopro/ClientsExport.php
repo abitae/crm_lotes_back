@@ -26,15 +26,19 @@ class ClientsExport implements FromCollection, WithHeadings
             'DNI',
             'Telefono',
             'Email',
-            'Referido por',
             'Tipo cliente',
             'Ciudad',
+            'Departamento',
             'Asesor',
+            'Equipo',
+            'Lotes',
+            'Fecha registro',
+            'Referido por',
         ];
     }
 
     /**
-     * @return Collection<int, array<int, string|null>>
+     * @return Collection<int, array<int, string|null|int>>
      */
     public function collection(): Collection
     {
@@ -44,10 +48,14 @@ class ClientsExport implements FromCollection, WithHeadings
                 $client->dni,
                 $client->phone,
                 $client->email,
-                $client->referred_by,
                 $client->type?->name,
                 $client->city?->name,
+                $client->city?->department,
                 $client->advisor?->name,
+                $client->advisor?->team?->name,
+                $client->lots_count ?? 0,
+                $client->created_at?->format('d/m/Y'),
+                $client->referred_by,
             ];
         });
     }

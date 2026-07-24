@@ -51,7 +51,7 @@ class ClientsIndexQuery
         $today = now();
 
         return [
-            'created_from' => $today->copy()->startOfYear()->toDateString(),
+            'created_from' => $today->copy()->startOfMonth()->toDateString(),
             'created_to' => $today->toDateString(),
             'last_action_from' => $today->copy()->startOfMonth()->toDateString(),
             'last_action_to' => $today->toDateString(),
@@ -66,6 +66,13 @@ class ClientsIndexQuery
             'last_action_from',
             'last_action_to',
         ]);
+    }
+
+    public function mergeDefaultDatesIfMissing(Request $request): void
+    {
+        if ($this->shouldRedirectWithDefaultDates($request)) {
+            $request->merge($this->defaultDateFilters());
+        }
     }
 
     /**

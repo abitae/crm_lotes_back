@@ -79,7 +79,9 @@ class ClientController extends Controller
 
     public function exportExcel(Request $request): BinaryFileResponse
     {
-        $clientsQuery = Client::query()->with(['type', 'city', 'advisor']);
+        $this->clientsIndexQuery->mergeDefaultDatesIfMissing($request);
+
+        $clientsQuery = Client::query()->with(['type', 'city', 'advisor.team'])->withCount('lots');
 
         $this->clientsIndexQuery->apply($clientsQuery, $request);
 
@@ -89,7 +91,7 @@ class ClientController extends Controller
 
         return Excel::download(
             new ClientsExport($clients),
-            'clientes.xlsx'
+            'clientes_vista.xlsx'
         );
     }
 

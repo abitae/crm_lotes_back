@@ -459,7 +459,41 @@ class InmoproClientsTest extends TestCase
         $response = $this->get(route('inmopro.clients.export-excel', $defaults));
 
         $response->assertOk();
-        $response->assertDownload('clientes.xlsx');
+        $response->assertDownload('clientes_vista.xlsx');
+    }
+
+    public function test_clients_export_excel_respects_same_filters_as_index(): void
+    {
+        $user = User::factory()->create();
+        $advisor = Advisor::query()->firstOrFail();
+        $defaults = app(ClientsIndexQuery::class)->defaultDateFilters();
+        $this->actingAs($user);
+
+        $indexResponse = $this->get(route('inmopro.clients.index', array_merge($defaults, [
+            'advisor_id' => $advisor->id,
+        ])));
+
+        $indexResponse->assertOk();
+        $expectedTotal = $indexResponse->viewData('page')['props']['clients']['total'];
+
+        $exportResponse = $this->get(route('inmopro.clients.export-excel', array_merge($defaults, [
+            'advisor_id' => $advisor->id,
+        ])));
+
+        $exportResponse->assertOk();
+        $exportResponse->assertDownload('clientes_vista.xlsx');
+
+        $this->assertNotNull($expectedTotal);
+    }
+
+    public function test_clients_export_excel_applies_default_date_filters_when_missing(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $this->get(route('inmopro.clients.export-excel'))
+            ->assertOk()
+            ->assertDownload('clientes_vista.xlsx');
     }
 
     public function test_authenticated_users_can_preview_and_confirm_clients_import_from_excel(): void

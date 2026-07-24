@@ -90,10 +90,9 @@ function defaultClientDateFilterValues(): {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const yearStart = new Date(today.getFullYear(), 0, 1);
 
     return {
-        createdFrom: isoLocalDate(yearStart),
+        createdFrom: isoLocalDate(monthStart),
         createdTo: isoLocalDate(today),
         lastActionFrom: isoLocalDate(monthStart),
         lastActionTo: isoLocalDate(today),
@@ -156,14 +155,22 @@ function buildClientsListingQuery(
     return query;
 }
 
-function appendClientFiltersToSearchParams(params: URLSearchParams, filters: ClientFilters): void {
-    for (const key of CLIENT_FILTER_KEYS) {
-        const value = filters[key as keyof ClientFilters];
+function buildClientsExportQuery(
+    filters: ClientFilters,
+    dates: {
+        createdFrom: string;
+        createdTo: string;
+        lastActionFrom: string;
+        lastActionTo: string;
+    },
+): string {
+    const query = buildClientsListingQuery(filters, dates);
+    delete query.per_page;
+    delete query.page;
 
-        if (value !== undefined && value !== null && String(value) !== '') {
-            params.set(key, String(value));
-        }
-    }
+    const params = new URLSearchParams(query);
+
+    return params.toString();
 }
 
 type ClientImportPreviewRow = {
@@ -312,16 +319,14 @@ export default function ClientsIndex({
         setAdvisorFilterOpen(false);
     };
 
-    const exportQuery = new URLSearchParams();
-    appendClientFiltersToSearchParams(exportQuery, {
-        ...filters,
-        created_from: createdFromValue,
-        created_to: createdToValue,
-        last_action_from: lastActionFromValue,
-        last_action_to: lastActionToValue,
+    const exportQueryString = buildClientsExportQuery(filters, {
+        createdFrom: createdFromValue,
+        createdTo: createdToValue,
+        lastActionFrom: lastActionFromValue,
+        lastActionTo: lastActionToValue,
     });
 
-    const exportHref = `/inmopro/clients/export-excel${exportQuery.toString() ? `?${exportQuery.toString()}` : ''}`;
+    const exportHref = `/inmopro/clients/export-excel${exportQueryString ? `?${exportQueryString}` : ''}`;
 
     const handleDestroy = async (client: Client) => {
         const lotsCount = client.lots_count ?? 0;
@@ -345,10 +350,10 @@ export default function ClientsIndex({
                         <p className="mt-1 text-sm text-slate-500">Base de datos de compradores e interesados.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <Button variant="outline" size="sm" asChild>
+                        <Button variant="outline" size="sm" asChild title="Exportar la vista filtrada actual a Excel">
                             <a href={exportHref}>
                                 <Download className="h-4 w-4" />
-                                Exportar Excel
+                                Exportar vista Excel
                             </a>
                         </Button>
                         <Button
@@ -566,6 +571,12 @@ export default function ClientsIndex({
                                         : 'Ajuste los criterios y aplique para actualizar el listado'}
                                 </p>
                                 <div className="flex flex-wrap gap-2">
+                                    <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" asChild title="Exportar la vista filtrada actual a Excel">
+                                        <a href={exportHref}>
+                                            <Download className="h-3.5 w-3.5" />
+                                            Exportar vista
+                                        </a>
+                                    </Button>
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -699,6 +710,12 @@ export default function ClientsIndex({
                                                 · {clients.total} total
                                             </span>
                                         ) : null}
+                                        <Button variant="ghost" size="sm" className="ml-1 h-8 gap-1 px-2 text-xs text-slate-600" asChild title="Exportar la vista filtrada actual a Excel">
+                                            <a href={exportHref}>
+                                                <Download className="h-3.5 w-3.5" />
+                                                Excel
+                                            </a>
+                                        </Button>
                                     </div>
                                     <Pagination links={clients.links} />
                                 </div>
