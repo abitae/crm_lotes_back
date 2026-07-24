@@ -13,6 +13,7 @@ final class InertiaListingRedirect
     {
         return self::filteredOnly($request, [
             'page',
+            'per_page',
             'search',
             'client_type_id',
             'city_id',

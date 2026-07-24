@@ -11,10 +11,18 @@ use Illuminate\Support\Facades\DB;
 class ClientsIndexQuery
 {
     /**
+     * @var list<int>
+     */
+    public const PER_PAGE_OPTIONS = [10, 20, 50, 100, 500];
+
+    public const DEFAULT_PER_PAGE = 20;
+
+    /**
      * @var list<string>
      */
     public const FILTER_KEYS = [
         'page',
+        'per_page',
         'search',
         'client_type_id',
         'city_id',
@@ -34,6 +42,31 @@ class ClientsIndexQuery
         'lotes' => 'lots',
         'recordatorios' => 'advisor_reminders',
     ];
+
+    /**
+     * @return array{created_from: string, created_to: string, last_action_from: string, last_action_to: string}
+     */
+    public function defaultDateFilters(): array
+    {
+        $today = now();
+
+        return [
+            'created_from' => $today->copy()->startOfYear()->toDateString(),
+            'created_to' => $today->toDateString(),
+            'last_action_from' => $today->copy()->startOfMonth()->toDateString(),
+            'last_action_to' => $today->toDateString(),
+        ];
+    }
+
+    public function shouldRedirectWithDefaultDates(Request $request): bool
+    {
+        return ! $request->hasAny([
+            'created_from',
+            'created_to',
+            'last_action_from',
+            'last_action_to',
+        ]);
+    }
 
     /**
      * @param  Builder<Client>  $query
@@ -76,12 +109,21 @@ class ClientsIndexQuery
         $query->orderByDesc('created_at')->orderByDesc('id');
     }
 
+    public function perPage(Request $request): int
+    {
+        $perPage = $request->integer('per_page', self::DEFAULT_PER_PAGE);
+
+        return in_array($perPage, self::PER_PAGE_OPTIONS, true)
+            ? $perPage
+            : self::DEFAULT_PER_PAGE;
+    }
+
     /**
      * @return array<string, mixed>
      */
     public function filtersFromRequest(Request $request): array
     {
-        return $request->only([
+        $filters = $request->only([
             'search',
             'client_type_id',
             'city_id',
@@ -92,6 +134,10 @@ class ClientsIndexQuery
             'last_action_from',
             'last_action_to',
         ]);
+
+        $filters['per_page'] = (string) $this->perPage($request);
+
+        return $filters;
     }
 
     /**

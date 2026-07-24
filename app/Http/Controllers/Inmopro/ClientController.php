@@ -50,15 +50,22 @@ class ClientController extends Controller
         return response()->json($clients);
     }
 
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
+        if ($this->clientsIndexQuery->shouldRedirectWithDefaultDates($request)) {
+            return redirect()->route('inmopro.clients.index', array_merge(
+                $request->query(),
+                $this->clientsIndexQuery->defaultDateFilters(),
+            ));
+        }
+
         $query = Client::query()->with(['type', 'city', 'advisor.team'])->withCount('lots');
 
         $this->clientsIndexQuery->apply($query, $request);
 
         $this->clientsIndexQuery->applyDefaultOrdering($query);
 
-        $clients = $query->paginate(15)->withQueryString();
+        $clients = $query->paginate($this->clientsIndexQuery->perPage($request))->withQueryString();
 
         return Inertia::render('inmopro/clients/index', [
             'clients' => $clients,
@@ -66,6 +73,7 @@ class ClientController extends Controller
             'clientTypes' => ClientType::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'advisors' => Advisor::query()->orderBy('name')->get(['id', 'name']),
+            'perPageOptions' => ClientsIndexQuery::PER_PAGE_OPTIONS,
         ]);
     }
 

@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Download, Eye, FileSpreadsheet, Search, Trash2, Upload, UserPlus, Users, Check, X } from 'lucide-react';
+import { Check, Download, Eye, FileSpreadsheet, RotateCcw, Search, Trash2, Upload, UserPlus, Users, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +42,7 @@ type ClientFilters = {
     last_action_kind?: string;
     last_action_from?: string;
     last_action_to?: string;
+    per_page?: string | number;
 };
 
 const CLIENT_FILTER_KEYS = [
@@ -54,6 +55,7 @@ const CLIENT_FILTER_KEYS = [
     'last_action_kind',
     'last_action_from',
     'last_action_to',
+    'per_page',
 ] as const;
 
 const LAST_ACTION_KIND_LABELS: Record<string, string> = {
@@ -62,8 +64,40 @@ const LAST_ACTION_KIND_LABELS: Record<string, string> = {
     recordatorios: 'Recordatorios',
 };
 
+const FILTER_LABEL_CLASS = 'mb-0.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400';
+const FILTER_FIELD_CLASS =
+    'h-8 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs font-medium text-slate-700 outline-none ring-emerald-500/30 focus:ring-2';
+const FILTER_SEARCH_CLASS = 'h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 text-sm outline-none ring-emerald-500/30 focus:ring-2';
+
 function normalizeSearch(value: string): string {
     return value.trim().toLowerCase();
+}
+
+function isoLocalDate(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${y}-${m}-${day}`;
+}
+
+function defaultClientDateFilterValues(): {
+    createdFrom: string;
+    createdTo: string;
+    lastActionFrom: string;
+    lastActionTo: string;
+} {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const yearStart = new Date(today.getFullYear(), 0, 1);
+
+    return {
+        createdFrom: isoLocalDate(yearStart),
+        createdTo: isoLocalDate(today),
+        lastActionFrom: isoLocalDate(monthStart),
+        lastActionTo: isoLocalDate(today),
+    };
 }
 
 function buildClientsFilterQuery(formData: FormData): Record<string, string> {
@@ -74,6 +108,48 @@ function buildClientsFilterQuery(formData: FormData): Record<string, string> {
 
         if (value) {
             query[key] = value;
+        }
+    }
+
+    return query;
+}
+
+function buildClientsListingQuery(
+    filters: ClientFilters,
+    dates: {
+        createdFrom: string;
+        createdTo: string;
+        lastActionFrom: string;
+        lastActionTo: string;
+    },
+    overrides?: Partial<Record<string, string>>,
+): Record<string, string> {
+    const query: Record<string, string> = {
+        created_from: dates.createdFrom,
+        created_to: dates.createdTo,
+        last_action_from: dates.lastActionFrom,
+        last_action_to: dates.lastActionTo,
+    };
+
+    for (const key of CLIENT_FILTER_KEYS) {
+        if (key === 'created_from' || key === 'created_to' || key === 'last_action_from' || key === 'last_action_to') {
+            continue;
+        }
+
+        const value = overrides?.[key] ?? filters[key as keyof ClientFilters];
+
+        if (value !== undefined && value !== null && String(value) !== '') {
+            query[key] = String(value);
+        }
+    }
+
+    if (overrides) {
+        for (const [key, value] of Object.entries(overrides)) {
+            if (value === '') {
+                delete query[key];
+            } else if (value !== undefined) {
+                query[key] = value;
+            }
         }
     }
 
@@ -121,12 +197,14 @@ export default function ClientsIndex({
     clientTypes,
     cities,
     advisors,
+    perPageOptions,
 }: {
-    clients: { data: Client[]; links: PaginationLink[]; total?: number };
+    clients: { data: Client[]; links: PaginationLink[]; total?: number; per_page?: number };
     filters: ClientFilters;
     clientTypes: Option[];
     cities: Option[];
     advisors: Option[];
+    perPageOptions: number[];
 }) {
     const totalClients = clients.total ?? clients.data.length;
     const clientsWithLots = clients.data.filter((client) => (client.lots_count ?? 0) > 0).length;
@@ -137,6 +215,13 @@ export default function ClientsIndex({
     const [advisorFilterOpen, setAdvisorFilterOpen] = useState(false);
     const advisorFilterRef = useRef<HTMLDivElement>(null);
     const listQs = clientsListingQuerySuffix(usePage().url);
+    const defaultDateFilters = useMemo(() => defaultClientDateFilterValues(), []);
+
+    const createdFromValue = filters.created_from ?? defaultDateFilters.createdFrom;
+    const createdToValue = filters.created_to ?? defaultDateFilters.createdTo;
+    const lastActionFromValue = filters.last_action_from ?? defaultDateFilters.lastActionFrom;
+    const lastActionToValue = filters.last_action_to ?? defaultDateFilters.lastActionTo;
+    const currentPerPage = String(filters.per_page ?? clients.per_page ?? perPageOptions[1] ?? 20);
 
     const selectedFilterAdvisor = advisors.find((advisor) => String(advisor.id) === advisorFilterId);
 
@@ -174,9 +259,47 @@ export default function ClientsIndex({
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget as HTMLFormElement);
+        const query = buildClientsFilterQuery(formData);
 
-        router.get('/inmopro/clients', buildClientsFilterQuery(formData), { preserveState: true });
+        if (currentPerPage) {
+            query.per_page = currentPerPage;
+        }
+
+        router.get('/inmopro/clients', query, { preserveState: true });
     };
+
+    const handlePerPageChange = (perPage: string) => {
+        router.get(
+            '/inmopro/clients',
+            buildClientsListingQuery(filters, {
+                createdFrom: createdFromValue,
+                createdTo: createdToValue,
+                lastActionFrom: lastActionFromValue,
+                lastActionTo: lastActionToValue,
+            }, { per_page: perPage }),
+            { preserveState: true, preserveScroll: true },
+        );
+    };
+
+    const clearFilters = () => {
+        clearAdvisorFilter();
+
+        router.get('/inmopro/clients', {
+            created_from: '',
+            created_to: '',
+            last_action_from: '',
+            last_action_to: '',
+            per_page: currentPerPage,
+        }, { preserveState: true });
+    };
+
+    const hasActiveFilters = Boolean(
+        filters.search
+        || filters.client_type_id
+        || filters.city_id
+        || filters.advisor_id
+        || filters.last_action_kind,
+    );
 
     const clearAdvisorFilter = () => {
         setAdvisorFilterId('');
@@ -190,7 +313,13 @@ export default function ClientsIndex({
     };
 
     const exportQuery = new URLSearchParams();
-    appendClientFiltersToSearchParams(exportQuery, filters);
+    appendClientFiltersToSearchParams(exportQuery, {
+        ...filters,
+        created_from: createdFromValue,
+        created_to: createdToValue,
+        last_action_from: lastActionFromValue,
+        last_action_to: lastActionToValue,
+    });
 
     const exportHref = `/inmopro/clients/export-excel${exportQuery.toString() ? `?${exportQuery.toString()}` : ''}`;
 
@@ -247,137 +376,209 @@ export default function ClientsIndex({
                     <SummaryCard label="Con email registrado" value={String(clientsWithEmail)} tone="blue" />
                 </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Filtros</CardTitle>
-                        <CardDescription>
-                            Busque por nombre, DNI o teléfono; filtre por tipo, ciudad, asesor, fechas de registro y última actividad.
+                <Card className="overflow-hidden">
+                    <CardHeader className="border-b border-slate-100 px-4 py-3">
+                        <CardTitle className="text-base">Filtros</CardTitle>
+                        <CardDescription className="text-xs">
+                            Refine el listado por datos del cliente, fechas de registro o última actividad.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-4">
                         <form onSubmit={handleSearch} className="space-y-4">
-                            <div className="grid gap-3 lg:grid-cols-4">
-                                <div className="relative lg:col-span-2">
-                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                                    <Input name="search" type="text" placeholder="Nombre, DNI o celular..." className="pl-9" defaultValue={filters.search} />
-                                </div>
-                                <select
-                                    name="client_type_id"
-                                    defaultValue={filters.client_type_id ? String(filters.client_type_id) : ''}
-                                    className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
-                                >
-                                    <option value="">Todos los tipos</option>
-                                    {clientTypes.map((clientType) => (
-                                        <option key={clientType.id} value={clientType.id}>{clientType.name}</option>
-                                    ))}
-                                </select>
-                                <select
-                                    name="city_id"
-                                    defaultValue={filters.city_id ? String(filters.city_id) : ''}
-                                    className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
-                                >
-                                    <option value="">Todas las ciudades</option>
-                                    {cities.map((city) => (
-                                        <option key={city.id} value={city.id}>{city.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="grid gap-3 lg:grid-cols-4">
-                                <div ref={advisorFilterRef} className="relative lg:col-span-2">
-                                    <input type="hidden" name="advisor_id" value={advisorFilterId} />
-                                    <Label htmlFor="clients-advisor-filter" className="sr-only">Asesor</Label>
-                                    <div className="flex gap-1">
-                                        <div className="relative min-w-0 flex-1">
-                                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                                            <Input
-                                                id="clients-advisor-filter"
-                                                value={advisorFilterOpen ? advisorFilterSearch : (selectedFilterAdvisor?.name ?? advisorFilterSearch)}
-                                                onChange={(event) => {
-                                                    setAdvisorFilterSearch(event.target.value);
-                                                    setAdvisorFilterOpen(true);
-                                                }}
-                                                onFocus={() => setAdvisorFilterOpen(true)}
-                                                placeholder="Buscar asesor"
-                                                className="pl-9"
-                                            />
+                            <div className="space-y-2">
+                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Búsqueda y criterios</p>
+                                <div className="grid gap-2 lg:grid-cols-12">
+                                    <div className="relative lg:col-span-4">
+                                        <Label htmlFor="clients-search" className={FILTER_LABEL_CLASS}>Cliente</Label>
+                                        <Search className="pointer-events-none absolute left-3 top-[1.65rem] h-3.5 w-3.5 text-slate-400" />
+                                        <input
+                                            id="clients-search"
+                                            name="search"
+                                            type="text"
+                                            placeholder="Nombre, DNI o celular..."
+                                            defaultValue={filters.search}
+                                            className={FILTER_SEARCH_CLASS}
+                                        />
+                                    </div>
+                                    <div className="lg:col-span-2">
+                                        <Label htmlFor="client_type_id" className={FILTER_LABEL_CLASS}>Tipo</Label>
+                                        <select
+                                            id="client_type_id"
+                                            name="client_type_id"
+                                            defaultValue={filters.client_type_id ? String(filters.client_type_id) : ''}
+                                            className={FILTER_FIELD_CLASS}
+                                        >
+                                            <option value="">Todos</option>
+                                            {clientTypes.map((clientType) => (
+                                                <option key={clientType.id} value={clientType.id}>{clientType.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="lg:col-span-2">
+                                        <Label htmlFor="city_id" className={FILTER_LABEL_CLASS}>Ciudad</Label>
+                                        <select
+                                            id="city_id"
+                                            name="city_id"
+                                            defaultValue={filters.city_id ? String(filters.city_id) : ''}
+                                            className={FILTER_FIELD_CLASS}
+                                        >
+                                            <option value="">Todas</option>
+                                            {cities.map((city) => (
+                                                <option key={city.id} value={city.id}>{city.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div ref={advisorFilterRef} className="relative lg:col-span-4">
+                                        <input type="hidden" name="advisor_id" value={advisorFilterId} />
+                                        <Label htmlFor="clients-advisor-filter" className={FILTER_LABEL_CLASS}>Asesor</Label>
+                                        <div className="flex gap-1">
+                                            <div className="relative min-w-0 flex-1">
+                                                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                                                <input
+                                                    id="clients-advisor-filter"
+                                                    value={advisorFilterOpen ? advisorFilterSearch : (selectedFilterAdvisor?.name ?? advisorFilterSearch)}
+                                                    onChange={(event) => {
+                                                        setAdvisorFilterSearch(event.target.value);
+                                                        setAdvisorFilterOpen(true);
+                                                    }}
+                                                    onFocus={() => setAdvisorFilterOpen(true)}
+                                                    placeholder="Buscar asesor..."
+                                                    className={`${FILTER_FIELD_CLASS} pl-8`}
+                                                />
+                                            </div>
+                                            {advisorFilterId ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="h-8 w-8 shrink-0"
+                                                    onClick={clearAdvisorFilter}
+                                                    title="Quitar asesor"
+                                                >
+                                                    <X className="h-3.5 w-3.5" />
+                                                </Button>
+                                            ) : null}
                                         </div>
-                                        {advisorFilterId ? (
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="icon"
-                                                className="shrink-0"
-                                                onClick={clearAdvisorFilter}
-                                                title="Quitar asesor"
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </Button>
+                                        {advisorFilterOpen ? (
+                                            <div className="absolute z-20 mt-1 max-h-44 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                                                {filteredFilterAdvisors.length === 0 ? (
+                                                    <p className="px-3 py-2 text-xs text-slate-500">Sin resultados</p>
+                                                ) : (
+                                                    filteredFilterAdvisors.map((advisor) => {
+                                                        const selected = advisorFilterId === String(advisor.id);
+
+                                                        return (
+                                                            <button
+                                                                key={advisor.id}
+                                                                type="button"
+                                                                onClick={() => selectAdvisorFilter(advisor.id)}
+                                                                className={cn(
+                                                                    'flex w-full items-center justify-between px-3 py-2 text-left text-xs',
+                                                                    selected ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-slate-50',
+                                                                )}
+                                                            >
+                                                                <span className="truncate font-medium">{advisor.name}</span>
+                                                                {selected ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
+                                                            </button>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
                                         ) : null}
                                     </div>
-                                    {advisorFilterOpen ? (
-                                        <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
-                                            {filteredFilterAdvisors.length === 0 ? (
-                                                <p className="px-3 py-2 text-xs text-slate-500">Sin resultados</p>
-                                            ) : (
-                                                filteredFilterAdvisors.map((advisor) => {
-                                                    const selected = advisorFilterId === String(advisor.id);
-
-                                                    return (
-                                                        <button
-                                                            key={advisor.id}
-                                                            type="button"
-                                                            onClick={() => selectAdvisorFilter(advisor.id)}
-                                                            className={cn(
-                                                                'flex w-full items-center justify-between px-3 py-2 text-left text-sm',
-                                                                selected ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-slate-50',
-                                                            )}
-                                                        >
-                                                            <span className="truncate font-medium">{advisor.name}</span>
-                                                            {selected ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
-                                                        </button>
-                                                    );
-                                                })
-                                            )}
-                                        </div>
-                                    ) : null}
-                                </div>
-                                <div className="space-y-1">
-                                    <Label htmlFor="created_from" className="text-xs text-slate-500">Registro desde</Label>
-                                    <Input id="created_from" name="created_from" type="date" defaultValue={filters.created_from} />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label htmlFor="created_to" className="text-xs text-slate-500">Registro hasta</Label>
-                                    <Input id="created_to" name="created_to" type="date" defaultValue={filters.created_to} />
                                 </div>
                             </div>
 
-                            <div className="grid gap-3 lg:grid-cols-4">
-                                <div className="space-y-1">
-                                    <Label htmlFor="last_action_kind" className="text-xs text-slate-500">Última acción</Label>
-                                    <select
-                                        id="last_action_kind"
-                                        name="last_action_kind"
-                                        defaultValue={filters.last_action_kind ?? ''}
-                                        className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+                            <div className="grid gap-3 lg:grid-cols-2">
+                                <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+                                    <p className="mb-2 text-[9px] font-black uppercase tracking-widest text-slate-400">Fecha de registro</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <Label htmlFor="created_from" className={FILTER_LABEL_CLASS}>Desde</Label>
+                                            <input
+                                                id="created_from"
+                                                name="created_from"
+                                                type="date"
+                                                defaultValue={createdFromValue}
+                                                className={FILTER_FIELD_CLASS}
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="created_to" className={FILTER_LABEL_CLASS}>Hasta</Label>
+                                            <input
+                                                id="created_to"
+                                                name="created_to"
+                                                type="date"
+                                                defaultValue={createdToValue}
+                                                className={FILTER_FIELD_CLASS}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+                                    <p className="mb-2 text-[9px] font-black uppercase tracking-widest text-slate-400">Última actividad</p>
+                                    <div className="space-y-2">
+                                        <div>
+                                            <Label htmlFor="last_action_kind" className={FILTER_LABEL_CLASS}>Tipo de acción</Label>
+                                            <select
+                                                id="last_action_kind"
+                                                name="last_action_kind"
+                                                defaultValue={filters.last_action_kind ?? ''}
+                                                className={FILTER_FIELD_CLASS}
+                                            >
+                                                <option value="">Sin filtrar por actividad</option>
+                                                {Object.entries(LAST_ACTION_KIND_LABELS).map(([value, label]) => (
+                                                    <option key={value} value={value}>{label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <Label htmlFor="last_action_from" className={FILTER_LABEL_CLASS}>Desde</Label>
+                                                <input
+                                                    id="last_action_from"
+                                                    name="last_action_from"
+                                                    type="date"
+                                                    defaultValue={lastActionFromValue}
+                                                    className={FILTER_FIELD_CLASS}
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="last_action_to" className={FILTER_LABEL_CLASS}>Hasta</Label>
+                                                <input
+                                                    id="last_action_to"
+                                                    name="last_action_to"
+                                                    type="date"
+                                                    defaultValue={lastActionToValue}
+                                                    className={FILTER_FIELD_CLASS}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                                <p className="text-xs text-slate-500">
+                                    {clients.total != null
+                                        ? `${clients.total} cliente(s) con los criterios actuales`
+                                        : 'Ajuste los criterios y aplique para actualizar el listado'}
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 gap-1.5 text-xs"
+                                        onClick={clearFilters}
+                                        disabled={!hasActiveFilters}
                                     >
-                                        <option value="">Cualquier tipo</option>
-                                        {Object.entries(LAST_ACTION_KIND_LABELS).map(([value, label]) => (
-                                            <option key={value} value={value}>{label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-1">
-                                    <Label htmlFor="last_action_from" className="text-xs text-slate-500">Última acción desde</Label>
-                                    <Input id="last_action_from" name="last_action_from" type="date" defaultValue={filters.last_action_from} />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label htmlFor="last_action_to" className="text-xs text-slate-500">Última acción hasta</Label>
-                                    <Input id="last_action_to" name="last_action_to" type="date" defaultValue={filters.last_action_to} />
-                                </div>
-                                <div className="flex items-end">
-                                    <Button type="submit" variant="secondary" className="w-full">
-                                        Buscar
+                                        <RotateCcw className="h-3.5 w-3.5" />
+                                        Limpiar criterios
+                                    </Button>
+                                    <Button type="submit" size="sm" className="h-8 px-4 text-xs">
+                                        Aplicar filtros
                                     </Button>
                                 </div>
                             </div>
@@ -477,7 +678,28 @@ export default function ClientsIndex({
                                         </tbody>
                                     </table>
                                 </div>
-                                <div className="border-t border-slate-100 px-3 py-2">
+                                <div className="flex flex-col gap-2 border-t border-slate-100 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                                        <span>Ver</span>
+                                        <select
+                                            value={currentPerPage}
+                                            onChange={(event) => handlePerPageChange(event.target.value)}
+                                            className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700 outline-none ring-emerald-500/30 focus:ring-2"
+                                            aria-label="Registros por página"
+                                        >
+                                            {perPageOptions.map((option) => (
+                                                <option key={option} value={option}>
+                                                    {option}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <span>por página</span>
+                                        {clients.total != null ? (
+                                            <span className="hidden text-slate-400 sm:inline">
+                                                · {clients.total} total
+                                            </span>
+                                        ) : null}
+                                    </div>
                                     <Pagination links={clients.links} />
                                 </div>
                             </>

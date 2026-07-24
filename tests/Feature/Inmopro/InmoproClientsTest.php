@@ -11,6 +11,7 @@ use App\Models\Inmopro\Client;
 use App\Models\Inmopro\ClientType;
 use App\Models\Inmopro\Lot;
 use App\Models\User;
+use App\Services\Inmopro\ClientsIndexQuery;
 use Database\Seeders\Inmopro\AdvisorLevelSeeder;
 use Database\Seeders\Inmopro\AdvisorSeeder;
 use Database\Seeders\Inmopro\AttentionTicketTypeSeeder;
@@ -57,9 +58,58 @@ class InmoproClientsTest extends TestCase
         $user = User::factory()->create();
         $this->actingAs($user);
 
-        $response = $this->get(route('inmopro.clients.index'));
+        $defaults = app(ClientsIndexQuery::class)->defaultDateFilters();
+
+        $this->get(route('inmopro.clients.index'))
+            ->assertRedirect(route('inmopro.clients.index', $defaults));
+
+        $response = $this->get(route('inmopro.clients.index', $defaults));
         $response->assertOk();
-        $response->assertInertia(fn ($page) => $page->component('inmopro/clients/index')->has('clients'));
+        $response->assertInertia(fn ($page) => $page
+            ->component('inmopro/clients/index')
+            ->where('filters.created_from', $defaults['created_from'])
+            ->where('filters.created_to', $defaults['created_to'])
+            ->where('filters.last_action_from', $defaults['last_action_from'])
+            ->where('filters.last_action_to', $defaults['last_action_to'])
+            ->where('filters.per_page', (string) ClientsIndexQuery::DEFAULT_PER_PAGE)
+            ->has('clients')
+            ->has('perPageOptions'));
+    }
+
+    public function test_clients_index_respects_per_page_parameter(): void
+    {
+        $user = User::factory()->create();
+        $defaults = app(ClientsIndexQuery::class)->defaultDateFilters();
+        $this->actingAs($user);
+
+        $this->get(route('inmopro.clients.index', array_merge($defaults, ['per_page' => 10])))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('inmopro/clients/index')
+                ->where('filters.per_page', '10')
+                ->where('clients.per_page', 10)
+                ->count('clients.data', 10));
+
+        $this->get(route('inmopro.clients.index', array_merge($defaults, ['per_page' => 999])))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('filters.per_page', (string) ClientsIndexQuery::DEFAULT_PER_PAGE)
+                ->where('clients.per_page', ClientsIndexQuery::DEFAULT_PER_PAGE));
+    }
+
+    public function test_clients_index_does_not_redirect_when_date_filters_are_explicitly_cleared(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $this->get(route('inmopro.clients.index', [
+            'created_from' => '',
+            'created_to' => '',
+            'last_action_from' => '',
+            'last_action_to' => '',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('inmopro/clients/index'));
     }
 
     public function test_authenticated_users_can_create_client(): void
@@ -404,7 +454,9 @@ class InmoproClientsTest extends TestCase
         $user = User::factory()->create();
         $this->actingAs($user);
 
-        $response = $this->get(route('inmopro.clients.export-excel'));
+        $defaults = app(ClientsIndexQuery::class)->defaultDateFilters();
+
+        $response = $this->get(route('inmopro.clients.export-excel', $defaults));
 
         $response->assertOk();
         $response->assertDownload('clientes.xlsx');
