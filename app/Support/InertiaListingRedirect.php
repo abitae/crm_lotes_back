@@ -11,7 +11,18 @@ final class InertiaListingRedirect
      */
     public static function clientsIndexQuery(Request $request): array
     {
-        return self::filteredOnly($request, ['page', 'search', 'client_type_id', 'city_id', 'advisor_id']);
+        return self::filteredOnly($request, [
+            'page',
+            'search',
+            'client_type_id',
+            'city_id',
+            'advisor_id',
+            'created_from',
+            'created_to',
+            'last_action_kind',
+            'last_action_from',
+            'last_action_to',
+        ]);
     }
 
     /**

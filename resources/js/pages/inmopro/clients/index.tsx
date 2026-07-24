@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Download, Eye, FileSpreadsheet, Mail, Phone, Search, Trash2, Upload, UserPlus, Users } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Download, Eye, FileSpreadsheet, Search, Trash2, Upload, UserPlus, Users, Check, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { InmoproMetricCard } from '@/components/inmopro/metric-card';
 import Pagination, { type PaginationLink } from '@/components/pagination';
+import { formatDate } from '@/lib/date';
 import { clientsListingQuerySuffix } from '@/lib/inmopro-listing-query';
 import { confirmDelete } from '@/lib/swal';
 import { cn } from '@/lib/utils';
@@ -20,6 +21,7 @@ type Client = {
     dni: string;
     phone: string;
     email?: string;
+    created_at?: string;
     lots_count?: number;
     type?: { name: string; color?: string };
     city?: { name: string; department?: string | null };
@@ -29,6 +31,64 @@ type Option = {
     id: number;
     name: string;
 };
+
+type ClientFilters = {
+    search?: string;
+    client_type_id?: string | number;
+    city_id?: string | number;
+    advisor_id?: string | number;
+    created_from?: string;
+    created_to?: string;
+    last_action_kind?: string;
+    last_action_from?: string;
+    last_action_to?: string;
+};
+
+const CLIENT_FILTER_KEYS = [
+    'search',
+    'client_type_id',
+    'city_id',
+    'advisor_id',
+    'created_from',
+    'created_to',
+    'last_action_kind',
+    'last_action_from',
+    'last_action_to',
+] as const;
+
+const LAST_ACTION_KIND_LABELS: Record<string, string> = {
+    avisos: 'Avisos (tickets)',
+    lotes: 'Lotes',
+    recordatorios: 'Recordatorios',
+};
+
+function normalizeSearch(value: string): string {
+    return value.trim().toLowerCase();
+}
+
+function buildClientsFilterQuery(formData: FormData): Record<string, string> {
+    const query: Record<string, string> = {};
+
+    for (const key of CLIENT_FILTER_KEYS) {
+        const value = (formData.get(key) as string | null)?.trim();
+
+        if (value) {
+            query[key] = value;
+        }
+    }
+
+    return query;
+}
+
+function appendClientFiltersToSearchParams(params: URLSearchParams, filters: ClientFilters): void {
+    for (const key of CLIENT_FILTER_KEYS) {
+        const value = filters[key as keyof ClientFilters];
+
+        if (value !== undefined && value !== null && String(value) !== '') {
+            params.set(key, String(value));
+        }
+    }
+}
 
 type ClientImportPreviewRow = {
     excel_row: number;
@@ -63,7 +123,7 @@ export default function ClientsIndex({
     advisors,
 }: {
     clients: { data: Client[]; links: PaginationLink[]; total?: number };
-    filters: { search?: string; client_type_id?: string | number; city_id?: string | number; advisor_id?: string | number };
+    filters: ClientFilters;
     clientTypes: Option[];
     cities: Option[];
     advisors: Option[];
@@ -72,7 +132,39 @@ export default function ClientsIndex({
     const clientsWithLots = clients.data.filter((client) => (client.lots_count ?? 0) > 0).length;
     const clientsWithEmail = clients.data.filter((client) => Boolean(client.email)).length;
     const [importModalOpen, setImportModalOpen] = useState(false);
+    const [advisorFilterId, setAdvisorFilterId] = useState(filters.advisor_id ? String(filters.advisor_id) : '');
+    const [advisorFilterSearch, setAdvisorFilterSearch] = useState('');
+    const [advisorFilterOpen, setAdvisorFilterOpen] = useState(false);
+    const advisorFilterRef = useRef<HTMLDivElement>(null);
     const listQs = clientsListingQuerySuffix(usePage().url);
+
+    const selectedFilterAdvisor = advisors.find((advisor) => String(advisor.id) === advisorFilterId);
+
+    const filteredFilterAdvisors = useMemo(() => {
+        const search = normalizeSearch(advisorFilterSearch);
+
+        if (!search) {
+            return advisors;
+        }
+
+        return advisors.filter((advisor) => advisor.name.toLowerCase().includes(search));
+    }, [advisorFilterSearch, advisors]);
+
+    useEffect(() => {
+        setAdvisorFilterId(filters.advisor_id ? String(filters.advisor_id) : '');
+    }, [filters.advisor_id]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (advisorFilterRef.current && !advisorFilterRef.current.contains(event.target as Node)) {
+                setAdvisorFilterOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
@@ -81,32 +173,24 @@ export default function ClientsIndex({
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        const form = e.currentTarget as HTMLFormElement;
-        const q = new FormData(form).get('search') as string;
-        const formData = new FormData(form);
+        const formData = new FormData(e.currentTarget as HTMLFormElement);
 
-        router.get('/inmopro/clients', {
-            search: q || undefined,
-            client_type_id: (formData.get('client_type_id') as string) || undefined,
-            city_id: (formData.get('city_id') as string) || undefined,
-            advisor_id: (formData.get('advisor_id') as string) || undefined,
-        }, { preserveState: true });
+        router.get('/inmopro/clients', buildClientsFilterQuery(formData), { preserveState: true });
+    };
+
+    const clearAdvisorFilter = () => {
+        setAdvisorFilterId('');
+        setAdvisorFilterSearch('');
+        setAdvisorFilterOpen(false);
+    };
+
+    const selectAdvisorFilter = (advisorId: number) => {
+        setAdvisorFilterId(String(advisorId));
+        setAdvisorFilterOpen(false);
     };
 
     const exportQuery = new URLSearchParams();
-
-    if (filters.search) {
-        exportQuery.set('search', String(filters.search));
-    }
-    if (filters.client_type_id) {
-        exportQuery.set('client_type_id', String(filters.client_type_id));
-    }
-    if (filters.city_id) {
-        exportQuery.set('city_id', String(filters.city_id));
-    }
-    if (filters.advisor_id) {
-        exportQuery.set('advisor_id', String(filters.advisor_id));
-    }
+    appendClientFiltersToSearchParams(exportQuery, filters);
 
     const exportHref = `/inmopro/clients/export-excel${exportQuery.toString() ? `?${exportQuery.toString()}` : ''}`;
 
@@ -166,55 +250,147 @@ export default function ClientsIndex({
                 <Card>
                     <CardHeader>
                         <CardTitle>Filtros</CardTitle>
-                        <CardDescription>Busque por nombre, DNI o telefono y filtre por tipo, ciudad o asesor.</CardDescription>
+                        <CardDescription>
+                            Busque por nombre, DNI o teléfono; filtre por tipo, ciudad, asesor, fechas de registro y última actividad.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form onSubmit={handleSearch} className="grid gap-3 lg:grid-cols-5">
-                            <div className="relative lg:col-span-2">
-                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                                <Input name="search" type="text" placeholder="Nombre, DNI o celular..." className="pl-9" defaultValue={filters.search} />
-                            </div>
-                            <select
-                                name="client_type_id"
-                                defaultValue={filters.client_type_id ? String(filters.client_type_id) : ''}
-                                className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
-                            >
-                                <option value="">Todos los tipos</option>
-                                {clientTypes.map((clientType) => (
-                                    <option key={clientType.id} value={clientType.id}>{clientType.name}</option>
-                                ))}
-                            </select>
-                            <select
-                                name="city_id"
-                                defaultValue={filters.city_id ? String(filters.city_id) : ''}
-                                className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
-                            >
-                                <option value="">Todas las ciudades</option>
-                                {cities.map((city) => (
-                                    <option key={city.id} value={city.id}>{city.name}</option>
-                                ))}
-                            </select>
-                            <div className="flex gap-2">
+                        <form onSubmit={handleSearch} className="space-y-4">
+                            <div className="grid gap-3 lg:grid-cols-4">
+                                <div className="relative lg:col-span-2">
+                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                    <Input name="search" type="text" placeholder="Nombre, DNI o celular..." className="pl-9" defaultValue={filters.search} />
+                                </div>
                                 <select
-                                    name="advisor_id"
-                                    defaultValue={filters.advisor_id ? String(filters.advisor_id) : ''}
-                                    className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+                                    name="client_type_id"
+                                    defaultValue={filters.client_type_id ? String(filters.client_type_id) : ''}
+                                    className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
                                 >
-                                    <option value="">Todos los asesores</option>
-                                    {advisors.map((advisor) => (
-                                        <option key={advisor.id} value={advisor.id}>{advisor.name}</option>
+                                    <option value="">Todos los tipos</option>
+                                    {clientTypes.map((clientType) => (
+                                        <option key={clientType.id} value={clientType.id}>{clientType.name}</option>
                                     ))}
                                 </select>
-                                <Button type="submit" variant="secondary">Buscar</Button>
+                                <select
+                                    name="city_id"
+                                    defaultValue={filters.city_id ? String(filters.city_id) : ''}
+                                    className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
+                                >
+                                    <option value="">Todas las ciudades</option>
+                                    {cities.map((city) => (
+                                        <option key={city.id} value={city.id}>{city.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid gap-3 lg:grid-cols-4">
+                                <div ref={advisorFilterRef} className="relative lg:col-span-2">
+                                    <input type="hidden" name="advisor_id" value={advisorFilterId} />
+                                    <Label htmlFor="clients-advisor-filter" className="sr-only">Asesor</Label>
+                                    <div className="flex gap-1">
+                                        <div className="relative min-w-0 flex-1">
+                                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                            <Input
+                                                id="clients-advisor-filter"
+                                                value={advisorFilterOpen ? advisorFilterSearch : (selectedFilterAdvisor?.name ?? advisorFilterSearch)}
+                                                onChange={(event) => {
+                                                    setAdvisorFilterSearch(event.target.value);
+                                                    setAdvisorFilterOpen(true);
+                                                }}
+                                                onFocus={() => setAdvisorFilterOpen(true)}
+                                                placeholder="Buscar asesor"
+                                                className="pl-9"
+                                            />
+                                        </div>
+                                        {advisorFilterId ? (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="icon"
+                                                className="shrink-0"
+                                                onClick={clearAdvisorFilter}
+                                                title="Quitar asesor"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        ) : null}
+                                    </div>
+                                    {advisorFilterOpen ? (
+                                        <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                                            {filteredFilterAdvisors.length === 0 ? (
+                                                <p className="px-3 py-2 text-xs text-slate-500">Sin resultados</p>
+                                            ) : (
+                                                filteredFilterAdvisors.map((advisor) => {
+                                                    const selected = advisorFilterId === String(advisor.id);
+
+                                                    return (
+                                                        <button
+                                                            key={advisor.id}
+                                                            type="button"
+                                                            onClick={() => selectAdvisorFilter(advisor.id)}
+                                                            className={cn(
+                                                                'flex w-full items-center justify-between px-3 py-2 text-left text-sm',
+                                                                selected ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-slate-50',
+                                                            )}
+                                                        >
+                                                            <span className="truncate font-medium">{advisor.name}</span>
+                                                            {selected ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
+                                                        </button>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                    ) : null}
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="created_from" className="text-xs text-slate-500">Registro desde</Label>
+                                    <Input id="created_from" name="created_from" type="date" defaultValue={filters.created_from} />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="created_to" className="text-xs text-slate-500">Registro hasta</Label>
+                                    <Input id="created_to" name="created_to" type="date" defaultValue={filters.created_to} />
+                                </div>
+                            </div>
+
+                            <div className="grid gap-3 lg:grid-cols-4">
+                                <div className="space-y-1">
+                                    <Label htmlFor="last_action_kind" className="text-xs text-slate-500">Última acción</Label>
+                                    <select
+                                        id="last_action_kind"
+                                        name="last_action_kind"
+                                        defaultValue={filters.last_action_kind ?? ''}
+                                        className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+                                    >
+                                        <option value="">Cualquier tipo</option>
+                                        {Object.entries(LAST_ACTION_KIND_LABELS).map(([value, label]) => (
+                                            <option key={value} value={value}>{label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="last_action_from" className="text-xs text-slate-500">Última acción desde</Label>
+                                    <Input id="last_action_from" name="last_action_from" type="date" defaultValue={filters.last_action_from} />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="last_action_to" className="text-xs text-slate-500">Última acción hasta</Label>
+                                    <Input id="last_action_to" name="last_action_to" type="date" defaultValue={filters.last_action_to} />
+                                </div>
+                                <div className="flex items-end">
+                                    <Button type="submit" variant="secondary" className="w-full">
+                                        Buscar
+                                    </Button>
+                                </div>
                             </div>
                         </form>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Directorio</CardTitle>
-                        <CardDescription>{clients.data.length} cliente(s) encontrado(s).</CardDescription>
+                    <CardHeader className="px-4 py-3">
+                        <CardTitle className="text-base">Directorio</CardTitle>
+                        <CardDescription className="text-xs">
+                            {clients.data.length} cliente(s) · más recientes primero
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="p-0">
                         {clients.data.length === 0 ? (
@@ -231,74 +407,68 @@ export default function ClientsIndex({
                         ) : (
                             <>
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
+                                    <table className="w-full text-xs">
                                         <thead>
-                                            <tr className="border-b border-slate-100 bg-slate-50/80">
-                                                <th className="px-4 py-3 text-left font-medium text-slate-600">Nombre / DNI</th>
-                                                <th className="px-4 py-3 text-left font-medium text-slate-600">Tipo / Contacto</th>
-                                                <th className="px-4 py-3 text-left font-medium text-slate-600">Procedencia / Vendedor</th>
-                                                <th className="px-4 py-3 text-right font-medium text-slate-600">Lotes</th>
-                                                <th className="px-4 py-3 text-right font-medium text-slate-600">Acciones</th>
+                                            <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
+                                                <th className="px-2 py-1.5 text-left font-semibold">Cliente</th>
+                                                <th className="hidden px-2 py-1.5 text-left font-semibold sm:table-cell">Tipo</th>
+                                                <th className="px-2 py-1.5 text-left font-semibold">Contacto</th>
+                                                <th className="hidden px-2 py-1.5 text-left font-semibold lg:table-cell">Ciudad / Asesor</th>
+                                                <th className="px-2 py-1.5 text-center font-semibold">Lotes</th>
+                                                <th className="hidden px-2 py-1.5 text-left font-semibold md:table-cell">Registro</th>
+                                                <th className="px-2 py-1.5 text-right font-semibold"> </th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
                                             {clients.data.map((client) => (
-                                                <tr key={client.id} className="hover:bg-slate-50/50">
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-600">
-                                                                {client.name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
-                                                            </div>
-                                                            <div>
-                                                                <p className="font-medium text-slate-900">{client.name}</p>
-                                                                <p className="text-xs text-slate-500">DNI: {client.dni}</p>
-                                                            </div>
-                                                        </div>
+                                                <tr key={client.id} className="hover:bg-slate-50/60">
+                                                    <td className="max-w-[10rem] px-2 py-1.5 sm:max-w-none">
+                                                        <p className="truncate font-medium leading-tight text-slate-900">{client.name}</p>
+                                                        <p className="truncate text-[11px] text-slate-500">{client.dni}</p>
                                                     </td>
-                                                    <td className="px-4 py-3">
-                                                        <div className="space-y-1 text-slate-600">
-                                                            <div>
-                                                                <span
-                                                                    className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white"
-                                                                    style={{ backgroundColor: client.type?.color ?? '#475569' }}
-                                                                >
-                                                                    {client.type?.name ?? 'Sin tipo'}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5 text-xs">
-                                                                <Phone className="h-3.5 w-3.5 text-slate-400" />
-                                                                {client.phone}
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5 text-xs">
-                                                                <Mail className="h-3.5 w-3.5 text-slate-400" />
-                                                                {client.email ?? '-'}
-                                                            </div>
-                                                        </div>
+                                                    <td className="hidden px-2 py-1.5 sm:table-cell">
+                                                        <span
+                                                            className="inline-flex max-w-[6rem] truncate rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+                                                            style={{ backgroundColor: client.type?.color ?? '#475569' }}
+                                                            title={client.type?.name ?? 'Sin tipo'}
+                                                        >
+                                                            {client.type?.name ?? 'Sin tipo'}
+                                                        </span>
                                                     </td>
-                                                    <td className="px-4 py-3">
-                                                        <div className="space-y-1 text-xs text-slate-600">
-                                                            <p>{client.city?.name ?? 'Sin ciudad'}{client.city?.department ? ` · ${client.city.department}` : ''}</p>
-                                                            <p className="font-medium text-slate-700">{client.advisor?.name ?? 'Sin vendedor asignado'}</p>
-                                                            <p className="text-slate-400">{client.advisor?.team?.name ?? '-'}</p>
-                                                        </div>
+                                                    <td className="max-w-[9rem] px-2 py-1.5 sm:max-w-none">
+                                                        <p className="truncate text-slate-700">{client.phone || '—'}</p>
+                                                        <p className="truncate text-[11px] text-slate-500">{client.email ?? '—'}</p>
                                                     </td>
-                                                    <td className="px-4 py-3 text-right tabular-nums text-slate-600">{client.lots_count ?? 0}</td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        <div className="flex justify-end gap-1">
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                                                    <td className="hidden max-w-[11rem] px-2 py-1.5 lg:table-cell">
+                                                        <p className="truncate text-slate-700">
+                                                            {client.city?.name ?? 'Sin ciudad'}
+                                                            {client.city?.department ? ` · ${client.city.department}` : ''}
+                                                        </p>
+                                                        <p className="truncate text-[11px] text-slate-500">
+                                                            {client.advisor?.name ?? 'Sin asesor'}
+                                                            {client.advisor?.team?.name ? ` · ${client.advisor.team.name}` : ''}
+                                                        </p>
+                                                    </td>
+                                                    <td className="px-2 py-1.5 text-center tabular-nums text-slate-600">{client.lots_count ?? 0}</td>
+                                                    <td className="hidden whitespace-nowrap px-2 py-1.5 text-slate-500 md:table-cell">
+                                                        {formatDate(client.created_at)}
+                                                    </td>
+                                                    <td className="px-1 py-1.5 text-right">
+                                                        <div className="flex justify-end gap-0.5">
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
                                                                 <Link href={`/inmopro/clients/${client.id}${listQs}`} title="Ver">
-                                                                    <Eye className="h-4 w-4" />
+                                                                    <Eye className="h-3.5 w-3.5" />
                                                                 </Link>
                                                             </Button>
                                                             <Button
                                                                 type="button"
                                                                 variant="ghost"
                                                                 size="icon"
-                                                                className="h-8 w-8 text-slate-500 hover:bg-red-50 hover:text-red-600"
+                                                                className="h-7 w-7 text-slate-500 hover:bg-red-50 hover:text-red-600"
                                                                 title="Eliminar"
                                                                 onClick={() => void handleDestroy(client)}
                                                             >
-                                                                <Trash2 className="h-4 w-4" />
+                                                                <Trash2 className="h-3.5 w-3.5" />
                                                             </Button>
                                                         </div>
                                                     </td>
@@ -307,7 +477,7 @@ export default function ClientsIndex({
                                         </tbody>
                                     </table>
                                 </div>
-                                <div className="border-t border-slate-100 px-4 py-3">
+                                <div className="border-t border-slate-100 px-3 py-2">
                                     <Pagination links={clients.links} />
                                 </div>
                             </>

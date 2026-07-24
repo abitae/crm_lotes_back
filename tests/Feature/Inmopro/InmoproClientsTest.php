@@ -3,16 +3,22 @@
 namespace Tests\Feature\Inmopro;
 
 use App\Models\Inmopro\Advisor;
+use App\Models\Inmopro\AdvisorReminder;
+use App\Models\Inmopro\AttentionTicket;
+use App\Models\Inmopro\AttentionTicketType;
 use App\Models\Inmopro\City;
 use App\Models\Inmopro\Client;
 use App\Models\Inmopro\ClientType;
+use App\Models\Inmopro\Lot;
 use App\Models\User;
 use Database\Seeders\Inmopro\AdvisorLevelSeeder;
 use Database\Seeders\Inmopro\AdvisorSeeder;
+use Database\Seeders\Inmopro\AttentionTicketTypeSeeder;
 use Database\Seeders\Inmopro\CitySeeder;
 use Database\Seeders\Inmopro\ClientSeeder;
 use Database\Seeders\Inmopro\ClientTypeSeeder;
 use Database\Seeders\Inmopro\CommissionStatusSeeder;
+use Database\Seeders\Inmopro\LotSeeder;
 use Database\Seeders\Inmopro\LotStatusSeeder;
 use Database\Seeders\Inmopro\ProjectSeeder;
 use Database\Seeders\Inmopro\TeamSeeder;
@@ -234,6 +240,163 @@ class InmoproClientsTest extends TestCase
             ->all();
 
         $this->assertNotContains($otherAdvisor->id, $clientAdvisorIds);
+    }
+
+    public function test_clients_index_orders_by_created_at_descending(): void
+    {
+        $user = User::factory()->create();
+        $older = Client::query()->firstOrFail();
+        $newer = Client::query()->whereKeyNot($older->id)->firstOrFail();
+
+        $older->forceFill(['created_at' => '2024-01-01 10:00:00'])->save();
+        $newer->forceFill(['created_at' => '2025-12-31 10:00:00'])->save();
+
+        $this->actingAs($user);
+
+        $response = $this->get(route('inmopro.clients.index', [
+            'search' => $older->dni,
+        ]));
+
+        $response->assertOk();
+
+        $ids = collect($response->viewData('page')['props']['clients']['data'])->pluck('id')->all();
+        $this->assertSame($older->id, $ids[0]);
+
+        $responseAll = $this->get(route('inmopro.clients.index'));
+        $responseAll->assertOk();
+
+        $allIds = collect($responseAll->viewData('page')['props']['clients']['data'])->pluck('id')->all();
+        $this->assertGreaterThan(
+            array_search($older->id, $allIds, true),
+            array_search($newer->id, $allIds, true),
+        );
+    }
+
+    public function test_clients_index_filters_by_created_date_range(): void
+    {
+        $user = User::factory()->create();
+        $client = Client::query()->firstOrFail();
+        $client->forceFill(['created_at' => '2024-03-10 12:00:00'])->save();
+        $this->actingAs($user);
+
+        $this->get(route('inmopro.clients.index', [
+            'search' => $client->dni,
+            'created_from' => '2024-03-01',
+            'created_to' => '2024-03-31',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('inmopro/clients/index')
+                ->where('filters.created_from', '2024-03-01')
+                ->where('filters.created_to', '2024-03-31')
+                ->has('clients.data', 1)
+                ->where('clients.data.0.id', $client->id));
+
+        $this->get(route('inmopro.clients.index', [
+            'search' => $client->dni,
+            'created_from' => '2024-01-01',
+            'created_to' => '2024-01-31',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('clients.data', 0));
+    }
+
+    public function test_clients_index_filters_by_last_action_on_attention_tickets(): void
+    {
+        $this->seed(AttentionTicketTypeSeeder::class);
+        $this->seed(LotSeeder::class);
+
+        $user = User::factory()->create();
+        $client = Client::query()->firstOrFail();
+        $lot = Lot::query()->firstOrFail();
+        $lot->update(['client_id' => $client->id]);
+
+        $ticket = AttentionTicket::query()->create([
+            'advisor_id' => $client->advisor_id,
+            'client_id' => $client->id,
+            'project_id' => $lot->project_id,
+            'lot_id' => $lot->id,
+            'attention_ticket_type_id' => AttentionTicketType::query()->firstOrFail()->id,
+            'scheduled_at' => now(),
+            'status' => 'pendiente',
+        ]);
+        $ticket->forceFill(['updated_at' => '2025-06-15 10:00:00'])->save();
+
+        $this->actingAs($user);
+
+        $this->get(route('inmopro.clients.index', [
+            'search' => $client->dni,
+            'last_action_kind' => 'avisos',
+            'last_action_from' => '2025-06-01',
+            'last_action_to' => '2025-06-30',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('filters.last_action_kind', 'avisos')
+                ->has('clients.data', 1)
+                ->where('clients.data.0.id', $client->id));
+
+        $this->get(route('inmopro.clients.index', [
+            'search' => $client->dni,
+            'last_action_kind' => 'avisos',
+            'last_action_from' => '2025-01-01',
+            'last_action_to' => '2025-01-31',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('clients.data', 0));
+    }
+
+    public function test_clients_index_filters_by_last_action_on_lots(): void
+    {
+        $this->seed(LotSeeder::class);
+
+        $user = User::factory()->create();
+        $client = Client::query()->firstOrFail();
+        $lot = Lot::query()->firstOrFail();
+        $lot->update(['client_id' => $client->id]);
+        $lot->forceFill(['updated_at' => '2025-07-20 08:00:00'])->save();
+
+        $this->actingAs($user);
+
+        $this->get(route('inmopro.clients.index', [
+            'search' => $client->dni,
+            'last_action_kind' => 'lotes',
+            'last_action_from' => '2025-07-01',
+            'last_action_to' => '2025-07-31',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('filters.last_action_kind', 'lotes')
+                ->has('clients.data', 1)
+                ->where('clients.data.0.id', $client->id));
+    }
+
+    public function test_clients_index_filters_by_last_action_on_reminders(): void
+    {
+        $user = User::factory()->create();
+        $client = Client::query()->firstOrFail();
+
+        $reminder = AdvisorReminder::query()->create([
+            'advisor_id' => $client->advisor_id,
+            'client_id' => $client->id,
+            'title' => 'Seguimiento test',
+            'remind_at' => now()->addDay(),
+        ]);
+        $reminder->forceFill(['updated_at' => '2025-08-05 15:00:00'])->save();
+
+        $this->actingAs($user);
+
+        $this->get(route('inmopro.clients.index', [
+            'search' => $client->dni,
+            'last_action_kind' => 'recordatorios',
+            'last_action_from' => '2025-08-01',
+            'last_action_to' => '2025-08-31',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('filters.last_action_kind', 'recordatorios')
+                ->has('clients.data', 1)
+                ->where('clients.data.0.id', $client->id));
     }
 
     public function test_authenticated_users_can_export_clients_excel(): void

@@ -14,6 +14,7 @@ use App\Models\Inmopro\City;
 use App\Models\Inmopro\Client;
 use App\Models\Inmopro\ClientType;
 use App\Services\Inmopro\ClientsExcelImportService;
+use App\Services\Inmopro\ClientsIndexQuery;
 use App\Support\InertiaListingRedirect;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -26,6 +27,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ClientController extends Controller
 {
+    public function __construct(private ClientsIndexQuery $clientsIndexQuery) {}
+
     public function search(Request $request): JsonResponse
     {
         $q = $request->query('q', '');
@@ -51,25 +54,15 @@ class ClientController extends Controller
     {
         $query = Client::query()->with(['type', 'city', 'advisor.team'])->withCount('lots');
 
-        $query
-            ->when($request->filled('search'), function ($builder) use ($request) {
-                $term = (string) $request->input('search');
+        $this->clientsIndexQuery->apply($query, $request);
 
-                $builder->where(function ($query) use ($term) {
-                    $query->where('name', 'like', "%{$term}%")
-                        ->orWhere('dni', 'like', "%{$term}%")
-                        ->orWhere('phone', 'like', "%{$term}%");
-                });
-            })
-            ->when($request->filled('client_type_id'), fn ($builder) => $builder->where('client_type_id', $request->integer('client_type_id')))
-            ->when($request->filled('city_id'), fn ($builder) => $builder->where('city_id', $request->integer('city_id')))
-            ->when($request->filled('advisor_id'), fn ($builder) => $builder->where('advisor_id', $request->integer('advisor_id')));
+        $this->clientsIndexQuery->applyDefaultOrdering($query);
 
-        $clients = $query->orderBy('name')->paginate(15)->withQueryString();
+        $clients = $query->paginate(15)->withQueryString();
 
         return Inertia::render('inmopro/clients/index', [
             'clients' => $clients,
-            'filters' => $request->only('search', 'client_type_id', 'city_id', 'advisor_id'),
+            'filters' => $this->clientsIndexQuery->filtersFromRequest($request),
             'clientTypes' => ClientType::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'advisors' => Advisor::query()->orderBy('name')->get(['id', 'name']),
@@ -78,22 +71,13 @@ class ClientController extends Controller
 
     public function exportExcel(Request $request): BinaryFileResponse
     {
-        $clients = Client::query()
-            ->with(['type', 'city', 'advisor'])
-            ->when($request->filled('search'), function ($builder) use ($request) {
-                $term = (string) $request->input('search');
+        $clientsQuery = Client::query()->with(['type', 'city', 'advisor']);
 
-                $builder->where(function ($query) use ($term) {
-                    $query->where('name', 'like', "%{$term}%")
-                        ->orWhere('dni', 'like', "%{$term}%")
-                        ->orWhere('phone', 'like', "%{$term}%");
-                });
-            })
-            ->when($request->filled('client_type_id'), fn ($builder) => $builder->where('client_type_id', $request->integer('client_type_id')))
-            ->when($request->filled('city_id'), fn ($builder) => $builder->where('city_id', $request->integer('city_id')))
-            ->when($request->filled('advisor_id'), fn ($builder) => $builder->where('advisor_id', $request->integer('advisor_id')))
-            ->orderBy('name')
-            ->get();
+        $this->clientsIndexQuery->apply($clientsQuery, $request);
+
+        $this->clientsIndexQuery->applyDefaultOrdering($clientsQuery);
+
+        $clients = $clientsQuery->get();
 
         return Excel::download(
             new ClientsExport($clients),

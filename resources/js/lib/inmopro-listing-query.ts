@@ -1,4 +1,15 @@
-const CLIENTS_LIST_KEYS = ['page', 'search', 'client_type_id', 'city_id', 'advisor_id'] as const;
+const CLIENTS_LIST_KEYS = [
+    'page',
+    'search',
+    'client_type_id',
+    'city_id',
+    'advisor_id',
+    'created_from',
+    'created_to',
+    'last_action_kind',
+    'last_action_from',
+    'last_action_to',
+] as const;
 
 const ADVISORS_LIST_KEYS = [
     'page',
