@@ -55,7 +55,7 @@ Route::prefix('v1/cazador')->name('api.v1.cazador.')->group(function (): void {
         Route::get('clients', [ClientController::class, 'index'])->name('clients.index');
         Route::post('clients', [ClientController::class, 'store'])->name('clients.store');
         Route::get('clients/{client}', [ClientController::class, 'show'])->name('clients.show');
-        Route::put('clients/{client}', [ClientController::class, 'update'])->name('clients.update');
+        Route::match(['put', 'patch'], 'clients/{client}', [ClientController::class, 'update'])->name('clients.update');
         Route::get('attention-ticket-types', [AttentionTicketTypeController::class, 'index'])->name('attention-ticket-types.index');
         Route::get('attention-tickets', [AttentionTicketController::class, 'index'])->name('attention-tickets.index');
         Route::post('attention-tickets', [AttentionTicketController::class, 'store'])->name('attention-tickets.store');
@@ -96,6 +96,6 @@ Route::prefix('v1/datero')->name('api.v1.datero.')->group(function (): void {
         Route::get('clients', [DateroClientController::class, 'index'])->name('clients.index');
         Route::post('clients', [DateroClientController::class, 'store'])->name('clients.store');
         Route::get('clients/{client}', [DateroClientController::class, 'show'])->name('clients.show');
-        Route::put('clients/{client}', [DateroClientController::class, 'update'])->name('clients.update');
+        Route::match(['put', 'patch'], 'clients/{client}', [DateroClientController::class, 'update'])->name('clients.update');
     });
 });

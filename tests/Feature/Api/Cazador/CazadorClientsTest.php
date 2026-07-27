@@ -161,7 +161,8 @@ class CazadorClientsTest extends TestCase
             ->getJson(route('api.v1.cazador.clients.show', $client))
             ->assertOk()
             ->assertJsonPath('data.name', 'Cliente captado por datero')
-            ->assertJsonPath('data.client_type.code', 'DATERO');
+            ->assertJsonPath('data.client_type.code', 'DATERO')
+            ->assertJsonPath('data.city_id', $city->id);
 
         $this->withHeader('Authorization', 'Bearer '.$token)
             ->putJson(route('api.v1.cazador.clients.update', $client), [
@@ -171,7 +172,130 @@ class CazadorClientsTest extends TestCase
                 'city_id' => $city->id,
             ])
             ->assertOk()
-            ->assertJsonPath('data.name', 'Cliente Datero editado por asesor');
+            ->assertJsonPath('data.name', 'Cliente Datero editado por asesor')
+            ->assertJsonPath('data.city_id', $city->id);
+    }
+
+    public function test_advisor_can_update_propio_client_via_put_and_patch(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+        $token = $this->loginToken($advisor);
+
+        $client = Client::create([
+            'name' => 'Cliente Propio Editar',
+            'dni' => '33445566',
+            'phone' => '911222333',
+            'email' => 'propio@test.com',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson(route('api.v1.cazador.clients.update', $client), [
+                'name' => 'Cliente Propio Editado PUT',
+                'dni' => '33445566',
+                'phone' => '911222333',
+                'email' => 'propio@test.com',
+                'city_id' => $city->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Cliente Propio Editado PUT')
+            ->assertJsonPath('data.city_id', $city->id);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->patchJson(route('api.v1.cazador.clients.update', $client), [
+                'name' => 'Cliente Propio Editado PATCH',
+                'dni' => '33445566',
+                'phone' => '911222333',
+                'email' => 'propio@test.com',
+                'city_id' => $city->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Cliente Propio Editado PATCH');
+
+        $this->assertDatabaseHas('clients', [
+            'id' => $client->id,
+            'name' => 'Cliente Propio Editado PATCH',
+            'phone' => '911222333',
+        ]);
+    }
+
+    public function test_advisor_can_update_client_with_nested_city_payload(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+        $token = $this->loginToken($advisor);
+
+        $client = Client::create([
+            'name' => 'Cliente Ciudad Anidada',
+            'dni' => '77889900',
+            'phone' => '922333444',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson(route('api.v1.cazador.clients.update', $client), [
+                'name' => 'Cliente Ciudad Objeto',
+                'dni' => '77889900',
+                'phone' => '922333444',
+                'city_id' => [
+                    'id' => $city->id,
+                    'name' => $city->name,
+                    'department' => $city->department,
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Cliente Ciudad Objeto')
+            ->assertJsonPath('data.city_id', $city->id);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson(route('api.v1.cazador.clients.update', $client), [
+                'name' => 'Cliente Ciudad Campo',
+                'dni' => '77889900',
+                'phone' => '922333444',
+                'city' => [
+                    'id' => $city->id,
+                    'name' => $city->name,
+                    'department' => $city->department,
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Cliente Ciudad Campo')
+            ->assertJsonPath('data.city_id', $city->id);
+    }
+
+    public function test_advisor_can_update_own_client_keeping_same_phone_and_dni(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+        $token = $this->loginToken($advisor);
+
+        $client = Client::create([
+            'name' => 'Cliente Sin Falso Duplicado',
+            'dni' => '11223344',
+            'phone' => '933444555',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson(route('api.v1.cazador.clients.update', $client), [
+                'name' => 'Cliente Renombrado',
+                'dni' => '11223344',
+                'phone' => '933444555',
+                'city_id' => $city->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Cliente Renombrado')
+            ->assertJsonMissingPath('errors.duplicate_registration');
     }
 
     public function test_index_filters_by_client_type_propio(): void

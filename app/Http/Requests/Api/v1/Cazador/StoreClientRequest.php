@@ -14,6 +14,24 @@ class StoreClientRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $cityId = $this->input('city_id');
+
+        if (is_array($cityId) && array_key_exists('id', $cityId)) {
+            $this->merge(['city_id' => $cityId['id']]);
+
+            return;
+        }
+
+        if (! $this->filled('city_id')) {
+            $city = $this->input('city');
+            if (is_array($city) && array_key_exists('id', $city)) {
+                $this->merge(['city_id' => $city['id']]);
+            }
+        }
+    }
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -26,6 +44,21 @@ class StoreClientRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:255'],
             'referred_by' => ['nullable', 'string', 'max:255'],
             'city_id' => ['nullable', 'exists:cities,id'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'name' => 'nombre',
+            'dni' => 'DNI',
+            'phone' => 'teléfono',
+            'email' => 'correo',
+            'referred_by' => 'referido por',
+            'city_id' => 'ciudad',
         ];
     }
 

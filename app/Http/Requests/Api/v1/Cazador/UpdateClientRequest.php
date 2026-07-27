@@ -15,6 +15,24 @@ class UpdateClientRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $cityId = $this->input('city_id');
+
+        if (is_array($cityId) && array_key_exists('id', $cityId)) {
+            $this->merge(['city_id' => $cityId['id']]);
+
+            return;
+        }
+
+        if (! $this->filled('city_id')) {
+            $city = $this->input('city');
+            if (is_array($city) && array_key_exists('id', $city)) {
+                $this->merge(['city_id' => $city['id']]);
+            }
+        }
+    }
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -30,6 +48,21 @@ class UpdateClientRequest extends FormRequest
         ];
     }
 
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'name' => 'nombre',
+            'dni' => 'DNI',
+            'phone' => 'teléfono',
+            'email' => 'correo',
+            'referred_by' => 'referido por',
+            'city_id' => 'ciudad',
+        ];
+    }
+
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
@@ -38,7 +71,11 @@ class UpdateClientRequest extends FormRequest
             }
 
             $client = $this->route('client');
-            $exceptId = $client instanceof Client ? $client->id : null;
+            $exceptId = match (true) {
+                $client instanceof Client => $client->id,
+                is_numeric($client) => (int) $client,
+                default => null,
+            };
 
             $checker = app(ClientDuplicateRegistrationChecker::class);
             $conflict = $checker->findConflict(

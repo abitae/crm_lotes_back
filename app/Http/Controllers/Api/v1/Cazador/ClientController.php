@@ -131,6 +131,7 @@ class ClientController extends Controller
             'phone' => $client->phone,
             'email' => $client->email,
             'referred_by' => $client->referred_by,
+            'city_id' => $client->city_id,
             'client_type' => $client->type ? [
                 'code' => $client->type->code,
                 'name' => $client->type->name,
