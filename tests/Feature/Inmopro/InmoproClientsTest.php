@@ -36,6 +36,7 @@ class InmoproClientsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutVite();
         $this->seed(TeamSeeder::class);
         $this->seed(ClientTypeSeeder::class);
         $this->seed(AdvisorLevelSeeder::class);
@@ -271,9 +272,34 @@ class InmoproClientsTest extends TestCase
         $user = User::factory()->create();
         $advisor = Advisor::query()->firstOrFail();
         $otherAdvisor = Advisor::query()->whereKeyNot($advisor->id)->firstOrFail();
+        $type = ClientType::query()->firstOrFail();
+        $city = City::query()->firstOrFail();
+        $defaults = app(ClientsIndexQuery::class)->defaultDateFilters();
         $this->actingAs($user);
 
-        $response = $this->get(route('inmopro.clients.index', ['advisor_id' => $advisor->id]));
+        Client::create([
+            'name' => 'Cliente Del Asesor Filtrado',
+            'dni' => '66778899',
+            'phone' => '966778899',
+            'client_type_id' => $type->id,
+            'city_id' => $city->id,
+            'advisor_id' => $advisor->id,
+            'created_at' => now(),
+        ]);
+
+        Client::create([
+            'name' => 'Cliente De Otro Asesor',
+            'dni' => '66778800',
+            'phone' => '966778800',
+            'client_type_id' => $type->id,
+            'city_id' => $city->id,
+            'advisor_id' => $otherAdvisor->id,
+            'created_at' => now(),
+        ]);
+
+        $response = $this->get(route('inmopro.clients.index', array_merge($defaults, [
+            'advisor_id' => $advisor->id,
+        ])));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
@@ -289,37 +315,83 @@ class InmoproClientsTest extends TestCase
             ->values()
             ->all();
 
+        $this->assertSame([$advisor->id], $clientAdvisorIds);
         $this->assertNotContains($otherAdvisor->id, $clientAdvisorIds);
+    }
+
+    public function test_clients_index_includes_advisor_name_for_table_column(): void
+    {
+        $user = User::factory()->create();
+        $advisor = Advisor::query()->with('team')->firstOrFail();
+        $type = ClientType::query()->firstOrFail();
+        $city = City::query()->firstOrFail();
+        $defaults = app(ClientsIndexQuery::class)->defaultDateFilters();
+
+        $client = Client::create([
+            'name' => 'Cliente Columna Asesor',
+            'dni' => '55667788',
+            'phone' => '955667788',
+            'client_type_id' => $type->id,
+            'city_id' => $city->id,
+            'advisor_id' => $advisor->id,
+            'created_at' => now(),
+        ]);
+
+        $this->actingAs($user);
+
+        $response = $this->get(route('inmopro.clients.index', array_merge($defaults, [
+            'advisor_id' => $advisor->id,
+            'search' => 'Cliente Columna Asesor',
+        ])));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('inmopro/clients/index')
+            ->has('clients.data', 1)
+            ->where('clients.data.0.id', $client->id)
+            ->where('clients.data.0.advisor.id', $advisor->id)
+            ->where('clients.data.0.advisor.name', $advisor->name)
+        );
     }
 
     public function test_clients_index_orders_by_created_at_descending(): void
     {
         $user = User::factory()->create();
-        $older = Client::query()->firstOrFail();
-        $newer = Client::query()->whereKeyNot($older->id)->firstOrFail();
+        $type = ClientType::query()->firstOrFail();
+        $advisor = Advisor::query()->firstOrFail();
+        $city = City::query()->firstOrFail();
+        $defaults = app(ClientsIndexQuery::class)->defaultDateFilters();
 
-        $older->forceFill(['created_at' => '2024-01-01 10:00:00'])->save();
-        $newer->forceFill(['created_at' => '2025-12-31 10:00:00'])->save();
+        $older = Client::create([
+            'name' => 'Orden Cliente Antiguo',
+            'dni' => '10101010',
+            'phone' => '910101010',
+            'client_type_id' => $type->id,
+            'city_id' => $city->id,
+            'advisor_id' => $advisor->id,
+            'created_at' => now()->subDay(),
+        ]);
+
+        $newer = Client::create([
+            'name' => 'Orden Cliente Reciente',
+            'dni' => '20202020',
+            'phone' => '920202020',
+            'client_type_id' => $type->id,
+            'city_id' => $city->id,
+            'advisor_id' => $advisor->id,
+            'created_at' => now(),
+        ]);
 
         $this->actingAs($user);
 
-        $response = $this->get(route('inmopro.clients.index', [
-            'search' => $older->dni,
-        ]));
+        $response = $this->get(route('inmopro.clients.index', array_merge($defaults, [
+            'search' => 'Orden Cliente',
+        ])));
 
         $response->assertOk();
 
         $ids = collect($response->viewData('page')['props']['clients']['data'])->pluck('id')->all();
-        $this->assertSame($older->id, $ids[0]);
-
-        $responseAll = $this->get(route('inmopro.clients.index'));
-        $responseAll->assertOk();
-
-        $allIds = collect($responseAll->viewData('page')['props']['clients']['data'])->pluck('id')->all();
-        $this->assertGreaterThan(
-            array_search($older->id, $allIds, true),
-            array_search($newer->id, $allIds, true),
-        );
+        $this->assertSame([$newer->id, $older->id], $ids);
     }
 
     public function test_clients_index_filters_by_created_date_range(): void
@@ -403,6 +475,9 @@ class InmoproClientsTest extends TestCase
         $user = User::factory()->create();
         $client = Client::query()->firstOrFail();
         $lot = Lot::query()->firstOrFail();
+
+        Lot::query()->where('client_id', $client->id)->update(['client_id' => null]);
+
         $lot->update(['client_id' => $client->id]);
         $lot->forceFill(['updated_at' => '2025-07-20 08:00:00'])->save();
 

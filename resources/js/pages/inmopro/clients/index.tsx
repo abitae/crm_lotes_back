@@ -625,9 +625,10 @@ export default function ClientsIndex({
                                                 <th className="px-2 py-1.5 text-left font-semibold">Cliente</th>
                                                 <th className="hidden px-2 py-1.5 text-left font-semibold sm:table-cell">Tipo</th>
                                                 <th className="px-2 py-1.5 text-left font-semibold">Contacto</th>
-                                                <th className="hidden px-2 py-1.5 text-left font-semibold lg:table-cell">Ciudad / Asesor</th>
+                                                <th className="hidden px-2 py-1.5 text-left font-semibold lg:table-cell">Ciudad</th>
+                                                <th className="hidden px-2 py-1.5 text-left font-semibold md:table-cell">Asesor</th>
                                                 <th className="px-2 py-1.5 text-center font-semibold">Lotes</th>
-                                                <th className="hidden px-2 py-1.5 text-left font-semibold md:table-cell">Registro</th>
+                                                <th className="hidden px-2 py-1.5 text-left font-semibold xl:table-cell">Registro</th>
                                                 <th className="px-2 py-1.5 text-right font-semibold"> </th>
                                             </tr>
                                         </thead>
@@ -651,18 +652,24 @@ export default function ClientsIndex({
                                                         <p className="truncate text-slate-700">{client.phone || '—'}</p>
                                                         <p className="truncate text-[11px] text-slate-500">{client.email ?? '—'}</p>
                                                     </td>
-                                                    <td className="hidden max-w-[11rem] px-2 py-1.5 lg:table-cell">
+                                                    <td className="hidden max-w-[10rem] px-2 py-1.5 lg:table-cell">
                                                         <p className="truncate text-slate-700">
                                                             {client.city?.name ?? 'Sin ciudad'}
-                                                            {client.city?.department ? ` · ${client.city.department}` : ''}
                                                         </p>
-                                                        <p className="truncate text-[11px] text-slate-500">
+                                                        {client.city?.department ? (
+                                                            <p className="truncate text-[11px] text-slate-500">{client.city.department}</p>
+                                                        ) : null}
+                                                    </td>
+                                                    <td className="hidden max-w-[10rem] px-2 py-1.5 md:table-cell">
+                                                        <p className="truncate font-medium text-slate-700">
                                                             {client.advisor?.name ?? 'Sin asesor'}
-                                                            {client.advisor?.team?.name ? ` · ${client.advisor.team.name}` : ''}
                                                         </p>
+                                                        {client.advisor?.team?.name ? (
+                                                            <p className="truncate text-[11px] text-slate-500">{client.advisor.team.name}</p>
+                                                        ) : null}
                                                     </td>
                                                     <td className="px-2 py-1.5 text-center tabular-nums text-slate-600">{client.lots_count ?? 0}</td>
-                                                    <td className="hidden whitespace-nowrap px-2 py-1.5 text-slate-500 md:table-cell">
+                                                    <td className="hidden whitespace-nowrap px-2 py-1.5 text-slate-500 xl:table-cell">
                                                         {formatDate(client.created_at)}
                                                     </td>
                                                     <td className="px-1 py-1.5 text-right">
