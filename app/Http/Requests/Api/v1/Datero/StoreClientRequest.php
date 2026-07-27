@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\v1\Datero;
 
+use App\Http\Requests\Concerns\FormatsDuplicateClientValidationResponse;
 use App\Http\Requests\Concerns\ValidatesDateroCapturedClient;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
@@ -9,6 +10,7 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreClientRequest extends FormRequest
 {
+    use FormatsDuplicateClientValidationResponse;
     use ValidatesDateroCapturedClient;
 
     public function authorize(): bool
