@@ -85,7 +85,9 @@ class CazadorClientsTest extends TestCase
             ]);
 
         $response->assertUnprocessable()
-            ->assertJsonPath('errors.duplicate_registration.0', 'Cliente ya registrado por '.$existing->advisor->name);
+            ->assertJsonPath('message', 'Cliente ya registrado por '.$existing->advisor->name)
+            ->assertJsonPath('errors.duplicate_registration.0', 'Cliente ya registrado por '.$existing->advisor->name)
+            ->assertJsonPath('errors.phone.0', 'Cliente ya registrado por '.$existing->advisor->name);
 
         $this->assertDatabaseMissing('clients', [
             'name' => 'Intento duplicado',
@@ -119,6 +121,38 @@ class CazadorClientsTest extends TestCase
                 'city_id' => $city->id,
             ])
             ->assertUnprocessable()
+            ->assertJsonPath('message', 'Cliente ya registrado por '.$existing->advisor->name)
+            ->assertJsonPath('errors.duplicate_registration.0', 'Cliente ya registrado por '.$existing->advisor->name)
+            ->assertJsonPath('errors.dni.0', 'Cliente ya registrado por '.$existing->advisor->name);
+    }
+
+    public function test_advisor_cannot_register_client_with_duplicate_phone_ignoring_formatting(): void
+    {
+        $ownerAdvisor = Advisor::firstOrFail();
+        $advisor = Advisor::query()->whereKeyNot($ownerAdvisor->id)->firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+
+        $existing = Client::create([
+            'name' => 'Cliente telefono formateado',
+            'dni' => '11110003',
+            'phone' => '980 111 222',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $ownerAdvisor->id,
+            'city_id' => $city->id,
+        ]);
+        $existing->load('advisor');
+
+        $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
+            ->postJson(route('api.v1.cazador.clients.store'), [
+                'name' => 'Mismo telefono sin espacios',
+                'dni' => '87654322',
+                'phone' => '980111222',
+                'city_id' => $city->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Cliente ya registrado por '.$existing->advisor->name)
+            ->assertJsonPath('errors.phone.0', 'Cliente ya registrado por '.$existing->advisor->name)
             ->assertJsonPath('errors.duplicate_registration.0', 'Cliente ya registrado por '.$existing->advisor->name);
     }
 

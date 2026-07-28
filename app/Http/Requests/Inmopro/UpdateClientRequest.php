@@ -45,16 +45,12 @@ class UpdateClientRequest extends FormRequest
             $client = $this->route('client');
             $exceptId = $client instanceof Client ? $client->id : null;
 
-            $checker = app(ClientDuplicateRegistrationChecker::class);
-            $conflict = $checker->findConflict(
+            app(ClientDuplicateRegistrationChecker::class)->addValidationErrors(
+                $validator,
                 $this->input('dni'),
                 $this->input('phone'),
                 $exceptId,
             );
-
-            if ($conflict !== null) {
-                $validator->errors()->add('duplicate_registration', $checker->message($conflict));
-            }
         });
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\v1\Cazador;
 
+use App\Http\Requests\Concerns\FormatsDuplicateClientValidationResponse;
 use App\Services\Inmopro\ClientDuplicateRegistrationChecker;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
@@ -9,6 +10,8 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreClientRequest extends FormRequest
 {
+    use FormatsDuplicateClientValidationResponse;
+
     public function authorize(): bool
     {
         return true;
@@ -69,16 +72,12 @@ class StoreClientRequest extends FormRequest
                 return;
             }
 
-            $checker = app(ClientDuplicateRegistrationChecker::class);
-            $conflict = $checker->findConflict(
+            app(ClientDuplicateRegistrationChecker::class)->addValidationErrors(
+                $validator,
                 $this->input('dni'),
                 $this->input('phone'),
                 null,
             );
-
-            if ($conflict !== null) {
-                $validator->errors()->add('duplicate_registration', $checker->message($conflict));
-            }
         });
     }
 }

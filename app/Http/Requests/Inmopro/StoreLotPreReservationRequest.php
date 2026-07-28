@@ -42,16 +42,13 @@ class StoreLotPreReservationRequest extends FormRequest
                 return;
             }
 
-            $checker = app(ClientDuplicateRegistrationChecker::class);
-            $conflict = $checker->findConflict(
+            app(ClientDuplicateRegistrationChecker::class)->addValidationErrors(
+                $validator,
                 $this->input('new_client.dni'),
                 $this->input('new_client.phone'),
                 null,
+                'new_client.',
             );
-
-            if ($conflict !== null) {
-                $validator->errors()->add('duplicate_registration', $checker->message($conflict));
-            }
         });
     }
 
