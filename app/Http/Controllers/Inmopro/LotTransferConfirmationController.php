@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers\Inmopro;
 
+use App\Exports\Inmopro\LotTransferConfirmationsExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Inmopro\ApproveLotTransferConfirmationRequest;
 use App\Http\Requests\Inmopro\RejectLotTransferConfirmationRequest;
 use App\Http\Requests\Inmopro\StoreLotTransferConfirmationRequest;
-use App\Http\Requests\Inmopro\UpdateLotTransferConfirmationNotesRequest;
+use App\Http\Requests\Inmopro\UpdateLotTransferQueueNotesRequest;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
@@ -14,14 +15,26 @@ use App\Models\Inmopro\LotTransferConfirmation;
 use App\Models\Inmopro\Project;
 use App\Services\Inmopro\CommissionService;
 use App\Support\FileStorage;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class LotTransferConfirmationController extends Controller
 {
+    /**
+     * @var list<string>
+     */
+    private const QUEUE_STATUS_CODES = [
+        LotStatus::CODE_RESERVADO,
+        LotStatus::CODE_TRANSFERIDO,
+        LotStatus::CODE_CUOTAS,
+    ];
+
     public function __construct(
         private CommissionService $commissionService
     ) {}
@@ -30,76 +43,32 @@ class LotTransferConfirmationController extends Controller
     {
         abort_unless($request->user()?->can('inmopro.lot-transfer-confirmations.index'), 403);
 
-        $search = trim((string) $request->string('search'));
-        $pendingReview = $request->boolean('pending_review');
-        $allowedStatusCodes = [
-            LotStatus::CODE_RESERVADO,
-            LotStatus::CODE_TRANSFERIDO,
-        ];
-
-        $lots = Lot::query()
-            ->with([
-                'project',
-                'status',
-                'client',
-                'advisor',
-                'latestTransferConfirmation.requester',
-                'latestTransferConfirmation.reviewer',
-            ])
-            ->whereHas('status', fn ($query) => $query->whereIn('code', $allowedStatusCodes))
-            ->when($request->filled('project_id'), fn ($query) => $query->where('project_id', $request->integer('project_id')))
-            ->when($request->filled('lot_status_id'), function ($query) use ($request, $allowedStatusCodes) {
-                $query->whereHas('status', function ($statusQuery) use ($request, $allowedStatusCodes) {
-                    $statusQuery
-                        ->whereIn('code', $allowedStatusCodes)
-                        ->whereKey($request->integer('lot_status_id'));
-                });
-            })
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($lotQuery) use ($search) {
-                    $lotQuery
-                        ->where('block', 'like', "%{$search}%")
-                        ->orWhere('number', 'like', "%{$search}%")
-                        ->orWhere('client_name', 'like', "%{$search}%")
-                        ->orWhere('client_dni', 'like', "%{$search}%")
-                        ->orWhereHas('client', function ($clientQuery) use ($search) {
-                            $clientQuery
-                                ->where('name', 'like', "%{$search}%")
-                                ->orWhere('dni', 'like', "%{$search}%")
-                                ->orWhere('phone', 'like', "%{$search}%");
-                        });
-                });
-            })
-            ->when($request->filled('advisor_id'), fn ($query) => $query->where('advisor_id', $request->integer('advisor_id')))
-            ->when($pendingReview, function ($query) {
-                $query->whereHas('latestTransferConfirmation', function ($transferQuery) {
-                    $transferQuery->where('status', LotTransferConfirmation::STATUS_PENDING);
-                });
-            })
-            ->orderByRaw('contract_date IS NULL')
-            ->orderBy('contract_date')
-            ->orderByRaw('payment_limit_date IS NULL')
-            ->orderBy('payment_limit_date')
-            ->orderBy('id')
+        $lots = $this->queueLotsQuery($request)
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('inmopro/lot-transfer-confirmations/index', [
             'lots' => $lots,
-            'filters' => [
-                'project_id' => $request->input('project_id'),
-                'lot_status_id' => $request->input('lot_status_id'),
-                'search' => $request->input('search'),
-                'advisor_id' => $request->input('advisor_id'),
-                'pending_review' => $pendingReview ? '1' : null,
-            ],
+            'filters' => $this->queueFilters($request),
             'projects' => Project::query()->active()->orderBy('name')->get(['id', 'name']),
             'advisors' => Advisor::query()->orderBy('name')->get(['id', 'name']),
             'lotStatuses' => LotStatus::query()
-                ->whereIn('code', $allowedStatusCodes)
+                ->whereIn('code', self::QUEUE_STATUS_CODES)
                 ->orderBy('sort_order')
                 ->get(['id', 'name', 'code', 'color']),
         ]);
+    }
+
+    public function exportExcel(Request $request): BinaryFileResponse
+    {
+        abort_unless($request->user()?->can('inmopro.lot-transfer-confirmations.index'), 403);
+
+        $lots = $this->queueLotsQuery($request)->get();
+
+        return Excel::download(
+            new LotTransferConfirmationsExport($lots),
+            'transferencias_lotes.xlsx',
+        );
     }
 
     public function create(Request $request, Lot $lot): Response
@@ -222,15 +191,92 @@ class LotTransferConfirmationController extends Controller
         return redirect()->route('inmopro.lot-transfer-confirmations.index');
     }
 
-    public function updateNotes(
-        UpdateLotTransferConfirmationNotesRequest $request,
-        LotTransferConfirmation $lot_transfer_confirmation,
-    ): RedirectResponse {
-        $lot_transfer_confirmation->update([
+    public function updateLotNotes(UpdateLotTransferQueueNotesRequest $request, Lot $lot): RedirectResponse
+    {
+        abort_unless($this->lotIsInQueue($lot), 404);
+
+        $lot->update([
             'notes' => $request->string('notes')->toString() ?: null,
         ]);
 
         return back();
+    }
+
+    /**
+     * @return Builder<Lot>
+     */
+    private function queueLotsQuery(Request $request): Builder
+    {
+        $search = trim((string) $request->string('search'));
+        $pendingReview = $request->boolean('pending_review');
+
+        return Lot::query()
+            ->with([
+                'project',
+                'status',
+                'client',
+                'advisor',
+                'latestTransferConfirmation.requester',
+                'latestTransferConfirmation.reviewer',
+            ])
+            ->whereHas('status', fn ($query) => $query->whereIn('code', self::QUEUE_STATUS_CODES))
+            ->when($request->filled('project_id'), fn ($query) => $query->where('project_id', $request->integer('project_id')))
+            ->when($request->filled('lot_status_id'), function ($query) use ($request) {
+                $query->whereHas('status', function ($statusQuery) use ($request) {
+                    $statusQuery
+                        ->whereIn('code', self::QUEUE_STATUS_CODES)
+                        ->whereKey($request->integer('lot_status_id'));
+                });
+            })
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($lotQuery) use ($search) {
+                    $lotQuery
+                        ->where('block', 'like', "%{$search}%")
+                        ->orWhere('number', 'like', "%{$search}%")
+                        ->orWhere('client_name', 'like', "%{$search}%")
+                        ->orWhere('client_dni', 'like', "%{$search}%")
+                        ->orWhereHas('client', function ($clientQuery) use ($search) {
+                            $clientQuery
+                                ->where('name', 'like', "%{$search}%")
+                                ->orWhere('dni', 'like', "%{$search}%")
+                                ->orWhere('phone', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->when($request->filled('advisor_id'), fn ($query) => $query->where('advisor_id', $request->integer('advisor_id')))
+            ->when($pendingReview, function ($query) {
+                $query->whereHas('latestTransferConfirmation', function ($transferQuery) {
+                    $transferQuery->where('status', LotTransferConfirmation::STATUS_PENDING);
+                });
+            })
+            ->orderByRaw('contract_date IS NULL')
+            ->orderBy('contract_date')
+            ->orderByRaw('payment_limit_date IS NULL')
+            ->orderBy('payment_limit_date')
+            ->orderBy('id');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function queueFilters(Request $request): array
+    {
+        $pendingReview = $request->boolean('pending_review');
+
+        return [
+            'project_id' => $request->input('project_id'),
+            'lot_status_id' => $request->input('lot_status_id'),
+            'search' => $request->input('search'),
+            'advisor_id' => $request->input('advisor_id'),
+            'pending_review' => $pendingReview ? '1' : null,
+        ];
+    }
+
+    private function lotIsInQueue(Lot $lot): bool
+    {
+        $lot->loadMissing('status');
+
+        return in_array($lot->status?->code, self::QUEUE_STATUS_CODES, true);
     }
 
     private function canRegisterTransfer(Lot $lot): bool

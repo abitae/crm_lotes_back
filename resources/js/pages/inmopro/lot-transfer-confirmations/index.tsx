@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Check, Eye, ImagePlus, MessageSquare, Search, Upload, X } from 'lucide-react';
+import { Check, Eye, FileSpreadsheet, ImagePlus, MessageSquare, Search, Upload, X } from 'lucide-react';
 import type { ChangeEvent, CSSProperties, FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import InputError from '@/components/input-error';
@@ -31,7 +31,6 @@ type TransferConfirmation = {
     reviewed_at?: string | null;
     review_notes?: string | null;
     rejection_reason?: string | null;
-    notes?: string | null;
     requester?: { name: string } | null;
     reviewer?: { name: string } | null;
 } | null;
@@ -44,6 +43,7 @@ type LotRow = {
     remaining_balance?: string | number | null;
     contract_date?: string | null;
     payment_limit_date?: string | null;
+    notes?: string | null;
     status?: { name: string; code: string; color?: string | null } | null;
     project?: { name: string } | null;
     client?: { name: string; dni?: string | null; phone?: string | null } | null;
@@ -165,6 +165,30 @@ export default function LotTransferConfirmationsIndex({
 
         return advisors.filter((advisor) => advisor.name.toLowerCase().includes(search));
     }, [advisorFilterSearch, advisors]);
+
+    const exportQueryString = useMemo(() => {
+        const params = new URLSearchParams();
+
+        if (filters.project_id) {
+            params.set('project_id', filters.project_id);
+        }
+        if (filters.lot_status_id) {
+            params.set('lot_status_id', filters.lot_status_id);
+        }
+        if (filters.search) {
+            params.set('search', filters.search);
+        }
+        if (filters.advisor_id) {
+            params.set('advisor_id', filters.advisor_id);
+        }
+        if (filters.pending_review === '1') {
+            params.set('pending_review', '1');
+        }
+
+        return params.toString();
+    }, [filters]);
+
+    const exportHref = `/inmopro/lot-transfer-confirmations/export-excel${exportQueryString ? `?${exportQueryString}` : ''}`;
 
     const submitFilters = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -300,28 +324,26 @@ export default function LotTransferConfirmationsIndex({
         });
     };
 
-    const openNotesDialog = (lot: LotRow, transfer: Exclude<TransferConfirmation, null>) => {
+    const openNotesDialog = (lot: LotRow) => {
         notesForm.reset();
         notesForm.clearErrors();
-        notesForm.setData('notes', transfer.notes ?? '');
+        notesForm.setData('notes', lot.notes ?? '');
         setSelectedLot(lot);
-        setSelectedTransfer(transfer);
         setNotesOpen(true);
     };
 
     const submitNotes = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
-        if (!selectedTransfer) {
+        if (!selectedLot) {
             return;
         }
 
-        notesForm.patch(`/inmopro/lot-transfer-confirmations/${selectedTransfer.id}/notes`, {
+        notesForm.patch(`/inmopro/lots/${selectedLot.id}/transfer-queue-notes`, {
             preserveScroll: true,
             onSuccess: () => {
                 setNotesOpen(false);
                 setSelectedLot(null);
-                setSelectedTransfer(null);
                 notesForm.reset();
                 showSuccessToast('Anotaciones guardadas correctamente');
             },
@@ -332,11 +354,19 @@ export default function LotTransferConfirmationsIndex({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Transferencias - Inmopro" />
             <div className="space-y-4 p-3 sm:space-y-5 sm:p-4 md:p-6">
-                <div>
-                    <h2 className="text-xl font-black text-slate-800 sm:text-2xl">Confirmacion de transferencias</h2>
-                    <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-                        Gestione el registro y la revision de transferencias desde una sola bandeja operativa.
-                    </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <h2 className="text-xl font-black text-slate-800 sm:text-2xl">Confirmacion de transferencias</h2>
+                        <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+                            Gestione el registro y la revision de transferencias desde una sola bandeja operativa.
+                        </p>
+                    </div>
+                    <Button asChild variant="outline" size="sm" className="h-9 shrink-0 gap-2 self-start">
+                        <a href={exportHref}>
+                            <FileSpreadsheet className="h-4 w-4" />
+                            Exportar Excel
+                        </a>
+                    </Button>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3 sm:gap-4">
@@ -543,28 +573,26 @@ export default function LotTransferConfirmationsIndex({
                                                 <td className="px-1.5 py-1">
                                                     <div className="flex flex-nowrap justify-end gap-0.5">
                                                         {transfer ? (
-                                                            <>
-                                                                <a
-                                                                    href={`/storage/${transfer.evidence_path}`}
-                                                                    target="_blank"
-                                                                    rel="noreferrer"
-                                                                    className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
-                                                                    title="Ver evidencia"
-                                                                >
-                                                                    <Eye className="h-3 w-3" />
-                                                                </a>
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="outline"
-                                                                    size="icon"
-                                                                    className={`h-6 w-6 ${transfer.notes ? 'border-amber-300 bg-amber-50 text-amber-700' : ''}`}
-                                                                    onClick={() => openNotesDialog(lot, transfer)}
-                                                                    title="Anotaciones"
-                                                                >
-                                                                    <MessageSquare className="h-3 w-3" />
-                                                                </Button>
-                                                            </>
+                                                            <a
+                                                                href={`/storage/${transfer.evidence_path}`}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
+                                                                title="Ver evidencia"
+                                                            >
+                                                                <Eye className="h-3 w-3" />
+                                                            </a>
                                                         ) : null}
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="icon"
+                                                            className={`h-6 w-6 ${lot.notes ? 'border-amber-300 bg-amber-50 text-amber-700' : ''}`}
+                                                            onClick={() => openNotesDialog(lot)}
+                                                            title="Anotaciones"
+                                                        >
+                                                            <MessageSquare className="h-3 w-3" />
+                                                        </Button>
                                                         {canRegister ? (
                                                             <Button type="button" size="icon" variant="outline" className="h-6 w-6" onClick={() => openRegisterDialog(lot)} title="Registrar">
                                                                 <Upload className="h-3 w-3" />
@@ -785,7 +813,6 @@ export default function LotTransferConfirmationsIndex({
 
                 if (!open) {
                     setSelectedLot(null);
-                    setSelectedTransfer(null);
                     notesForm.reset();
                     notesForm.clearErrors();
                 }
@@ -794,10 +821,10 @@ export default function LotTransferConfirmationsIndex({
                     <DialogHeader className="shrink-0 gap-1">
                         <DialogTitle className="text-base">Anotaciones</DialogTitle>
                         <DialogDescription className="text-xs">
-                            Registre observaciones operativas sobre esta transferencia.
+                            Registre observaciones operativas sobre este lote.
                         </DialogDescription>
                     </DialogHeader>
-                    {selectedLot && selectedTransfer ? (
+                    {selectedLot ? (
                         <form onSubmit={submitNotes} className="flex min-h-0 flex-1 flex-col gap-2">
                             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
                                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">

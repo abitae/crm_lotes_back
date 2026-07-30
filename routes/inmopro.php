@@ -175,11 +175,12 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::post('lot-pre-reservations/{lot_pre_reservation}/approve', [LotPreReservationController::class, 'approve'])->name('lot-pre-reservations.approve');
         Route::post('lot-pre-reservations/{lot_pre_reservation}/reject', [LotPreReservationController::class, 'reject'])->name('lot-pre-reservations.reject');
         Route::get('lot-transfer-confirmations', [LotTransferConfirmationController::class, 'index'])->name('lot-transfer-confirmations.index');
+        Route::get('lot-transfer-confirmations/export-excel', [LotTransferConfirmationController::class, 'exportExcel'])->name('lot-transfer-confirmations.export-excel');
         Route::get('lots/{lot}/transfer-confirmation', [LotTransferConfirmationController::class, 'create'])->name('lots.transfer-confirmation');
         Route::post('lots/{lot}/transfer-confirmation', [LotTransferConfirmationController::class, 'store'])->name('lots.transfer-confirmation.store');
+        Route::patch('lots/{lot}/transfer-queue-notes', [LotTransferConfirmationController::class, 'updateLotNotes'])->name('lots.transfer-queue-notes.update');
         Route::post('lot-transfer-confirmations/{lot_transfer_confirmation}/approve', [LotTransferConfirmationController::class, 'approve'])->name('lot-transfer-confirmations.approve');
         Route::post('lot-transfer-confirmations/{lot_transfer_confirmation}/reject', [LotTransferConfirmationController::class, 'reject'])->name('lot-transfer-confirmations.reject');
-        Route::patch('lot-transfer-confirmations/{lot_transfer_confirmation}/notes', [LotTransferConfirmationController::class, 'updateNotes'])->name('lot-transfer-confirmations.notes.update');
         Route::get('process-diagrams', ProcessDiagramsController::class)->name('process-diagrams.index');
         Route::get('agenda', [AgendaController::class, 'index'])->name('agenda.index');
         Route::post('advisor-agenda-events', [AdvisorAgendaEventController::class, 'store'])->name('advisor-agenda-events.store');

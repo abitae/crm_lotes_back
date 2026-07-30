@@ -31,6 +31,7 @@ class Lot extends Model
         'contract_number',
         'notarial_transfer_date',
         'observations',
+        'notes',
     ];
 
     /**

@@ -48,6 +48,7 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         $this->statusIds = [
             'RESERVADO' => (int) LotStatus::query()->where('code', 'RESERVADO')->value('id'),
             'TRANSFERIDO' => (int) LotStatus::query()->where('code', 'TRANSFERIDO')->value('id'),
+            'CUOTAS' => (int) LotStatus::query()->where('code', 'CUOTAS')->value('id'),
         ];
     }
 
@@ -61,7 +62,7 @@ class InmoproLotTransferConfirmationsTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('inmopro/lot-transfer-confirmations/index')
                 ->has('lots')
-                ->has('lotStatuses', 2)
+                ->has('lotStatuses', 3)
                 ->where('filters.project_id', null)
                 ->where('filters.lot_status_id', null)
                 ->where('filters.search', null)
@@ -165,7 +166,7 @@ class InmoproLotTransferConfirmationsTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('inmopro/lot-transfer-confirmations/index')
-                ->has('lotStatuses', 2)
+                ->has('lotStatuses', 3)
                 ->where('filters.project_id', (string) $lot->project_id)
                 ->where('filters.lot_status_id', (string) $this->statusIds['TRANSFERIDO'])
                 ->where('filters.search', 'GAMMAONLY')
@@ -321,40 +322,89 @@ class InmoproLotTransferConfirmationsTest extends TestCase
             );
     }
 
-    public function test_authorized_user_can_update_transfer_notes(): void
+    public function test_authorized_user_can_update_lot_queue_notes(): void
     {
         $user = $this->createTransferManager();
-        $lot = $this->makeTransferredLot();
-        $transfer = $this->createTransferConfirmation($lot, LotTransferConfirmation::STATUS_PENDING, $user);
+        $lot = $this->makeReservedLot();
 
         $this->actingAs($user)
-            ->patch(route('inmopro.lot-transfer-confirmations.notes.update', $transfer), [
-                'notes' => 'Cliente envió voucher adicional',
+            ->patch(route('inmopro.lots.transfer-queue-notes.update', $lot), [
+                'notes' => 'Cliente solicita prorroga',
             ])
             ->assertRedirect();
 
-        $this->assertDatabaseHas('lot_transfer_confirmations', [
-            'id' => $transfer->id,
-            'notes' => 'Cliente envió voucher adicional',
+        $this->assertDatabaseHas('lots', [
+            'id' => $lot->id,
+            'notes' => 'Cliente solicita prorroga',
         ]);
     }
 
-    public function test_unauthorized_user_cannot_update_transfer_notes(): void
+    public function test_authorized_user_can_update_notes_for_installments_lot(): void
+    {
+        $user = $this->createTransferManager();
+        $lot = $this->makeReservedLot();
+        $lot->update(['lot_status_id' => $this->statusIds['CUOTAS']]);
+
+        $this->actingAs($user)
+            ->patch(route('inmopro.lots.transfer-queue-notes.update', $lot), [
+                'notes' => 'Seguimiento de cuotas',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('lots', [
+            'id' => $lot->id,
+            'notes' => 'Seguimiento de cuotas',
+        ]);
+    }
+
+    public function test_unauthorized_user_cannot_update_lot_queue_notes(): void
     {
         Permission::findOrCreate('inmopro.lot-transfer-confirmations.index', 'web');
 
         $user = $this->createTransferManager();
-        $lot = $this->makeTransferredLot();
-        $transfer = $this->createTransferConfirmation($lot, LotTransferConfirmation::STATUS_PENDING, $user);
+        $lot = $this->makeReservedLot();
 
         $unauthorizedUser = User::factory()->create();
         $unauthorizedUser->syncRoles([]);
 
         $this->actingAs($unauthorizedUser)
-            ->patch(route('inmopro.lot-transfer-confirmations.notes.update', $transfer), [
+            ->patch(route('inmopro.lots.transfer-queue-notes.update', $lot), [
                 'notes' => 'Intento no autorizado',
             ])
             ->assertForbidden();
+    }
+
+    public function test_authorized_user_can_export_transfer_queue_excel(): void
+    {
+        $user = $this->createTransferManager();
+        $this->makeReservedLot();
+
+        $this->actingAs($user)
+            ->get(route('inmopro.lot-transfer-confirmations.export-excel'))
+            ->assertOk()
+            ->assertDownload('transferencias_lotes.xlsx');
+    }
+
+    public function test_index_includes_installments_lots(): void
+    {
+        $user = $this->createTransferManager();
+        $lot = $this->makeReservedLot();
+        $lot->update([
+            'block' => 'CUOTASQ',
+            'number' => '01',
+            'lot_status_id' => $this->statusIds['CUOTAS'],
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('inmopro.lot-transfer-confirmations.index', [
+                'search' => 'CUOTASQ',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('inmopro/lot-transfer-confirmations/index')
+                ->where('lots.total', 1)
+                ->where('lots.data.0.id', $lot->id)
+                ->where('lots.data.0.status.code', 'CUOTAS'));
     }
 
     private function createTransferManager(): User

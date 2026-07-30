@@ -14,7 +14,8 @@ class EnsureInmoproRoutePermission
      * @var array<string, string>
      */
     private const ROUTE_PERMISSION_ALIASES = [
-        'inmopro.lot-transfer-confirmations.notes.update' => 'inmopro.lot-transfer-confirmations.index',
+        'inmopro.lot-transfer-confirmations.export-excel' => 'inmopro.lot-transfer-confirmations.index',
+        'inmopro.lots.transfer-queue-notes.update' => 'inmopro.lot-transfer-confirmations.index',
     ];
 
     /**

@@ -5,7 +5,7 @@ namespace App\Http\Requests\Inmopro;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdateLotTransferConfirmationNotesRequest extends FormRequest
+class UpdateLotTransferQueueNotesRequest extends FormRequest
 {
     public function authorize(): bool
     {
