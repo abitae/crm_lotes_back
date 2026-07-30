@@ -322,6 +322,36 @@ class InmoproLotTransferConfirmationsTest extends TestCase
             );
     }
 
+    public function test_index_lists_reserved_lots_before_transferred(): void
+    {
+        $user = $this->createTransferManager();
+
+        $reserved = $this->makeReservedLot();
+        $reserved->update([
+            'block' => 'STATUSORD',
+            'number' => '01',
+            'contract_date' => '2026-06-01',
+        ]);
+
+        $transferred = $this->makeTransferredLot(exceptIds: $reserved->id);
+        $transferred->update([
+            'block' => 'STATUSORD',
+            'number' => '02',
+            'contract_date' => '2026-01-01',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('inmopro.lot-transfer-confirmations.index', [
+                'search' => 'STATUSORD',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('inmopro/lot-transfer-confirmations/index')
+                ->where('lots.total', 2)
+                ->where('lots.data.0.id', $reserved->id)
+                ->where('lots.data.1.id', $transferred->id));
+    }
+
     public function test_authorized_user_can_update_lot_queue_notes(): void
     {
         $user = $this->createTransferManager();

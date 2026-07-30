@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
-import { formatDate, todayIsoDate, toIsoDate } from '@/lib/date';
+import { formatDate, calendarDateTimestamp, todayIsoDate, toIsoDate } from '@/lib/date';
 import { formatPen } from '@/lib/report-utils';
 import { showSuccessToast } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
@@ -95,6 +95,41 @@ function transferStatusBadgeClass(status?: string | null): string {
         default:
             return 'bg-slate-100 text-slate-700';
     }
+}
+
+const QUEUE_STATUS_ORDER: Record<string, number> = {
+    RESERVADO: 1,
+    CUOTAS: 2,
+    TRANSFERIDO: 3,
+};
+
+function compareQueueLots(a: LotRow, b: LotRow): number {
+    const statusRank = (lot: LotRow) => QUEUE_STATUS_ORDER[lot.status?.code ?? ''] ?? 9;
+    const dateRank = (value?: string | null) => {
+        const timestamp = calendarDateTimestamp(value);
+
+        return timestamp > 0 ? timestamp : Number.MAX_SAFE_INTEGER;
+    };
+
+    const statusDiff = statusRank(a) - statusRank(b);
+
+    if (statusDiff !== 0) {
+        return statusDiff;
+    }
+
+    const contractDiff = dateRank(a.contract_date) - dateRank(b.contract_date);
+
+    if (contractDiff !== 0) {
+        return contractDiff;
+    }
+
+    const paymentDiff = dateRank(a.payment_limit_date) - dateRank(b.payment_limit_date);
+
+    if (paymentDiff !== 0) {
+        return paymentDiff;
+    }
+
+    return a.id - b.id;
 }
 
 export default function LotTransferConfirmationsIndex({
@@ -189,6 +224,11 @@ export default function LotTransferConfirmationsIndex({
     }, [filters]);
 
     const exportHref = `/inmopro/lot-transfer-confirmations/export-excel${exportQueryString ? `?${exportQueryString}` : ''}`;
+
+    const sortedLots = useMemo(
+        () => [...lots.data].sort(compareQueueLots),
+        [lots.data],
+    );
 
     const submitFilters = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -512,21 +552,31 @@ export default function LotTransferConfirmationsIndex({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {lots.data.length === 0 ? (
+                                {sortedLots.length === 0 ? (
                                     <tr>
                                         <td colSpan={9} className="px-1.5 py-5 text-center text-[11px] text-slate-500">
                                             No se encontraron lotes para los filtros seleccionados.
                                         </td>
                                     </tr>
                                 ) : (
-                                    lots.data.map((lot) => {
+                                    sortedLots.map((lot, index) => {
                                         const transfer = lot.latest_transfer_confirmation;
                                         const canRegister = lot.status?.code === 'RESERVADO' && transfer?.status !== 'PENDIENTE';
                                         const isPending = transfer?.status === 'PENDIENTE';
                                         const paymentOverdue = isPaymentLimitOverdue(lot.payment_limit_date);
+                                        const previousStatus = sortedLots[index - 1]?.status?.code;
+                                        const currentStatus = lot.status?.code;
+                                        const showStatusDivider =
+                                            index > 0
+                                            && previousStatus
+                                            && currentStatus
+                                            && previousStatus !== currentStatus;
 
                                         return (
-                                            <tr key={lot.id} className="align-middle hover:bg-slate-50/60">
+                                            <tr
+                                                key={lot.id}
+                                                className={`align-middle hover:bg-slate-50/60 ${lot.status?.code === 'TRANSFERIDO' ? 'bg-slate-50/40' : ''} ${showStatusDivider ? 'border-t-2 border-slate-200' : ''}`}
+                                            >
                                                 <td className="px-1.5 py-1">
                                                     <div className="font-semibold text-slate-800">
                                                         {lot.block}-{lot.number}

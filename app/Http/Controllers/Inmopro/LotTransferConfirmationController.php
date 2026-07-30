@@ -54,7 +54,16 @@ class LotTransferConfirmationController extends Controller
             'advisors' => Advisor::query()->orderBy('name')->get(['id', 'name']),
             'lotStatuses' => LotStatus::query()
                 ->whereIn('code', self::QUEUE_STATUS_CODES)
-                ->orderBy('sort_order')
+                ->orderByRaw("CASE code
+                    WHEN ? THEN 1
+                    WHEN ? THEN 2
+                    WHEN ? THEN 3
+                    ELSE 4
+                END", [
+                    LotStatus::CODE_RESERVADO,
+                    LotStatus::CODE_CUOTAS,
+                    LotStatus::CODE_TRANSFERIDO,
+                ])
                 ->get(['id', 'name', 'code', 'color']),
         ]);
     }
@@ -211,6 +220,7 @@ class LotTransferConfirmationController extends Controller
         $pendingReview = $request->boolean('pending_review');
 
         return Lot::query()
+            ->select('lots.*')
             ->with([
                 'project',
                 'status',
@@ -249,6 +259,20 @@ class LotTransferConfirmationController extends Controller
                     $transferQuery->where('status', LotTransferConfirmation::STATUS_PENDING);
                 });
             })
+            ->orderByRaw('(
+                SELECT CASE code
+                    WHEN ? THEN 1
+                    WHEN ? THEN 2
+                    WHEN ? THEN 3
+                    ELSE 4
+                END
+                FROM lot_statuses
+                WHERE lot_statuses.id = lots.lot_status_id
+            )', [
+                LotStatus::CODE_RESERVADO,
+                LotStatus::CODE_CUOTAS,
+                LotStatus::CODE_TRANSFERIDO,
+            ])
             ->orderByRaw('contract_date IS NULL')
             ->orderBy('contract_date')
             ->orderByRaw('payment_limit_date IS NULL')
