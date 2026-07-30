@@ -68,6 +68,39 @@ class InmoproActiveFlagsTest extends TestCase
                 ->has('projects.data', 1));
     }
 
+    public function test_projects_index_lists_active_projects_before_inactive(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $typeId = ProjectType::query()->value('id');
+
+        $inactive = Project::query()->create([
+            'name' => 'AAA Inactivo',
+            'project_type_id' => $typeId,
+            'location' => 'Lima',
+            'total_lots' => 5,
+            'blocks' => ['A'],
+            'is_active' => false,
+        ]);
+
+        $active = Project::query()->create([
+            'name' => 'ZZZ Activo',
+            'project_type_id' => $typeId,
+            'location' => 'Lima',
+            'total_lots' => 10,
+            'blocks' => ['B'],
+            'is_active' => true,
+        ]);
+
+        $this->get(route('inmopro.projects.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('inmopro/projects/index')
+                ->where('projects.data.0.id', $active->id)
+                ->where('projects.data.1.id', $inactive->id));
+    }
+
     public function test_dashboard_chart_data_only_includes_active_projects(): void
     {
         $user = User::factory()->create();

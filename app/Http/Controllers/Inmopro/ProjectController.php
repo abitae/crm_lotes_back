@@ -85,6 +85,8 @@ class ProjectController extends Controller
             };
         }
 
+        $query->orderByDesc('is_active');
+
         match ((string) $request->input('order')) {
             'lots_desc' => $query->orderByDesc('lots_count')->orderBy('name'),
             'balance_desc' => $query->orderByDesc('receivable_balance')->orderBy('name'),

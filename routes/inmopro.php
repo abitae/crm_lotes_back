@@ -179,6 +179,7 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::post('lots/{lot}/transfer-confirmation', [LotTransferConfirmationController::class, 'store'])->name('lots.transfer-confirmation.store');
         Route::post('lot-transfer-confirmations/{lot_transfer_confirmation}/approve', [LotTransferConfirmationController::class, 'approve'])->name('lot-transfer-confirmations.approve');
         Route::post('lot-transfer-confirmations/{lot_transfer_confirmation}/reject', [LotTransferConfirmationController::class, 'reject'])->name('lot-transfer-confirmations.reject');
+        Route::patch('lot-transfer-confirmations/{lot_transfer_confirmation}/notes', [LotTransferConfirmationController::class, 'updateNotes'])->name('lot-transfer-confirmations.notes.update');
         Route::get('process-diagrams', ProcessDiagramsController::class)->name('process-diagrams.index');
         Route::get('agenda', [AgendaController::class, 'index'])->name('agenda.index');
         Route::post('advisor-agenda-events', [AdvisorAgendaEventController::class, 'store'])->name('advisor-agenda-events.store');

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Inmopro\ApproveLotTransferConfirmationRequest;
 use App\Http\Requests\Inmopro\RejectLotTransferConfirmationRequest;
 use App\Http\Requests\Inmopro\StoreLotTransferConfirmationRequest;
+use App\Http\Requests\Inmopro\UpdateLotTransferConfirmationNotesRequest;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
@@ -75,9 +76,11 @@ class LotTransferConfirmationController extends Controller
                     $transferQuery->where('status', LotTransferConfirmation::STATUS_PENDING);
                 });
             })
-            ->orderBy('project_id')
-            ->orderBy('block')
-            ->orderBy('number')
+            ->orderByRaw('contract_date IS NULL')
+            ->orderBy('contract_date')
+            ->orderByRaw('payment_limit_date IS NULL')
+            ->orderBy('payment_limit_date')
+            ->orderBy('id')
             ->paginate(15)
             ->withQueryString();
 
@@ -217,6 +220,17 @@ class LotTransferConfirmationController extends Controller
         });
 
         return redirect()->route('inmopro.lot-transfer-confirmations.index');
+    }
+
+    public function updateNotes(
+        UpdateLotTransferConfirmationNotesRequest $request,
+        LotTransferConfirmation $lot_transfer_confirmation,
+    ): RedirectResponse {
+        $lot_transfer_confirmation->update([
+            'notes' => $request->string('notes')->toString() ?: null,
+        ]);
+
+        return back();
     }
 
     private function canRegisterTransfer(Lot $lot): bool

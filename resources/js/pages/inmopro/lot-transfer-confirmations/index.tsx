@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Check, Eye, ImagePlus, Search, Upload, X } from 'lucide-react';
+import { Check, Eye, ImagePlus, MessageSquare, Search, Upload, X } from 'lucide-react';
 import type { ChangeEvent, CSSProperties, FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import InputError from '@/components/input-error';
@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
-import { formatDateTime } from '@/lib/date';
+import { formatDate, todayIsoDate, toIsoDate } from '@/lib/date';
 import { formatPen } from '@/lib/report-utils';
 import { showSuccessToast } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
@@ -31,6 +31,7 @@ type TransferConfirmation = {
     reviewed_at?: string | null;
     review_notes?: string | null;
     rejection_reason?: string | null;
+    notes?: string | null;
     requester?: { name: string } | null;
     reviewer?: { name: string } | null;
 } | null;
@@ -41,6 +42,8 @@ type LotRow = {
     price?: string | number | null;
     advance?: string | number | null;
     remaining_balance?: string | number | null;
+    contract_date?: string | null;
+    payment_limit_date?: string | null;
     status?: { name: string; code: string; color?: string | null } | null;
     project?: { name: string } | null;
     client?: { name: string; dni?: string | null; phone?: string | null } | null;
@@ -69,6 +72,29 @@ function formatLotMoney(value?: string | number | null): string {
     }
 
     return formatPen(Number(value));
+}
+
+function isPaymentLimitOverdue(value?: string | null): boolean {
+    const isoDate = toIsoDate(value);
+
+    if (!isoDate) {
+        return false;
+    }
+
+    return isoDate < todayIsoDate();
+}
+
+function transferStatusBadgeClass(status?: string | null): string {
+    switch (status) {
+        case 'PENDIENTE':
+            return 'bg-amber-100 text-amber-800';
+        case 'APROBADA':
+            return 'bg-emerald-100 text-emerald-800';
+        case 'RECHAZADA':
+            return 'bg-red-100 text-red-800';
+        default:
+            return 'bg-slate-100 text-slate-700';
+    }
 }
 
 export default function LotTransferConfirmationsIndex({
@@ -109,6 +135,7 @@ export default function LotTransferConfirmationsIndex({
     const [registerOpen, setRegisterOpen] = useState(false);
     const [approveOpen, setApproveOpen] = useState(false);
     const [rejectOpen, setRejectOpen] = useState(false);
+    const [notesOpen, setNotesOpen] = useState(false);
     const [registerPreview, setRegisterPreview] = useState<string | null>(null);
     const registerForm = useForm<{
         evidence_image: File | null;
@@ -120,6 +147,9 @@ export default function LotTransferConfirmationsIndex({
     });
     const rejectForm = useForm({
         rejection_reason: '',
+    });
+    const notesForm = useForm({
+        notes: '',
     });
 
     const selectedAdvisor = advisors.find(
@@ -270,6 +300,34 @@ export default function LotTransferConfirmationsIndex({
         });
     };
 
+    const openNotesDialog = (lot: LotRow, transfer: Exclude<TransferConfirmation, null>) => {
+        notesForm.reset();
+        notesForm.clearErrors();
+        notesForm.setData('notes', transfer.notes ?? '');
+        setSelectedLot(lot);
+        setSelectedTransfer(transfer);
+        setNotesOpen(true);
+    };
+
+    const submitNotes = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        if (!selectedTransfer) {
+            return;
+        }
+
+        notesForm.patch(`/inmopro/lot-transfer-confirmations/${selectedTransfer.id}/notes`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setNotesOpen(false);
+                setSelectedLot(null);
+                setSelectedTransfer(null);
+                notesForm.reset();
+                showSuccessToast('Anotaciones guardadas correctamente');
+            },
+        });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Transferencias - Inmopro" />
@@ -409,22 +467,24 @@ export default function LotTransferConfirmationsIndex({
 
                 <div className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm sm:rounded-3xl">
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[920px] text-xs">
+                        <table className="w-full min-w-[960px] text-[11px]">
                             <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wide text-slate-500">
                                 <tr>
-                                    <th className="px-2 py-2 text-left">Lote</th>
-                                    <th className="px-2 py-2 text-left">Cliente</th>
-                                    <th className="px-2 py-2 text-left">Asesor</th>
-                                    <th className="px-2 py-2 text-right">Montos</th>
-                                    <th className="px-2 py-2 text-left">Estado</th>
-                                    <th className="px-2 py-2 text-left">Revision</th>
-                                    <th className="px-2 py-2 text-right">Acciones</th>
+                                    <th className="px-1.5 py-1.5 text-left">Lote</th>
+                                    <th className="px-1.5 py-1.5 text-left">Cliente</th>
+                                    <th className="px-1.5 py-1.5 text-left">Asesor</th>
+                                    <th className="px-1.5 py-1.5 text-left">F. reserva</th>
+                                    <th className="px-1.5 py-1.5 text-left">F. límite</th>
+                                    <th className="px-1.5 py-1.5 text-right">Montos</th>
+                                    <th className="px-1.5 py-1.5 text-left">Estado</th>
+                                    <th className="px-1.5 py-1.5 text-left">Rev.</th>
+                                    <th className="px-1.5 py-1.5 text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {lots.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="px-2 py-6 text-center text-xs text-slate-500">
+                                        <td colSpan={9} className="px-1.5 py-5 text-center text-[11px] text-slate-500">
                                             No se encontraron lotes para los filtros seleccionados.
                                         </td>
                                     </tr>
@@ -433,96 +493,90 @@ export default function LotTransferConfirmationsIndex({
                                         const transfer = lot.latest_transfer_confirmation;
                                         const canRegister = lot.status?.code === 'RESERVADO' && transfer?.status !== 'PENDIENTE';
                                         const isPending = transfer?.status === 'PENDIENTE';
+                                        const paymentOverdue = isPaymentLimitOverdue(lot.payment_limit_date);
 
                                         return (
-                                            <tr key={lot.id} className="align-top hover:bg-slate-50/60">
-                                                <td className="px-2 py-1.5">
+                                            <tr key={lot.id} className="align-middle hover:bg-slate-50/60">
+                                                <td className="px-1.5 py-1">
                                                     <div className="font-semibold text-slate-800">
                                                         {lot.block}-{lot.number}
                                                     </div>
-                                                    <div className="truncate text-[10px] text-slate-500">
+                                                    <div className="max-w-[90px] truncate text-[10px] text-slate-500">
                                                         {lot.project?.name ?? '—'}
                                                     </div>
                                                 </td>
-                                                <td className="px-2 py-1.5">
-                                                    <div className="max-w-[140px] truncate font-medium text-slate-800">
-                                                        {lot.client?.name ?? 'Sin cliente'}
-                                                    </div>
-                                                    <div className="truncate text-[10px] text-slate-500">
-                                                        {[lot.client?.dni, lot.client?.phone].filter(Boolean).join(' · ') || '—'}
-                                                    </div>
+                                                <td className="max-w-[110px] truncate px-1.5 py-1 font-medium text-slate-800">
+                                                    {lot.client?.name ?? 'Sin cliente'}
                                                 </td>
-                                                <td className="max-w-[110px] truncate px-2 py-1.5 text-slate-700">
+                                                <td className="max-w-[90px] truncate px-1.5 py-1 text-slate-700">
                                                     {lot.advisor?.name ?? '—'}
                                                 </td>
-                                                <td className="px-2 py-1.5 text-right tabular-nums">
-                                                    <div className="text-slate-800">{formatLotMoney(lot.price)}</div>
-                                                    <div className="text-[10px] text-emerald-700">
-                                                        Sep. {formatLotMoney(lot.advance)}
-                                                    </div>
-                                                    <div className="text-[10px] text-slate-500">
-                                                        Rest. {formatLotMoney(lot.remaining_balance)}
-                                                    </div>
+                                                <td className="whitespace-nowrap px-1.5 py-1 tabular-nums text-slate-700">
+                                                    {formatDate(lot.contract_date)}
                                                 </td>
-                                                <td className="px-2 py-1.5">
+                                                <td className={`whitespace-nowrap px-1.5 py-1 tabular-nums ${paymentOverdue ? 'font-semibold text-red-600' : 'text-slate-700'}`}>
+                                                    {formatDate(lot.payment_limit_date)}
+                                                </td>
+                                                <td className="whitespace-nowrap px-1.5 py-1 text-right tabular-nums text-slate-800">
+                                                    {formatLotMoney(lot.price)}
+                                                    <span className="text-[10px] text-slate-500">
+                                                        {' · Rest. '}{formatLotMoney(lot.remaining_balance)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-1.5 py-1">
                                                     <span
-                                                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${lot.status?.color ? '' : 'bg-slate-100 text-slate-700'}`}
+                                                        className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-bold ${lot.status?.color ? '' : 'bg-slate-100 text-slate-700'}`}
                                                         style={lotStatusBadgeStyle(lot.status?.color)}
                                                     >
                                                         {lot.status?.name ?? '—'}
                                                     </span>
                                                 </td>
-                                                <td className="px-2 py-1.5">
+                                                <td className="px-1.5 py-1">
                                                     {transfer ? (
-                                                        <>
-                                                            <div className="font-medium text-slate-800">{transfer.status}</div>
-                                                            <div className="text-[10px] text-slate-500">
-                                                                {transfer.requester?.name ?? '—'}
-                                                            </div>
-                                                            {transfer.reviewer ? (
-                                                                <div className="text-[10px] text-slate-500">
-                                                                    {transfer.reviewer.name}
-                                                                </div>
-                                                            ) : null}
-                                                            <div className="text-[10px] text-slate-400">
-                                                                {formatDateTime(transfer.created_at)}
-                                                            </div>
-                                                            {transfer.rejection_reason ? (
-                                                                <div className="mt-0.5 text-[10px] text-red-600">{transfer.rejection_reason}</div>
-                                                            ) : null}
-                                                        </>
+                                                        <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-bold ${transferStatusBadgeClass(transfer.status)}`}>
+                                                            {transfer.status}
+                                                        </span>
                                                     ) : (
-                                                        <span className="text-[10px] text-slate-500">Sin registro</span>
+                                                        <span className="text-[10px] text-slate-400">—</span>
                                                     )}
                                                 </td>
-                                                <td className="px-2 py-1.5">
-                                                    <div className="flex flex-wrap justify-end gap-1">
+                                                <td className="px-1.5 py-1">
+                                                    <div className="flex flex-nowrap justify-end gap-0.5">
                                                         {transfer ? (
-                                                            <a
-                                                                href={`/storage/${transfer.evidence_path}`}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
-                                                                title="Ver evidencia"
-                                                            >
-                                                                <Eye className="h-3.5 w-3.5" />
-                                                            </a>
+                                                            <>
+                                                                <a
+                                                                    href={`/storage/${transfer.evidence_path}`}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
+                                                                    title="Ver evidencia"
+                                                                >
+                                                                    <Eye className="h-3 w-3" />
+                                                                </a>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="icon"
+                                                                    className={`h-6 w-6 ${transfer.notes ? 'border-amber-300 bg-amber-50 text-amber-700' : ''}`}
+                                                                    onClick={() => openNotesDialog(lot, transfer)}
+                                                                    title="Anotaciones"
+                                                                >
+                                                                    <MessageSquare className="h-3 w-3" />
+                                                                </Button>
+                                                            </>
                                                         ) : null}
                                                         {canRegister ? (
-                                                            <Button type="button" size="sm" className="h-7 px-2 text-xs" onClick={() => openRegisterDialog(lot)}>
-                                                                <Upload className="h-3.5 w-3.5" />
-                                                                <span className="hidden sm:inline">Registrar</span>
+                                                            <Button type="button" size="icon" variant="outline" className="h-6 w-6" onClick={() => openRegisterDialog(lot)} title="Registrar">
+                                                                <Upload className="h-3 w-3" />
                                                             </Button>
                                                         ) : null}
                                                         {isPending && transfer ? (
                                                             <>
-                                                                <Button type="button" size="sm" className="h-7 px-2 text-xs" onClick={() => openApproveDialog(transfer)}>
-                                                                    <Check className="h-3.5 w-3.5" />
-                                                                    <span className="hidden sm:inline">Aprobar</span>
+                                                                <Button type="button" size="icon" className="h-6 w-6" onClick={() => openApproveDialog(transfer)} title="Aprobar">
+                                                                    <Check className="h-3 w-3" />
                                                                 </Button>
-                                                                <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => openRejectDialog(transfer)}>
-                                                                    <X className="h-3.5 w-3.5" />
-                                                                    <span className="hidden sm:inline">Rechazar</span>
+                                                                <Button type="button" size="icon" variant="outline" className="h-6 w-6" onClick={() => openRejectDialog(transfer)} title="Rechazar">
+                                                                    <X className="h-3 w-3" />
                                                                 </Button>
                                                             </>
                                                         ) : null}
@@ -723,6 +777,59 @@ export default function LotTransferConfirmationsIndex({
                             </Button>
                         </DialogFooter>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={notesOpen} onOpenChange={(open) => {
+                setNotesOpen(open);
+
+                if (!open) {
+                    setSelectedLot(null);
+                    setSelectedTransfer(null);
+                    notesForm.reset();
+                    notesForm.clearErrors();
+                }
+            }}>
+                <DialogContent className="flex max-h-[min(90vh,28rem)] w-[calc(100vw-1.5rem)] flex-col gap-2 overflow-hidden p-3 sm:max-w-md">
+                    <DialogHeader className="shrink-0 gap-1">
+                        <DialogTitle className="text-base">Anotaciones</DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Registre observaciones operativas sobre esta transferencia.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {selectedLot && selectedTransfer ? (
+                        <form onSubmit={submitNotes} className="flex min-h-0 flex-1 flex-col gap-2">
+                            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                                    <p className="font-semibold text-slate-800">
+                                        {selectedLot.block}-{selectedLot.number}
+                                        <span className="font-normal text-slate-500">
+                                            {' · '}{selectedLot.project?.name ?? 'Sin proyecto'}
+                                        </span>
+                                    </p>
+                                    <p className="mt-0.5 truncate text-slate-500">
+                                        {selectedLot.client?.name ?? 'Sin cliente'}
+                                    </p>
+                                </div>
+                                <textarea
+                                    value={notesForm.data.notes}
+                                    onChange={(event) => notesForm.setData('notes', event.target.value)}
+                                    rows={4}
+                                    className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none"
+                                    placeholder="Escriba sus anotaciones aquí..."
+                                />
+                                <InputError message={notesForm.errors.notes} />
+                            </div>
+                            <DialogFooter className="shrink-0 gap-2 border-t border-slate-100 pt-2">
+                                <Button type="button" variant="outline" size="sm" onClick={() => setNotesOpen(false)}>
+                                    Cancelar
+                                </Button>
+                                <Button type="submit" size="sm" disabled={notesForm.processing}>
+                                    Guardar
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    ) : null}
                 </DialogContent>
             </Dialog>
         </AppLayout>

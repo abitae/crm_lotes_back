@@ -9,6 +9,15 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureInmoproRoutePermission
 {
     /**
+     * Routes that inherit authorization from another inmopro.* permission.
+     *
+     * @var array<string, string>
+     */
+    private const ROUTE_PERMISSION_ALIASES = [
+        'inmopro.lot-transfer-confirmations.notes.update' => 'inmopro.lot-transfer-confirmations.index',
+    ];
+
+    /**
      * Require the authenticated user to have a Spatie permission whose name
      * matches the current route name (inmopro.*), except access-control routes.
      *
@@ -27,7 +36,9 @@ class EnsureInmoproRoutePermission
             return $next($request);
         }
 
-        abort_unless($user && $user->can($name), 403);
+        $permission = self::ROUTE_PERMISSION_ALIASES[$name] ?? $name;
+
+        abort_unless($user && $user->can($permission), 403);
 
         return $next($request);
     }

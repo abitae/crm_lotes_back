@@ -74,7 +74,7 @@ class InmoproLotTransferConfirmationsTest extends TestCase
     {
         $user = $this->createTransferManager();
         $reservedLot = $this->makeReservedLot();
-        $transferredLot = $this->makeTransferredLot(exceptId: $reservedLot->id);
+        $transferredLot = $this->makeTransferredLot(exceptIds: $reservedLot->id);
         $transferredLot->update(['block' => 'STATUSFILTER']);
 
         $this->actingAs($user)
@@ -98,7 +98,7 @@ class InmoproLotTransferConfirmationsTest extends TestCase
     {
         $user = $this->createTransferManager();
         $pendingLot = $this->makeTransferredLot();
-        $approvedLot = $this->makeTransferredLot(exceptId: $pendingLot->id);
+        $approvedLot = $this->makeTransferredLot(exceptIds: $pendingLot->id);
 
         $this->createTransferConfirmation($pendingLot, LotTransferConfirmation::STATUS_PENDING, $user);
         $this->createTransferConfirmation($approvedLot, LotTransferConfirmation::STATUS_APPROVED, $user);
@@ -127,7 +127,7 @@ class InmoproLotTransferConfirmationsTest extends TestCase
 
         $matchingLot = $this->makeReservedLot(advisor: $advisorMatch);
         $matchingLot->update(['block' => 'ALPHAONLY']);
-        $this->makeReservedLot(exceptId: $matchingLot->id, advisor: $advisorOther);
+        $this->makeReservedLot(exceptIds: $matchingLot->id, advisor: $advisorOther);
 
         $this->actingAs($user)
             ->get(route('inmopro.lot-transfer-confirmations.index', [
@@ -279,6 +279,84 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         ]);
     }
 
+    public function test_index_orders_lots_by_oldest_contract_and_payment_limit_dates(): void
+    {
+        $user = $this->createTransferManager();
+
+        $oldest = $this->makeReservedLot();
+        $oldest->update([
+            'block' => 'SORT',
+            'number' => '01',
+            'contract_date' => '2026-01-10',
+            'payment_limit_date' => '2026-02-10',
+        ]);
+
+        $middle = $this->makeReservedLot(exceptIds: $oldest->id);
+        $middle->update([
+            'block' => 'SORT',
+            'number' => '02',
+            'contract_date' => '2026-02-10',
+            'payment_limit_date' => '2026-03-10',
+        ]);
+
+        $newest = $this->makeReservedLot(exceptIds: [$oldest->id, $middle->id]);
+        $newest->update([
+            'block' => 'SORT',
+            'number' => '03',
+            'contract_date' => '2026-03-10',
+            'payment_limit_date' => '2026-04-10',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('inmopro.lot-transfer-confirmations.index', [
+                'search' => 'SORT',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('inmopro/lot-transfer-confirmations/index')
+                ->where('lots.total', 3)
+                ->where('lots.data.0.id', $oldest->id)
+                ->where('lots.data.1.id', $middle->id)
+                ->where('lots.data.2.id', $newest->id)
+            );
+    }
+
+    public function test_authorized_user_can_update_transfer_notes(): void
+    {
+        $user = $this->createTransferManager();
+        $lot = $this->makeTransferredLot();
+        $transfer = $this->createTransferConfirmation($lot, LotTransferConfirmation::STATUS_PENDING, $user);
+
+        $this->actingAs($user)
+            ->patch(route('inmopro.lot-transfer-confirmations.notes.update', $transfer), [
+                'notes' => 'Cliente envió voucher adicional',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('lot_transfer_confirmations', [
+            'id' => $transfer->id,
+            'notes' => 'Cliente envió voucher adicional',
+        ]);
+    }
+
+    public function test_unauthorized_user_cannot_update_transfer_notes(): void
+    {
+        Permission::findOrCreate('inmopro.lot-transfer-confirmations.index', 'web');
+
+        $user = $this->createTransferManager();
+        $lot = $this->makeTransferredLot();
+        $transfer = $this->createTransferConfirmation($lot, LotTransferConfirmation::STATUS_PENDING, $user);
+
+        $unauthorizedUser = User::factory()->create();
+        $unauthorizedUser->syncRoles([]);
+
+        $this->actingAs($unauthorizedUser)
+            ->patch(route('inmopro.lot-transfer-confirmations.notes.update', $transfer), [
+                'notes' => 'Intento no autorizado',
+            ])
+            ->assertForbidden();
+    }
+
     private function createTransferManager(): User
     {
         $user = User::factory()->create();
@@ -303,10 +381,16 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         return $user;
     }
 
-    private function makeReservedLot(?int $exceptId = null, ?Advisor $advisor = null): Lot
+    private function makeReservedLot(array|int|null $exceptIds = null, ?Advisor $advisor = null): Lot
     {
+        $exceptIds = match (true) {
+            $exceptIds === null => [],
+            is_int($exceptIds) => [$exceptIds],
+            default => $exceptIds,
+        };
+
         $lot = Lot::query()
-            ->when($exceptId !== null, fn ($query) => $query->whereKeyNot($exceptId))
+            ->when($exceptIds !== [], fn ($query) => $query->whereNotIn('id', $exceptIds))
             ->firstOrFail();
         $client = Client::query()->firstOrFail();
         $advisor ??= Advisor::query()->firstOrFail();
@@ -324,9 +408,9 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         return $lot->fresh();
     }
 
-    private function makeTransferredLot(?int $exceptId = null, ?Advisor $advisor = null): Lot
+    private function makeTransferredLot(array|int|null $exceptIds = null, ?Advisor $advisor = null): Lot
     {
-        $lot = $this->makeReservedLot($exceptId, $advisor);
+        $lot = $this->makeReservedLot($exceptIds, $advisor);
 
         $lot->update([
             'lot_status_id' => $this->statusIds['TRANSFERIDO'],

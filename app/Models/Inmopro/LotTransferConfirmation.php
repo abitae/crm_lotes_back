@@ -25,6 +25,7 @@ class LotTransferConfirmation extends Model
         'reviewed_by',
         'reviewed_at',
         'review_notes',
+        'notes',
         'rejection_reason',
     ];
 
