@@ -38,7 +38,11 @@ class ProjectController extends Controller
             'assets as images_count' => fn ($query) => $query->where('kind', 'image')->where('is_active', true),
             'assets as documents_count' => fn ($query) => $query->where('kind', 'document')->where('is_active', true),
         ]);
-        $project->load(['assets' => fn ($query) => $query->where('is_active', true)->orderBy('sort_order')->orderBy('id')]);
+        $project->load(['assets' => fn ($query) => $query
+            ->where('is_active', true)
+            ->where('kind', '!=', ProjectAsset::KIND_PANORAMA)
+            ->orderBy('sort_order')
+            ->orderBy('id')]);
 
         return response()->json([
             'data' => $this->projectPayload($project, true),
@@ -47,7 +51,12 @@ class ProjectController extends Controller
 
     public function downloadAsset(Request $request, Project $project, ProjectAsset $asset): StreamedResponse
     {
-        abort_unless($asset->project_id === $project->id && $asset->is_active, 404);
+        abort_unless(
+            $asset->project_id === $project->id
+            && $asset->is_active
+            && $asset->kind !== ProjectAsset::KIND_PANORAMA,
+            404,
+        );
 
         return FileStorage::filesystem()->download($asset->file_path, $asset->file_name);
     }

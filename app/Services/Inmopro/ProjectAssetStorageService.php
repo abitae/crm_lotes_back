@@ -36,6 +36,7 @@ class ProjectAssetStorageService
         $prefix = match ($kind) {
             'document' => 'document',
             'video' => 'video',
+            ProjectAsset::KIND_PANORAMA => 'panorama',
             default => 'image',
         };
         $digits = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);

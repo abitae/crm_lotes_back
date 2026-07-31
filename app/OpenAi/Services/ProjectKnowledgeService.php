@@ -39,7 +39,11 @@ class ProjectKnowledgeService
                 'assets as images_count' => fn ($query) => $query->where('kind', 'image')->where('is_active', true),
                 'assets as documents_count' => fn ($query) => $query->where('kind', 'document')->where('is_active', true),
             ])
-            ->with(['assets' => fn ($query) => $query->where('is_active', true)->orderBy('sort_order')->orderBy('id')])
+            ->with(['assets' => fn ($query) => $query
+                ->where('is_active', true)
+                ->where('kind', '!=', ProjectAsset::KIND_PANORAMA)
+                ->orderBy('sort_order')
+                ->orderBy('id')])
             ->find($projectId);
 
         abort_if($project === null, 404);

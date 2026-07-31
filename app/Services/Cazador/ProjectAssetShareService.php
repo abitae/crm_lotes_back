@@ -32,6 +32,7 @@ class ProjectAssetShareService
         return ProjectAsset::query()
             ->where('project_id', $project->id)
             ->where('is_active', true)
+            ->where('kind', '!=', ProjectAsset::KIND_PANORAMA)
             ->whereIn('id', $uniqueIds)
             ->get();
     }

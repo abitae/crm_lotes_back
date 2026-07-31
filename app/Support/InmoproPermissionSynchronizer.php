@@ -9,6 +9,11 @@ use Spatie\Permission\PermissionRegistrar;
 
 final class InmoproPermissionSynchronizer
 {
+    /** @var list<string> */
+    private const EXTRA_PERMISSION_NAMES = [
+        'inmopro.project-360.manage',
+    ];
+
     /**
      * Assign every permission on guard "web" to the "super-admin" role.
      *
@@ -40,6 +45,11 @@ final class InmoproPermissionSynchronizer
             }
 
             Permission::findOrCreate($name, 'web');
+            $processed++;
+        }
+
+        foreach (self::EXTRA_PERMISSION_NAMES as $permissionName) {
+            Permission::findOrCreate($permissionName, 'web');
             $processed++;
         }
 

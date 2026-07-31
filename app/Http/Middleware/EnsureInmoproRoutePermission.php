@@ -16,6 +16,16 @@ class EnsureInmoproRoutePermission
     private const ROUTE_PERMISSION_ALIASES = [
         'inmopro.lot-transfer-confirmations.export-excel' => 'inmopro.lot-transfer-confirmations.index',
         'inmopro.lots.transfer-queue-notes.update' => 'inmopro.lot-transfer-confirmations.index',
+        'inmopro.project-360.show' => 'inmopro.project-360.index',
+        'inmopro.project-360.panoramas.store' => 'inmopro.project-360.manage',
+        'inmopro.project-360.panoramas.update' => 'inmopro.project-360.manage',
+        'inmopro.project-360.start-panorama.update' => 'inmopro.project-360.manage',
+        'inmopro.project-360.panoramas.destroy' => 'inmopro.project-360.manage',
+        'inmopro.project-360.hotspots.store' => 'inmopro.project-360.manage',
+        'inmopro.project-360.hotspots.update' => 'inmopro.project-360.manage',
+        'inmopro.project-360.hotspots.destroy' => 'inmopro.project-360.manage',
+        'inmopro.project-360.share-links.store' => 'inmopro.project-360.manage',
+        'inmopro.project-360.share-links.revoke' => 'inmopro.project-360.manage',
     ];
 
     /**

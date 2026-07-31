@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProjectAsset extends Model
 {
+    public const KIND_PANORAMA = 'panorama';
+
     public static function storageDisk(): string
     {
         return FileStorage::disk();

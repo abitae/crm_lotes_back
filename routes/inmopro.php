@@ -31,6 +31,10 @@ use App\Http\Controllers\Inmopro\LotTransferConfirmationController;
 use App\Http\Controllers\Inmopro\MembershipTypeController;
 use App\Http\Controllers\Inmopro\OpenAiCazadorConfigController;
 use App\Http\Controllers\Inmopro\ProcessDiagramsController;
+use App\Http\Controllers\Inmopro\Project360Controller;
+use App\Http\Controllers\Inmopro\Project360HotspotController;
+use App\Http\Controllers\Inmopro\Project360PanoramaController;
+use App\Http\Controllers\Inmopro\Project360ShareLinkController;
 use App\Http\Controllers\Inmopro\ProjectController;
 use App\Http\Controllers\Inmopro\ProjectTypeController;
 use App\Http\Controllers\Inmopro\ReportController;
@@ -72,6 +76,19 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::patch('projects/{project}/toggle-active', [ProjectController::class, 'toggleActive'])->name('projects.toggle-active');
         Route::put('projects/{project}/lots/bulk-update', [ProjectController::class, 'bulkUpdateLots'])->name('projects.lots.bulk-update');
         Route::resource('projects', ProjectController::class);
+        Route::prefix('project-360')->name('project-360.')->group(function (): void {
+            Route::get('/', [Project360Controller::class, 'index'])->name('index');
+            Route::get('{project}', [Project360Controller::class, 'show'])->name('show');
+            Route::post('{project}/panoramas', [Project360PanoramaController::class, 'store'])->name('panoramas.store');
+            Route::patch('{project}/panoramas/{panorama}', [Project360PanoramaController::class, 'update'])->name('panoramas.update');
+            Route::put('{project}/start-panorama', [Project360PanoramaController::class, 'setStart'])->name('start-panorama.update');
+            Route::delete('{project}/panoramas/{panorama}', [Project360PanoramaController::class, 'destroy'])->name('panoramas.destroy');
+            Route::post('{project}/hotspots', [Project360HotspotController::class, 'store'])->name('hotspots.store');
+            Route::put('{project}/hotspots/{hotspot}', [Project360HotspotController::class, 'update'])->name('hotspots.update');
+            Route::delete('{project}/hotspots/{hotspot}', [Project360HotspotController::class, 'destroy'])->name('hotspots.destroy');
+            Route::post('{project}/share-links', [Project360ShareLinkController::class, 'store'])->name('share-links.store');
+            Route::patch('{project}/share-links/{shareLink}/revoke', [Project360ShareLinkController::class, 'revoke'])->name('share-links.revoke');
+        });
         Route::resource('project-types', ProjectTypeController::class)
             ->except(['create', 'edit', 'show'])
             ->parameters(['project-types' => 'project_type']);

@@ -99,6 +99,15 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('datero-public-qr', function (Request $request) {
             return Limit::perMinute(60)->by($request->ip());
         });
+
+        RateLimiter::for('project-360-public', function (Request $request) {
+            $shareLink = $request->route('shareLink');
+            $shareLinkId = is_object($shareLink) && isset($shareLink->id)
+                ? (string) $shareLink->id
+                : (string) $shareLink;
+
+            return Limit::perMinute(120)->by($request->ip().':'.$shareLinkId);
+        });
     }
 
     /**

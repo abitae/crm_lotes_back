@@ -115,6 +115,34 @@ class CazadorCatalogTest extends TestCase
         $this->assertStringContainsString('attachment', (string) $response->headers->get('Content-Disposition'));
     }
 
+    public function test_panorama_assets_are_not_exposed_in_legacy_catalog_payloads(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $project = Project::query()->firstOrFail();
+        $panorama = ProjectAsset::query()->create([
+            'project_id' => $project->id,
+            'kind' => ProjectAsset::KIND_PANORAMA,
+            'title' => 'Vista 360',
+            'file_name' => 'vista.jpg',
+            'file_path' => "projects/{$project->id}/panoramas/vista.jpg",
+            'mime_type' => 'image/jpeg',
+            'file_size' => 1000,
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
+            ->getJson(route('api.v1.cazador.projects.show', $project))
+            ->assertOk();
+
+        $this->assertNotContains($panorama->id, collect($response->json('data.assets'))->pluck('id')->all());
+        $this->assertNotContains($panorama->id, collect($response->json('data.images'))->pluck('id')->all());
+
+        $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
+            ->get(route('api.v1.cazador.projects.assets.download', [$project, $panorama]))
+            ->assertNotFound();
+    }
+
     public function test_advisor_can_list_lots_available_by_default(): void
     {
         $advisor = Advisor::firstOrFail();

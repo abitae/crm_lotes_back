@@ -109,6 +109,32 @@ class WebCatalogTest extends TestCase
         );
     }
 
+    public function test_panorama_assets_are_not_counted_as_regular_catalog_images(): void
+    {
+        $project = Project::query()
+            ->visibleOnWeb()
+            ->where('tipo_web', self::DEFAULT_TIPO_WEB)
+            ->firstOrFail();
+        $panorama = ProjectAsset::query()->create([
+            'project_id' => $project->id,
+            'kind' => ProjectAsset::KIND_PANORAMA,
+            'title' => 'Vista 360',
+            'file_name' => 'vista.jpg',
+            'file_path' => "projects/{$project->id}/panoramas/vista.jpg",
+            'mime_type' => 'image/jpeg',
+            'file_size' => 1000,
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $response = $this->getJson(route('api.v1.web.projects.show', $project))
+            ->assertOk();
+
+        $this->assertNotContains($panorama->id, collect($response->json('data.images'))->pluck('id')->all());
+        $this->get(route('api.v1.web.projects.assets.show', [$project, $panorama]))
+            ->assertNotFound();
+    }
+
     public function test_projects_catalog_supports_pagination(): void
     {
         $response = $this->getJson(route('api.v1.web.projects.index', $this->indexQuery([

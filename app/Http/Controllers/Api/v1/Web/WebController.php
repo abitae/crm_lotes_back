@@ -80,7 +80,12 @@ class WebController extends Controller
     public function asset(Project $project, ProjectAsset $asset): RedirectResponse|StreamedResponse
     {
         $this->abortUnlessVisibleOnWeb($project);
-        abort_unless($asset->project_id === $project->id && $asset->is_active, 404);
+        abort_unless(
+            $asset->project_id === $project->id
+            && $asset->is_active
+            && $asset->kind !== ProjectAsset::KIND_PANORAMA,
+            404,
+        );
 
         if (! FileStorage::exists($asset->file_path)) {
             abort(404);
@@ -111,7 +116,11 @@ class WebController extends Controller
             ->visibleOnWeb()
             ->where('tipo_web', $tipoWeb)
             ->with(['projectType', 'city'])
-            ->with(['assets' => fn ($q) => $q->where('is_active', true)->orderBy('sort_order')->orderBy('id')])
+            ->with(['assets' => fn ($q) => $q
+                ->where('is_active', true)
+                ->where('kind', '!=', ProjectAsset::KIND_PANORAMA)
+                ->orderBy('sort_order')
+                ->orderBy('id')])
             ->withCount('lots')
             ->withCount([
                 'lots as free_lots_count' => fn (Builder $b) => $b->whereHas(
@@ -179,7 +188,11 @@ class WebController extends Controller
     private function loadProjectRelationsForPayload(Project $project): void
     {
         $project->load(['projectType', 'city']);
-        $project->load(['assets' => fn ($q) => $q->where('is_active', true)->orderBy('sort_order')->orderBy('id')]);
+        $project->load(['assets' => fn ($q) => $q
+            ->where('is_active', true)
+            ->where('kind', '!=', ProjectAsset::KIND_PANORAMA)
+            ->orderBy('sort_order')
+            ->orderBy('id')]);
         $project->loadCount('lots');
         $project->loadCount([
             'lots as free_lots_count' => fn (Builder $b) => $b->whereHas(
@@ -194,10 +207,11 @@ class WebController extends Controller
      */
     private function applyImageAssetScope(Builder $query): void
     {
-        $query->where(function (Builder $inner): void {
-            $inner->where('kind', 'image')
-                ->orWhere('mime_type', 'like', 'image/%');
-        });
+        $query->where('kind', '!=', ProjectAsset::KIND_PANORAMA)
+            ->where(function (Builder $inner): void {
+                $inner->where('kind', 'image')
+                    ->orWhere('mime_type', 'like', 'image/%');
+            });
     }
 
     /**
@@ -255,7 +269,8 @@ class WebController extends Controller
 
         $assetsQuery = ProjectAsset::query()
             ->whereIn('project_id', $visibleProjectIds)
-            ->where('is_active', true);
+            ->where('is_active', true)
+            ->where('kind', '!=', ProjectAsset::KIND_PANORAMA);
 
         $imagesTotal = (clone $assetsQuery)
             ->where(function (Builder $q): void {
@@ -341,6 +356,10 @@ class WebController extends Controller
 
     private function assetIsImage(ProjectAsset $asset): bool
     {
+        if ($asset->kind === ProjectAsset::KIND_PANORAMA) {
+            return false;
+        }
+
         if ($asset->kind === 'image') {
             return true;
         }

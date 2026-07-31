@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Project extends Model
 {
@@ -89,5 +90,15 @@ class Project extends Model
     public function documents(): HasMany
     {
         return $this->assets()->where('kind', 'document');
+    }
+
+    public function panoramas(): HasMany
+    {
+        return $this->assets()->where('kind', ProjectAsset::KIND_PANORAMA);
+    }
+
+    public function tour360(): HasOne
+    {
+        return $this->hasOne(Project360Tour::class);
     }
 }

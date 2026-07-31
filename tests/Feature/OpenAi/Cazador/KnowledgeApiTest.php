@@ -6,6 +6,7 @@ use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
+use App\Models\Inmopro\ProjectAsset;
 use Database\Seeders\Inmopro\AdvisorLevelSeeder;
 use Database\Seeders\Inmopro\AdvisorSeeder;
 use Database\Seeders\Inmopro\CitySeeder;
@@ -75,6 +76,30 @@ class KnowledgeApiTest extends TestCase
         $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
             ->getJson(route('api.v1.cazador.openai.knowledge.projects.show', $project))
             ->assertNotFound();
+    }
+
+    public function test_knowledge_project_detail_excludes_panorama_assets(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $project = Project::query()->where('is_active', true)->firstOrFail();
+        $panorama = ProjectAsset::query()->create([
+            'project_id' => $project->id,
+            'kind' => ProjectAsset::KIND_PANORAMA,
+            'title' => 'Vista 360',
+            'file_name' => 'vista.jpg',
+            'file_path' => "projects/{$project->id}/panoramas/vista.jpg",
+            'mime_type' => 'image/jpeg',
+            'file_size' => 1000,
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
+            ->getJson(route('api.v1.cazador.openai.knowledge.projects.show', $project))
+            ->assertOk();
+
+        $this->assertNotContains($panorama->id, collect($response->json('data.assets'))->pluck('id')->all());
+        $this->assertNotContains($panorama->id, collect($response->json('data.images'))->pluck('id')->all());
     }
 
     public function test_knowledge_lots_do_not_expose_client_or_advisor(): void
