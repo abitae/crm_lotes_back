@@ -2,7 +2,6 @@ const NON_INTERACTIVE_TARGET = '.tour-noninteractive';
 
 export type Project360RaycastTargets = {
     pointer: string;
-    cameraCursor: string;
 };
 
 export type Project360HotspotLabelLayout = {
@@ -47,8 +46,5 @@ export function project360RaycastTargets(
           ? NON_INTERACTIVE_TARGET
           : '.tour-hotspot-hit-area, .tour-polygon';
 
-    return {
-        pointer,
-        cameraCursor: placementMode ? NON_INTERACTIVE_TARGET : pointer,
-    };
+    return { pointer };
 }

@@ -33,6 +33,7 @@ import {
 import type {
     Project360Hotspot,
     Project360HotspotStyle,
+    Project360Label,
     Project360Panorama,
     Project360Polygon,
     Project360TourSettings,
@@ -45,6 +46,7 @@ export type Project360ViewerHandle = {
 type Project360ViewerProps = {
     panoramas: Project360Panorama[];
     hotspots: Project360Hotspot[];
+    labels: Project360Label[];
     polygons: Project360Polygon[];
     settings: Project360TourSettings;
     startPanoramaId: number | null;
@@ -52,6 +54,8 @@ type Project360ViewerProps = {
     draftPoint?: Project360Angles | null;
     draftStyle?: Project360HotspotStyle;
     editingHotspotId?: number | null;
+    editingLabelId?: number | null;
+    draftLabel?: Project360Label | null;
     polygonDraft?: Project360Angles[];
     polygonPreview?: Project360Polygon | null;
     polygonDrawing?: boolean;
@@ -233,6 +237,7 @@ function HotspotMarker({
                     className="tour-hotspot-label"
                     data-visibility={style.label_visibility}
                     position={`0 ${labelLayout.positionY} 0.025`}
+                    tour-billboard=""
                     visible={labelVisible ? 'true' : 'false'}
                     animation__labelin={
                         reducedMotion
@@ -278,6 +283,53 @@ function HotspotMarker({
                         width={labelLayout.textWidth}
                     />
                 </a-entity>
+            </a-entity>
+        </a-entity>
+    );
+}
+
+function StandaloneLabelEntity({
+    label,
+    draft = false,
+    reducedMotion = false,
+}: {
+    label: Project360Label;
+    draft?: boolean;
+    reducedMotion?: boolean;
+}) {
+    const layout = project360HotspotLabelLayout(label.text, 0.16);
+
+    return (
+        <a-entity
+            position={pointPosition(label.yaw, label.pitch, 3.9)}
+            scale={`${label.size} ${label.size} ${label.size}`}
+            tour-billboard=""
+        >
+            <a-entity
+                animation__appear={
+                    reducedMotion || draft
+                        ? undefined
+                        : 'property: scale; from: 0.55 0.55 0.55; to: 1 1 1; dur: 420; easing: easeOutBack'
+                }
+            >
+                <a-plane
+                    width={layout.width + 0.08}
+                    height={layout.height + 0.08}
+                    position="0 -0.025 -0.012"
+                    material={`color: ${label.color}; shader: flat; opacity: ${draft ? 0.62 : 0.92}; transparent: true; depthTest: false; depthWrite: false`}
+                />
+                <a-plane
+                    width={layout.width}
+                    height={layout.height}
+                    material={`color: #020617; shader: flat; opacity: ${draft ? 0.72 : 0.94}; transparent: true; depthTest: false; depthWrite: false`}
+                />
+                <a-text
+                    value={layout.displayLabel}
+                    align="center"
+                    color={label.color}
+                    position="0 0 0.018"
+                    width={layout.textWidth}
+                />
             </a-entity>
         </a-entity>
     );
@@ -330,6 +382,7 @@ const Project360ViewerBase = forwardRef<
     {
         panoramas,
         hotspots,
+        labels,
         polygons,
         settings,
         startPanoramaId,
@@ -337,6 +390,8 @@ const Project360ViewerBase = forwardRef<
         draftPoint = null,
         draftStyle,
         editingHotspotId = null,
+        editingLabelId = null,
+        draftLabel = null,
         polygonDraft = [],
         polygonPreview = null,
         polygonDrawing = false,
@@ -447,6 +502,15 @@ const Project360ViewerBase = forwardRef<
                     hotspot.id !== editingHotspotId,
             ),
         [editingHotspotId, hotspots, resolvedActivePanoramaId],
+    );
+    const activeLabels = useMemo(
+        () =>
+            labels.filter(
+                (label) =>
+                    label.source_panorama_id === resolvedActivePanoramaId &&
+                    label.id !== editingLabelId,
+            ),
+        [editingLabelId, labels, resolvedActivePanoramaId],
     );
     const activePolygons = useMemo(
         () =>
@@ -764,6 +828,20 @@ const Project360ViewerBase = forwardRef<
                             reducedMotion={reducedMotion}
                         />
                     ))}
+                    {activeLabels.map((label) => (
+                        <StandaloneLabelEntity
+                            key={label.id}
+                            label={label}
+                            reducedMotion={reducedMotion}
+                        />
+                    ))}
+                    {draftLabel ? (
+                        <StandaloneLabelEntity
+                            draft
+                            label={draftLabel}
+                            reducedMotion
+                        />
+                    ) : null}
                     {draftPoint ? (
                         <HotspotMarker
                             draft
@@ -786,13 +864,7 @@ const Project360ViewerBase = forwardRef<
                         look-controls="pointerLockEnabled: false; magicWindowTrackingEnabled: true"
                         tour-initial-orientation={`yaw: ${activePanorama.initial_yaw}; pitch: ${activePanorama.initial_pitch}`}
                         wasd-controls="enabled: false"
-                    >
-                        <a-cursor
-                            fuse="false"
-                            raycaster={`objects: ${raycastTargets.cameraCursor}`}
-                            color={settings.accent_color}
-                        />
-                    </a-camera>
+                    />
                     <a-entity
                         laser-controls="hand: right"
                         raycaster={`objects: ${raycastTargets.pointer}`}

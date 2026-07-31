@@ -45,6 +45,7 @@ export default function PublicProject360Show({
                     <Project360Viewer
                         panoramas={tour.panoramas}
                         hotspots={tour.hotspots}
+                        labels={tour.labels}
                         polygons={tour.polygons}
                         settings={tour.settings}
                         startPanoramaId={tour.start_panorama_id}

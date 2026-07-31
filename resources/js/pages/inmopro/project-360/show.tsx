@@ -34,6 +34,7 @@ import {
 import { confirmDelete } from '@/lib/swal';
 import project360 from '@/routes/inmopro/project-360';
 import hotspotRoutes from '@/routes/inmopro/project-360/hotspots';
+import labelRoutes from '@/routes/inmopro/project-360/labels';
 import panoramaRoutes from '@/routes/inmopro/project-360/panoramas';
 import polygonRoutes from '@/routes/inmopro/project-360/polygons';
 import sceneSettingsRoutes from '@/routes/inmopro/project-360/scene-settings';
@@ -43,6 +44,7 @@ import startPanoramaRoutes from '@/routes/inmopro/project-360/start-panorama';
 import type { BreadcrumbItem } from '@/types';
 import type {
     Project360Hotspot,
+    Project360Label,
     Project360HotspotShape,
     Project360LabelVisibility,
     Project360LotOption,
@@ -93,21 +95,38 @@ type PolygonDraft = {
     opacity: number;
 };
 
+type LabelDraft = {
+    text: string;
+    yaw: number;
+    pitch: number;
+    color: string;
+    size: number;
+};
+
 type PolygonDrawingState = 'idle' | 'drawing' | 'closed';
 type PolygonDraftTarget = 'create' | number | null;
 
 type PlacementMode =
     | { type: 'create-hotspot' }
     | { type: 'reposition-hotspot'; hotspotId: number }
+    | { type: 'create-label' }
+    | { type: 'reposition-label'; labelId: number }
     | { type: 'draw-polygon' }
     | { type: 'redraw-polygon'; polygonId: number }
     | null;
 
-type EditorTab = 'panoramas' | 'hotspots' | 'polygons' | 'appearance' | 'share';
+type EditorTab =
+    | 'panoramas'
+    | 'hotspots'
+    | 'labels'
+    | 'polygons'
+    | 'appearance'
+    | 'share';
 
 const editorTabs: { id: EditorTab; label: string }[] = [
     { id: 'panoramas', label: 'Panoramas' },
     { id: 'hotspots', label: 'Hotspots' },
+    { id: 'labels', label: 'Etiquetas' },
     { id: 'polygons', label: 'Polígonos' },
     { id: 'appearance', label: 'Apariencia' },
     { id: 'share', label: 'Compartir' },
@@ -147,6 +166,16 @@ function polygonDraft(polygon: Project360Polygon): PolygonDraft {
     };
 }
 
+function labelDraft(label: Project360Label): LabelDraft {
+    return {
+        text: label.text,
+        yaw: label.yaw,
+        pitch: label.pitch,
+        color: label.color,
+        size: label.size,
+    };
+}
+
 export default function Project360Show({
     project,
     tour,
@@ -171,12 +200,15 @@ export default function Project360Show({
         string | null
     >(null);
     const [createPointSelected, setCreatePointSelected] = useState(false);
+    const [createLabelPointSelected, setCreateLabelPointSelected] =
+        useState(false);
     const [selectedHotspotId, setSelectedHotspotId] = useState<number | null>(
         null,
     );
     const [selectedPolygonId, setSelectedPolygonId] = useState<number | null>(
         null,
     );
+    const [selectedLabelId, setSelectedLabelId] = useState<number | null>(null);
     const [panoramaTitles, setPanoramaTitles] = useState(
         Object.fromEntries(
             tour.panoramas.map((panorama) => [panorama.id, panorama.title]),
@@ -194,6 +226,11 @@ export default function Project360Show({
     >(
         Object.fromEntries(
             tour.polygons.map((polygon) => [polygon.id, polygonDraft(polygon)]),
+        ),
+    );
+    const [labelDrafts, setLabelDrafts] = useState<Record<number, LabelDraft>>(
+        Object.fromEntries(
+            tour.labels.map((label) => [label.id, labelDraft(label)]),
         ),
     );
     const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
@@ -222,6 +259,14 @@ export default function Project360Show({
         label_visibility: null,
         pulse_enabled: null,
     });
+    const labelForm = useForm<LabelDraft & { source_panorama_id: number }>({
+        source_panorama_id: initialPanoramaId ?? 0,
+        text: '',
+        yaw: 0,
+        pitch: 0,
+        color: tour.settings.hotspot_text_color,
+        size: 1,
+    });
     const polygonForm = useForm<PolygonDraft & { source_panorama_id: number }>({
         source_panorama_id: initialPanoramaId ?? 0,
         lot_id: null,
@@ -246,6 +291,9 @@ export default function Project360Show({
     const currentPolygons = tour.polygons.filter(
         (polygon) => polygon.source_panorama_id === currentPanoramaId,
     );
+    const currentLabels = tour.labels.filter(
+        (label) => label.source_panorama_id === currentPanoramaId,
+    );
     const selectedHotspot = tour.hotspots.find(
         (hotspot) => hotspot.id === selectedHotspotId,
     );
@@ -257,6 +305,22 @@ export default function Project360Show({
     );
     const selectedPolygonDraft = selectedPolygon
         ? polygonDrafts[selectedPolygon.id]
+        : null;
+    const selectedLabel = tour.labels.find(
+        (label) => label.id === selectedLabelId,
+    );
+    const selectedLabelDraft = selectedLabel
+        ? labelDrafts[selectedLabel.id]
+        : null;
+    const activeLabelDraft =
+        selectedLabelDraft ??
+        (createLabelPointSelected ? labelForm.data : null);
+    const previewLabel: Project360Label | null = activeLabelDraft
+        ? {
+              id: -2,
+              source_panorama_id: currentPanoramaId ?? 0,
+              ...activeLabelDraft,
+          }
         : null;
 
     const previewPoint = useMemo(() => {
@@ -361,12 +425,14 @@ export default function Project360Show({
         }
         setActivePanoramaId(panoramaId);
         setSelectedHotspotId(null);
+        setSelectedLabelId(null);
         setSelectedPolygonId(null);
         setPlacementMode(null);
         setPolygonDrawingState('idle');
         setPolygonDraftTarget(null);
         setPolygonDrawingError(null);
         setCreatePointSelected(false);
+        setCreateLabelPointSelected(false);
         const panorama = tour.panoramas.find((item) => item.id === panoramaId);
         const alternative = tour.panoramas.find(
             (item) => item.id !== panoramaId,
@@ -388,6 +454,7 @@ export default function Project360Show({
                     : current.target_panorama_id,
         }));
         polygonForm.setData('source_panorama_id', panoramaId);
+        labelForm.setData('source_panorama_id', panoramaId);
     };
 
     const handlePlacement = (point: Project360PolygonVertex) => {
@@ -401,6 +468,21 @@ export default function Project360Show({
         if (placementMode?.type === 'create-hotspot') {
             hotspotForm.setData((current) => ({ ...current, ...point }));
             setCreatePointSelected(true);
+            setPlacementMode(null);
+
+            return;
+        }
+
+        if (placementMode?.type === 'reposition-label') {
+            updateLabelDraft(placementMode.labelId, point);
+            setPlacementMode(null);
+
+            return;
+        }
+
+        if (placementMode?.type === 'create-label') {
+            labelForm.setData((current) => ({ ...current, ...point }));
+            setCreateLabelPointSelected(true);
             setPlacementMode(null);
 
             return;
@@ -491,6 +573,7 @@ export default function Project360Show({
     const startPolygonDrawing = () => {
         polygonForm.setData('vertices', []);
         setSelectedHotspotId(null);
+        setSelectedLabelId(null);
         setPolygonDraftTarget('create');
         setPolygonDrawingState('drawing');
         setPolygonDrawingError(null);
@@ -519,6 +602,22 @@ export default function Project360Show({
         } else {
             hotspotForm.setData((current) => ({ ...current, ...angles }));
             setCreatePointSelected(true);
+        }
+
+        setPlacementMode(null);
+    };
+
+    const captureLabelOrientation = () => {
+        const angles = viewerRef.current?.getViewAngles();
+        if (!angles) {
+            return;
+        }
+
+        if (selectedLabel) {
+            updateLabelDraft(selectedLabel.id, angles);
+        } else {
+            labelForm.setData((current) => ({ ...current, ...angles }));
+            setCreateLabelPointSelected(true);
         }
 
         setPlacementMode(null);
@@ -573,6 +672,39 @@ export default function Project360Show({
             {
                 preserveScroll: true,
                 onSuccess: () => setSelectedHotspotId(null),
+            },
+        );
+    };
+
+    const createLabel = (event: React.FormEvent) => {
+        event.preventDefault();
+        labelForm.transform((data) => ({
+            ...data,
+            source_panorama_id: currentPanoramaId,
+        }));
+        labelForm.post(labelRoutes.store(project.id).url, {
+            preserveScroll: true,
+            onSuccess: () => {
+                labelForm.reset('text', 'yaw', 'pitch');
+                setCreateLabelPointSelected(false);
+                setPlacementMode(null);
+            },
+        });
+    };
+
+    const updateLabel = (label: Project360Label) => {
+        router.put(
+            labelRoutes.update({
+                project: project.id,
+                label: label.id,
+            }).url,
+            {
+                source_panorama_id: label.source_panorama_id,
+                ...(labelDrafts[label.id] ?? labelDraft(label)),
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => setSelectedLabelId(null),
             },
         );
     };
@@ -652,7 +784,24 @@ export default function Project360Show({
         }));
     };
 
+    const updateLabelDraft = (
+        labelId: number,
+        changes: Partial<LabelDraft>,
+    ) => {
+        setLabelDrafts((current) => ({
+            ...current,
+            [labelId]: { ...current[labelId], ...changes },
+        }));
+    };
+
     const cancelPlacement = () => {
+        if (placementMode?.type === 'reposition-label' && selectedLabel) {
+            setLabelDrafts((current) => ({
+                ...current,
+                [selectedLabel.id]: labelDraft(selectedLabel),
+            }));
+        }
+
         if (typeof polygonDraftTarget === 'number' && selectedPolygon) {
             setPolygonDrafts((current) => ({
                 ...current,
@@ -717,6 +866,20 @@ export default function Project360Show({
         );
     };
 
+    const deleteLabel = async (label: Project360Label) => {
+        if (!(await confirmDelete(`¿Eliminar la etiqueta "${label.text}"?`))) {
+            return;
+        }
+
+        router.delete(
+            labelRoutes.destroy({
+                project: project.id,
+                label: label.id,
+            }).url,
+            { preserveScroll: true },
+        );
+    };
+
     const copyLink = async (id: string, url: string) => {
         await navigator.clipboard.writeText(url);
         setCopiedLinkId(id);
@@ -760,6 +923,7 @@ export default function Project360Show({
                             ref={viewerRef}
                             panoramas={tour.panoramas}
                             hotspots={tour.hotspots}
+                            labels={tour.labels}
                             polygons={tour.polygons}
                             settings={tour.settings}
                             startPanoramaId={tour.start_panorama_id}
@@ -767,6 +931,8 @@ export default function Project360Show({
                             draftPoint={previewPoint}
                             draftStyle={draftStyle}
                             editingHotspotId={selectedHotspotId}
+                            editingLabelId={selectedLabelId}
+                            draftLabel={previewLabel}
                             polygonDraft={polygonDraftVertices}
                             polygonPreview={closedPolygonPreview}
                             polygonDrawing={polygonDrawingState === 'drawing'}
@@ -803,7 +969,15 @@ export default function Project360Show({
                                         type="button"
                                         role="tab"
                                         aria-selected={activeTab === tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
+                                        onClick={() => {
+                                            setActiveTab(tab.id);
+                                            if (tab.id !== 'labels') {
+                                                setSelectedLabelId(null);
+                                            }
+                                            if (tab.id !== 'hotspots') {
+                                                setSelectedHotspotId(null);
+                                            }
+                                        }}
                                         className={`shrink-0 rounded-md px-3 py-2 text-xs font-medium transition ${
                                             activeTab === tab.id
                                                 ? 'bg-slate-900 text-white shadow-sm'
@@ -860,6 +1034,39 @@ export default function Project360Show({
                                         updateDraft={updateHotspotDraft}
                                         updateHotspot={updateHotspot}
                                         deleteHotspot={deleteHotspot}
+                                        cancelPlacement={cancelPlacement}
+                                    />
+                                ) : null}
+
+                                {activeTab === 'labels' ? (
+                                    <LabelsPanel
+                                        currentPanoramaId={currentPanoramaId}
+                                        currentLabels={currentLabels}
+                                        selectedLabel={selectedLabel}
+                                        selectedDraft={selectedLabelDraft}
+                                        labelForm={labelForm}
+                                        placementMode={placementMode}
+                                        createPointSelected={
+                                            createLabelPointSelected
+                                        }
+                                        setCreatePointSelected={
+                                            setCreateLabelPointSelected
+                                        }
+                                        setPlacementMode={setPlacementMode}
+                                        setSelectedLabelId={setSelectedLabelId}
+                                        setSelectedHotspotId={
+                                            setSelectedHotspotId
+                                        }
+                                        setSelectedPolygonId={
+                                            setSelectedPolygonId
+                                        }
+                                        captureOrientation={
+                                            captureLabelOrientation
+                                        }
+                                        createLabel={createLabel}
+                                        updateDraft={updateLabelDraft}
+                                        updateLabel={updateLabel}
+                                        deleteLabel={deleteLabel}
                                         cancelPlacement={cancelPlacement}
                                     />
                                 ) : null}
@@ -1496,6 +1703,317 @@ function HotspotsPanel({
                             size="icon"
                             variant="destructive"
                             onClick={() => void deleteHotspot(selectedHotspot)}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            ) : null}
+        </PanelSection>
+    );
+}
+
+function LabelsPanel({
+    currentPanoramaId,
+    currentLabels,
+    selectedLabel,
+    selectedDraft,
+    labelForm,
+    placementMode,
+    createPointSelected,
+    setCreatePointSelected,
+    setPlacementMode,
+    setSelectedLabelId,
+    setSelectedHotspotId,
+    setSelectedPolygonId,
+    captureOrientation,
+    createLabel,
+    updateDraft,
+    updateLabel,
+    deleteLabel,
+    cancelPlacement,
+}: {
+    currentPanoramaId: number | null;
+    currentLabels: Project360Label[];
+    selectedLabel: Project360Label | undefined;
+    selectedDraft: LabelDraft | null;
+    labelForm: InertiaForm<LabelDraft & { source_panorama_id: number }>;
+    placementMode: PlacementMode;
+    createPointSelected: boolean;
+    setCreatePointSelected: React.Dispatch<React.SetStateAction<boolean>>;
+    setPlacementMode: React.Dispatch<React.SetStateAction<PlacementMode>>;
+    setSelectedLabelId: React.Dispatch<React.SetStateAction<number | null>>;
+    setSelectedHotspotId: React.Dispatch<React.SetStateAction<number | null>>;
+    setSelectedPolygonId: React.Dispatch<React.SetStateAction<number | null>>;
+    captureOrientation: () => void;
+    createLabel: (event: React.FormEvent) => void;
+    updateDraft: (id: number, changes: Partial<LabelDraft>) => void;
+    updateLabel: (label: Project360Label) => void;
+    deleteLabel: (label: Project360Label) => Promise<void>;
+    cancelPlacement: () => void;
+}) {
+    return (
+        <PanelSection
+            title="Etiquetas informativas"
+            description="Coloca textos independientes, sin navegación, en cualquier ángulo del panorama."
+        >
+            <div className="flex flex-wrap gap-2">
+                <Button
+                    type="button"
+                    size="sm"
+                    disabled={currentPanoramaId === null}
+                    onClick={() => {
+                        setSelectedLabelId(null);
+                        setSelectedHotspotId(null);
+                        setSelectedPolygonId(null);
+                        setCreatePointSelected(false);
+                        setPlacementMode({ type: 'create-label' });
+                    }}
+                >
+                    <MousePointer2 className="h-4 w-4" /> Colocar etiqueta
+                </Button>
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={currentPanoramaId === null}
+                    onClick={captureOrientation}
+                >
+                    <Crosshair className="h-4 w-4" /> Usar vista actual
+                </Button>
+                {placementMode?.type.includes('label') ? (
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={cancelPlacement}
+                    >
+                        <X className="h-4 w-4" /> Cancelar
+                    </Button>
+                ) : null}
+            </div>
+
+            {!selectedLabel ? (
+                <form
+                    onSubmit={createLabel}
+                    className="space-y-3 rounded-lg border p-3"
+                >
+                    <div>
+                        <Label>Texto</Label>
+                        <Input
+                            value={labelForm.data.text}
+                            maxLength={120}
+                            placeholder="Área de recepción"
+                            onChange={(event) =>
+                                labelForm.setData('text', event.target.value)
+                            }
+                        />
+                        <InputError message={labelForm.errors.text} />
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                        <ColorField
+                            label="Color"
+                            value={labelForm.data.color}
+                            onChange={(color) =>
+                                labelForm.setData('color', color)
+                            }
+                        />
+                        <NumberField
+                            label="Tamaño"
+                            value={labelForm.data.size}
+                            min={0.5}
+                            max={3}
+                            step={0.05}
+                            onChange={(size) => labelForm.setData('size', size)}
+                        />
+                    </div>
+                    <details className="rounded-lg border bg-slate-50 p-3">
+                        <summary className="cursor-pointer text-sm font-medium">
+                            Ángulos de posición
+                        </summary>
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                            <NumberField
+                                label="Yaw"
+                                value={labelForm.data.yaw}
+                                min={-180}
+                                max={180}
+                                step={0.001}
+                                onChange={(yaw) => {
+                                    labelForm.setData('yaw', yaw);
+                                    setCreatePointSelected(true);
+                                }}
+                            />
+                            <NumberField
+                                label="Pitch"
+                                value={labelForm.data.pitch}
+                                min={-85}
+                                max={85}
+                                step={0.001}
+                                onChange={(pitch) => {
+                                    labelForm.setData('pitch', pitch);
+                                    setCreatePointSelected(true);
+                                }}
+                            />
+                        </div>
+                    </details>
+                    <InputError
+                        message={
+                            labelForm.errors.yaw ??
+                            labelForm.errors.pitch ??
+                            labelForm.errors.color ??
+                            labelForm.errors.size
+                        }
+                    />
+                    <Button
+                        type="submit"
+                        size="sm"
+                        disabled={
+                            labelForm.processing ||
+                            !labelForm.data.text.trim() ||
+                            !createPointSelected
+                        }
+                    >
+                        <Plus className="h-4 w-4" /> Guardar etiqueta
+                    </Button>
+                </form>
+            ) : null}
+
+            <div className="space-y-2">
+                <h3 className="text-sm font-semibold">
+                    Etiquetas de esta escena
+                </h3>
+                {currentLabels.length === 0 ? (
+                    <p className="text-sm text-slate-500">
+                        Aún no hay etiquetas en este panorama.
+                    </p>
+                ) : null}
+                {currentLabels.map((label) => (
+                    <button
+                        key={label.id}
+                        type="button"
+                        className={`flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left text-sm transition ${
+                            selectedLabel?.id === label.id
+                                ? 'border-orange-400 bg-orange-50'
+                                : 'hover:bg-slate-50'
+                        }`}
+                        onClick={() => {
+                            setCreatePointSelected(false);
+                            setPlacementMode(null);
+                            setLabelDrafts((current) => ({
+                                ...current,
+                                [label.id]:
+                                    current[label.id] ?? labelDraft(label),
+                            }));
+                            setSelectedLabelId(label.id);
+                        }}
+                    >
+                        <span className="truncate">{label.text}</span>
+                        <span className="shrink-0 text-xs text-slate-500">
+                            {label.yaw.toFixed(1)}° / {label.pitch.toFixed(1)}°
+                        </span>
+                    </button>
+                ))}
+            </div>
+
+            {selectedLabel && selectedDraft ? (
+                <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-sm font-semibold">
+                            Editar etiqueta
+                        </h3>
+                        <button
+                            type="button"
+                            onClick={() => setSelectedLabelId(null)}
+                            aria-label="Cerrar edición"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                    <div>
+                        <Label>Texto</Label>
+                        <Input
+                            value={selectedDraft.text}
+                            maxLength={120}
+                            onChange={(event) =>
+                                updateDraft(selectedLabel.id, {
+                                    text: event.target.value,
+                                })
+                            }
+                        />
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                        <ColorField
+                            label="Color"
+                            value={selectedDraft.color}
+                            onChange={(color) =>
+                                updateDraft(selectedLabel.id, { color })
+                            }
+                        />
+                        <NumberField
+                            label="Tamaño"
+                            value={selectedDraft.size}
+                            min={0.5}
+                            max={3}
+                            step={0.05}
+                            onChange={(size) =>
+                                updateDraft(selectedLabel.id, { size })
+                            }
+                        />
+                    </div>
+                    <details className="rounded-lg border bg-white p-3">
+                        <summary className="cursor-pointer text-sm font-medium">
+                            Ángulos de posición
+                        </summary>
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                            <NumberField
+                                label="Yaw"
+                                value={selectedDraft.yaw}
+                                min={-180}
+                                max={180}
+                                step={0.001}
+                                onChange={(yaw) =>
+                                    updateDraft(selectedLabel.id, { yaw })
+                                }
+                            />
+                            <NumberField
+                                label="Pitch"
+                                value={selectedDraft.pitch}
+                                min={-85}
+                                max={85}
+                                step={0.001}
+                                onChange={(pitch) =>
+                                    updateDraft(selectedLabel.id, { pitch })
+                                }
+                            />
+                        </div>
+                    </details>
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                                setPlacementMode({
+                                    type: 'reposition-label',
+                                    labelId: selectedLabel.id,
+                                })
+                            }
+                        >
+                            <MousePointer2 className="h-4 w-4" /> Reposicionar
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            disabled={!selectedDraft.text.trim()}
+                            onClick={() => updateLabel(selectedLabel)}
+                        >
+                            <Save className="h-4 w-4" /> Guardar
+                        </Button>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="destructive"
+                            onClick={() => void deleteLabel(selectedLabel)}
                         >
                             <Trash2 className="h-4 w-4" />
                         </Button>

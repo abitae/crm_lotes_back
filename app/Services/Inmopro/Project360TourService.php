@@ -5,6 +5,7 @@ namespace App\Services\Inmopro;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\Project360Hotspot;
+use App\Models\Inmopro\Project360Label;
 use App\Models\Inmopro\Project360Polygon;
 use App\Models\Inmopro\Project360SceneSetting;
 use App\Models\Inmopro\Project360Tour;
@@ -219,6 +220,31 @@ class Project360TourService
     }
 
     /** @param array<string, mixed> $data */
+    public function labelPanorama(Project $project, array $data): ProjectAsset
+    {
+        $panorama = ProjectAsset::query()
+            ->where('project_id', $project->id)
+            ->where('kind', ProjectAsset::KIND_PANORAMA)
+            ->where('is_active', true)
+            ->find((int) $data['source_panorama_id']);
+
+        if (! $panorama) {
+            throw ValidationException::withMessages([
+                'source_panorama_id' => 'El panorama de la etiqueta debe estar activo y pertenecer al proyecto.',
+            ]);
+        }
+
+        return $panorama;
+    }
+
+    public function ensureLabelForProject(Project $project, Project360Label $label): void
+    {
+        $label->loadMissing('tour');
+
+        abort_unless($label->tour?->project_id === $project->id, 404);
+    }
+
+    /** @param array<string, mixed> $data */
     public function polygonLot(
         Project $project,
         array $data,
@@ -291,6 +317,9 @@ class Project360TourService
         $polygons = $tour
             ? $tour->polygons()->with('lot.status')->orderBy('id')->get()
             : collect();
+        $labels = $tour
+            ? $tour->labels()->orderBy('id')->get()
+            : collect();
         $startPanoramaId = $tour?->start_panorama_id;
 
         if ($startPanoramaId === null || ! $panoramas->contains('id', $startPanoramaId)) {
@@ -343,6 +372,15 @@ class Project360TourService
                     'label_visibility' => $hotspot->label_visibility,
                     'pulse_enabled' => $hotspot->pulse_enabled,
                 ],
+            ])->values()->all(),
+            'labels' => $labels->map(fn (Project360Label $label): array => [
+                'id' => $label->id,
+                'source_panorama_id' => $label->source_panorama_id,
+                'text' => $label->text,
+                'yaw' => (float) $label->yaw,
+                'pitch' => (float) $label->pitch,
+                'color' => $label->color,
+                'size' => (float) $label->size,
             ])->values()->all(),
             'polygons' => $polygons->map(function (Project360Polygon $polygon): array {
                 $lot = $polygon->lot;

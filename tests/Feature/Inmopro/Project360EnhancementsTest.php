@@ -54,6 +54,10 @@ class Project360EnhancementsTest extends TestCase
         $this->actingAs($viewer)
             ->post(route('inmopro.project-360.polygons.store', $project), [])
             ->assertForbidden();
+
+        $this->actingAs($viewer)
+            ->post(route('inmopro.project-360.labels.store', $project), [])
+            ->assertForbidden();
     }
 
     public function test_floor_plan_routes_are_retired_without_deleting_archived_assets(): void
@@ -168,6 +172,87 @@ class Project360EnhancementsTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertModelMissing($polygon);
+    }
+
+    public function test_manager_can_create_update_and_delete_standalone_label(): void
+    {
+        $project = $this->createProject();
+        $manager = $this->manager();
+        $panorama = $this->createAsset($project, ProjectAsset::KIND_PANORAMA, 'Entrada');
+
+        $this->actingAs($manager)
+            ->post(route('inmopro.project-360.labels.store', $project), [
+                'source_panorama_id' => $panorama->id,
+                'text' => 'Área de recepción',
+                'yaw' => 32.125,
+                'pitch' => -7.5,
+                'color' => '#22c55e',
+                'size' => 1.25,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $label = $project->tour360()->firstOrFail()->labels()->firstOrFail();
+        $payload = app(Project360TourService::class)->payload(
+            $project,
+            fn (ProjectAsset $asset): string => '/'.$asset->file_path,
+        );
+
+        $this->assertSame('Área de recepción', $payload['labels'][0]['text']);
+        $this->assertSame(32.125, $payload['labels'][0]['yaw']);
+        $this->assertSame(-7.5, $payload['labels'][0]['pitch']);
+        $this->assertSame('#22c55e', $payload['labels'][0]['color']);
+        $this->assertSame(1.25, $payload['labels'][0]['size']);
+
+        $this->actingAs($manager)
+            ->put(route('inmopro.project-360.labels.update', [$project, $label]), [
+                'source_panorama_id' => $panorama->id,
+                'text' => 'Recepción principal',
+                'yaw' => -18,
+                'pitch' => 4.25,
+                'color' => '#38bdf8',
+                'size' => 1.75,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('Recepción principal', $label->fresh()->text);
+        $this->assertSame(-18.0, $label->fresh()->yaw);
+        $this->assertSame(1.75, $label->fresh()->size);
+
+        $this->actingAs($manager)
+            ->delete(route('inmopro.project-360.labels.destroy', [$project, $label]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertModelMissing($label);
+    }
+
+    public function test_standalone_label_rejects_foreign_panorama_and_invalid_style(): void
+    {
+        $project = $this->createProject();
+        $otherProject = $this->createProject();
+        $manager = $this->manager();
+        $foreignPanorama = $this->createAsset($otherProject, ProjectAsset::KIND_PANORAMA, 'Ajeno');
+
+        $this->actingAs($manager)
+            ->post(route('inmopro.project-360.labels.store', $project), [
+                'source_panorama_id' => $foreignPanorama->id,
+                'text' => 'Etiqueta inválida',
+                'yaw' => 181,
+                'pitch' => -86,
+                'color' => 'verde',
+                'size' => 3.5,
+            ])
+            ->assertSessionHasErrors(['yaw', 'pitch', 'color', 'size']);
+
+        $this->actingAs($manager)
+            ->post(route('inmopro.project-360.labels.store', $project), [
+                'source_panorama_id' => $foreignPanorama->id,
+                'text' => 'Panorama ajeno',
+                'yaw' => 0,
+                'pitch' => 0,
+                'color' => '#ffffff',
+                'size' => 1,
+            ])
+            ->assertSessionHasErrors(['source_panorama_id']);
     }
 
     public function test_polygon_can_link_one_project_lot_and_uses_its_current_status(): void

@@ -29,20 +29,17 @@ test('limita el fondo de etiquetas muy extensas y admite un texto vacío', () =>
 test('el dibujo solo registra los puntos elegidos por el usuario', () => {
     assert.deepEqual(project360RaycastTargets(true, false, true), {
         pointer: '.hotspot-placement-surface',
-        cameraCursor: '.tour-noninteractive',
     });
 });
 
-test('el cursor central no agrega un punto al cerrar el polígono', () => {
+test('el cierre solo habilita el panorama y el primer vértice', () => {
     assert.deepEqual(project360RaycastTargets(true, true, true), {
         pointer: '.hotspot-placement-surface, .polygon-close-target',
-        cameraCursor: '.tour-noninteractive',
     });
 });
 
 test('fuera del dibujo se conservan las interacciones del visor', () => {
     assert.deepEqual(project360RaycastTargets(false, false, false), {
         pointer: '.tour-hotspot-hit-area, .tour-polygon',
-        cameraCursor: '.tour-hotspot-hit-area, .tour-polygon',
     });
 });

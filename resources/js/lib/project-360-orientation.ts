@@ -13,6 +13,13 @@ export type Project360OrientationTarget = {
     };
 };
 
+export function faceProject360ElementToCamera<Position>(
+    target: { lookAt: (position: Position) => void },
+    cameraPosition: Position,
+): void {
+    target.lookAt(cameraPosition);
+}
+
 export function applyProject360InitialOrientation(
     target: Project360OrientationTarget,
     yaw: number,

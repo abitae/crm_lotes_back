@@ -51,6 +51,16 @@ export type Project360Hotspot = {
     };
 };
 
+export type Project360Label = {
+    id: number;
+    source_panorama_id: number;
+    text: string;
+    yaw: number;
+    pitch: number;
+    color: string;
+    size: number;
+};
+
 export type Project360PolygonVertex = {
     yaw: number;
     pitch: number;
@@ -101,6 +111,7 @@ export type Project360Tour = {
     settings: Project360TourSettings;
     panoramas: Project360Panorama[];
     hotspots: Project360Hotspot[];
+    labels: Project360Label[];
     polygons: Project360Polygon[];
     share_links?: Project360ShareLink[];
 };

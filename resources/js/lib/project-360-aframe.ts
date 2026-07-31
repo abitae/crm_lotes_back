@@ -6,6 +6,7 @@ import {
 } from '@/lib/project-360-geometry';
 import {
     applyProject360InitialOrientation,
+    faceProject360ElementToCamera,
     type Project360OrientationTarget,
 } from '@/lib/project-360-orientation';
 
@@ -50,6 +51,7 @@ type ThreeApi = {
         ) => number[][];
     };
     Vector2: new (x: number, y: number) => unknown;
+    Vector3: new () => unknown;
 };
 
 type AFrameEntity = HTMLElement & {
@@ -113,6 +115,16 @@ type InitialOrientationComponent = {
     data: Project360Angles;
 };
 
+type BillboardComponent = {
+    el: HTMLElement & {
+        object3D: { lookAt: (position: unknown) => void };
+        sceneEl?: {
+            camera?: { getWorldPosition: (position: unknown) => unknown };
+        };
+    };
+    cameraPosition: unknown;
+};
+
 export function registerProject360Components(
     aframe: AFrameComponentRegistry,
 ): void {
@@ -120,6 +132,32 @@ export function registerProject360Components(
     registerHotspotInteractionComponent(aframe);
     registerPolygonComponent(aframe);
     registerInitialOrientationComponent(aframe);
+    registerBillboardComponent(aframe);
+}
+
+function registerBillboardComponent(aframe: AFrameComponentRegistry): void {
+    if (aframe.components['tour-billboard']) {
+        return;
+    }
+
+    aframe.registerComponent('tour-billboard', {
+        init(this: BillboardComponent) {
+            this.cameraPosition = new aframe.THREE.Vector3();
+        },
+        tick(this: BillboardComponent) {
+            const camera = this.el.sceneEl?.camera;
+
+            if (!camera) {
+                return;
+            }
+
+            camera.getWorldPosition(this.cameraPosition);
+            faceProject360ElementToCamera(
+                this.el.object3D,
+                this.cameraPosition,
+            );
+        },
+    });
 }
 
 function registerInitialOrientationComponent(

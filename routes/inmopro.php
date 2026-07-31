@@ -33,6 +33,7 @@ use App\Http\Controllers\Inmopro\OpenAiCazadorConfigController;
 use App\Http\Controllers\Inmopro\ProcessDiagramsController;
 use App\Http\Controllers\Inmopro\Project360Controller;
 use App\Http\Controllers\Inmopro\Project360HotspotController;
+use App\Http\Controllers\Inmopro\Project360LabelController;
 use App\Http\Controllers\Inmopro\Project360PanoramaController;
 use App\Http\Controllers\Inmopro\Project360PolygonController;
 use App\Http\Controllers\Inmopro\Project360SettingsController;
@@ -90,6 +91,9 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
             Route::post('{project}/hotspots', [Project360HotspotController::class, 'store'])->name('hotspots.store');
             Route::put('{project}/hotspots/{hotspot}', [Project360HotspotController::class, 'update'])->name('hotspots.update');
             Route::delete('{project}/hotspots/{hotspot}', [Project360HotspotController::class, 'destroy'])->name('hotspots.destroy');
+            Route::post('{project}/labels', [Project360LabelController::class, 'store'])->name('labels.store');
+            Route::put('{project}/labels/{label}', [Project360LabelController::class, 'update'])->name('labels.update');
+            Route::delete('{project}/labels/{label}', [Project360LabelController::class, 'destroy'])->name('labels.destroy');
             Route::post('{project}/polygons', [Project360PolygonController::class, 'store'])->name('polygons.store');
             Route::put('{project}/polygons/{polygon}', [Project360PolygonController::class, 'update'])->name('polygons.update');
             Route::delete('{project}/polygons/{polygon}', [Project360PolygonController::class, 'destroy'])->name('polygons.destroy');

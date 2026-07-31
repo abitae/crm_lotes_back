@@ -52,6 +52,11 @@ class Project360Tour extends Model
         return $this->hasMany(Project360Polygon::class, 'project_360_tour_id');
     }
 
+    public function labels(): HasMany
+    {
+        return $this->hasMany(Project360Label::class, 'project_360_tour_id');
+    }
+
     public function shareLinks(): HasMany
     {
         return $this->hasMany(Project360ShareLink::class, 'project_360_tour_id');
