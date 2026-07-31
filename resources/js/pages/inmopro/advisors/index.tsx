@@ -732,45 +732,43 @@ export default function AdvisorsIndex({
                     )}
                 </div>
 
-                <div className="overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm">
+                <div className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm">
                     <div className="overflow-x-auto">
-                        <table className="w-full border-collapse text-left text-sm">
+                        <table className="w-full text-xs">
                             <thead>
-                                <tr className="border-b border-slate-100 bg-slate-50/50">
-                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Nivel / Vendedor</th>
-                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Estado</th>
-                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Team</th>
-                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Ciudad</th>
-                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Superior</th>
-                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Nacimiento</th>
-                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Ingreso</th>
-                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Cuota</th>
-                                    <th className="px-3 py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                        Última suscripción anual
-                                    </th>
-                                    <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Acciones</th>
+                                <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
+                                    <th className="px-2 py-1.5 text-left font-semibold">Nivel / Vendedor</th>
+                                    <th className="px-2 py-1.5 text-left font-semibold">Estado</th>
+                                    <th className="hidden px-2 py-1.5 text-left font-semibold sm:table-cell">Team</th>
+                                    <th className="hidden px-2 py-1.5 text-left font-semibold md:table-cell">Ciudad</th>
+                                    <th className="hidden px-2 py-1.5 text-left font-semibold md:table-cell">Superior</th>
+                                    <th className="hidden px-2 py-1.5 text-left font-semibold lg:table-cell">Nacimiento</th>
+                                    <th className="hidden px-2 py-1.5 text-left font-semibold lg:table-cell">Ingreso</th>
+                                    <th className="hidden px-2 py-1.5 text-left font-semibold xl:table-cell">Cuota</th>
+                                    <th className="hidden px-2 py-1.5 text-center font-semibold xl:table-cell">Suscripción</th>
+                                    <th className="px-2 py-1.5 text-right font-semibold"> </th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-50">
                                 {advisors.data.map((adv) => (
-                                    <tr key={adv.id} className="transition-colors hover:bg-slate-50">
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <span className="rounded bg-slate-900 px-2 py-0.5 text-[10px] font-black text-white">
+                                    <tr key={adv.id} className="hover:bg-slate-50/60">
+                                        <td className="max-w-[12rem] px-2 py-1.5 sm:max-w-none">
+                                            <div className="flex min-w-0 items-center gap-1.5">
+                                                <span className="shrink-0 rounded bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold text-white">
                                                     {adv.level?.name ?? '-'}
                                                 </span>
-                                                <div>
-                                                    <p className="font-bold leading-none text-slate-800">{adv.name}</p>
-                                                    <p className="text-[10px] text-slate-400">
+                                                <div className="min-w-0">
+                                                    <p className="truncate font-medium leading-tight text-slate-900">{adv.name}</p>
+                                                    <p className="truncate text-[11px] text-slate-500">
                                                         {adv.email}
                                                         {adv.username ? ` · @${adv.username}` : ''}
                                                     </p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-2 py-1.5">
                                             <span
-                                                className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                                                className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold ${
                                                     adv.is_active
                                                         ? 'bg-emerald-100 text-emerald-700'
                                                         : 'bg-slate-100 text-slate-600'
@@ -779,29 +777,34 @@ export default function AdvisorsIndex({
                                                 {adv.is_active ? 'Activo' : 'Inactivo'}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="hidden px-2 py-1.5 sm:table-cell">
                                             <span
-                                                className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white"
+                                                className="inline-flex max-w-[6rem] truncate rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
                                                 style={{ backgroundColor: adv.team?.color ?? '#0f172a' }}
+                                                title={adv.team?.name ?? 'Sin team'}
                                             >
                                                 {adv.team?.name ?? 'Sin team'}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 text-slate-700">
-                                            <span className="font-medium text-slate-800">{adv.city?.name ?? '—'}</span>
+                                        <td className="hidden max-w-[10rem] px-2 py-1.5 md:table-cell">
+                                            <p className="truncate text-slate-700">{adv.city?.name ?? '—'}</p>
                                             {adv.city?.department ? (
-                                                <span className="block text-[10px] text-slate-400">{adv.city.department}</span>
+                                                <p className="truncate text-[11px] text-slate-500">{adv.city.department}</p>
                                             ) : null}
                                         </td>
-                                        <td className="px-4 py-3 text-slate-700">{adv.superior?.name ?? 'Alta Gerencia'}</td>
-                                        <td className="px-4 py-3 text-xs text-slate-600 tabular-nums whitespace-nowrap">
+                                        <td className="hidden max-w-[10rem] px-2 py-1.5 md:table-cell">
+                                            <p className="truncate text-slate-700">{adv.superior?.name ?? 'Alta Gerencia'}</p>
+                                        </td>
+                                        <td className="hidden whitespace-nowrap px-2 py-1.5 tabular-nums text-slate-500 lg:table-cell">
                                             {formatCalendarDate(adv.birth_date)}
                                         </td>
-                                        <td className="px-4 py-3 text-xs text-slate-600 tabular-nums">
+                                        <td className="hidden whitespace-nowrap px-2 py-1.5 tabular-nums text-slate-500 lg:table-cell">
                                             {formatCalendarDate(adv.joined_at)}
                                         </td>
-                                        <td className="px-4 py-3 font-medium text-slate-700">S/ {Number(adv.personal_quota).toLocaleString()}</td>
-                                        <td className="px-2 py-2 text-center">
+                                        <td className="hidden whitespace-nowrap px-2 py-1.5 font-medium tabular-nums text-slate-700 xl:table-cell">
+                                            S/ {Number(adv.personal_quota).toLocaleString()}
+                                        </td>
+                                        <td className="hidden px-2 py-1.5 text-center xl:table-cell">
                                             {(() => {
                                                 const mem = getLatestAnnualMembership(adv.memberships);
                                                 if (!mem) {
@@ -812,7 +815,7 @@ export default function AdvisorsIndex({
                                                     <button
                                                         type="button"
                                                         onClick={() => openMembershipDetailFromRow(mem, { id: adv.id, name: adv.name })}
-                                                        className={`inline-flex min-w-[4.5rem] flex-col items-center rounded-lg px-2 py-1 text-[10px] font-bold ${
+                                                        className={`inline-flex flex-col items-center rounded px-1.5 py-0.5 text-[10px] font-bold ${
                                                             paid
                                                                 ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                                                                 : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
@@ -825,57 +828,59 @@ export default function AdvisorsIndex({
                                                 );
                                             })()}
                                         </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-slate-400 hover:text-amber-700"
-                                                onClick={() => setModalCazadorAccess(adv)}
-                                                title="Usuario y PIN (app Cazador)"
-                                            >
-                                                <KeyRound className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-slate-400 hover:text-emerald-700"
-                                                title="Nueva membresía (este vendedor)"
-                                                onClick={() => openCreateMembershipForAdvisor(adv)}
-                                            >
-                                                <CalendarDays className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-slate-400 hover:text-violet-700"
-                                                onClick={() => setMaterialsModalAdvisorId(adv.id)}
-                                                title="Material corporativo"
-                                            >
-                                                <Package className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className={cn(
-                                                    'h-8 w-8',
-                                                    adv.is_active
-                                                        ? 'text-amber-600 hover:bg-amber-50 hover:text-amber-700'
-                                                        : 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700',
-                                                )}
-                                                onClick={() => handleToggleActive(adv)}
-                                                title={adv.is_active ? 'Desactivar' : 'Activar'}
-                                            >
-                                                {adv.is_active ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-slate-400 hover:text-slate-900"
-                                                onClick={() => setModalEditAdvisor(adv)}
-                                                title="Editar vendedor"
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
+                                        <td className="px-1 py-1.5 text-right">
+                                            <div className="flex justify-end gap-0.5">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-slate-400 hover:text-amber-700"
+                                                    onClick={() => setModalCazadorAccess(adv)}
+                                                    title="Usuario y PIN (app Cazador)"
+                                                >
+                                                    <KeyRound className="h-3.5 w-3.5" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-slate-400 hover:text-emerald-700"
+                                                    title="Nueva membresía (este vendedor)"
+                                                    onClick={() => openCreateMembershipForAdvisor(adv)}
+                                                >
+                                                    <CalendarDays className="h-3.5 w-3.5" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-slate-400 hover:text-violet-700"
+                                                    onClick={() => setMaterialsModalAdvisorId(adv.id)}
+                                                    title="Material corporativo"
+                                                >
+                                                    <Package className="h-3.5 w-3.5" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className={cn(
+                                                        'h-7 w-7',
+                                                        adv.is_active
+                                                            ? 'text-amber-600 hover:bg-amber-50 hover:text-amber-700'
+                                                            : 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700',
+                                                    )}
+                                                    onClick={() => handleToggleActive(adv)}
+                                                    title={adv.is_active ? 'Desactivar' : 'Activar'}
+                                                >
+                                                    {adv.is_active ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-slate-400 hover:text-slate-900"
+                                                    onClick={() => setModalEditAdvisor(adv)}
+                                                    title="Editar vendedor"
+                                                >
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -888,7 +893,7 @@ export default function AdvisorsIndex({
                             <p className="mt-2">No hay vendedores. Cree uno o busque con otro criterio.</p>
                         </div>
                     ) : (
-                        <div className="border-t border-slate-100 px-4 py-3">
+                        <div className="border-t border-slate-100 px-3 py-2">
                             <Pagination links={advisors.links} />
                         </div>
                     )}

@@ -7,12 +7,11 @@ use App\Models\Inmopro\Project360ShareLink;
 use App\Models\Inmopro\Project360Tour;
 use App\Models\Inmopro\ProjectAsset;
 use App\Models\User;
-use App\Services\Inmopro\Project360ShareService;
 use App\Services\Inmopro\Project360TourService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
@@ -51,42 +50,25 @@ class Project360EnhancementsTest extends TestCase
             ->assertForbidden();
 
         $this->actingAs($viewer)
-            ->post(route('inmopro.project-360.floor-plans.store', $project), [])
+            ->post(route('inmopro.project-360.polygons.store', $project), [])
             ->assertForbidden();
     }
 
-    public function test_floor_plan_upload_validates_dimensions_and_stores_without_ratio_requirement(): void
+    public function test_floor_plan_routes_are_retired_without_deleting_archived_assets(): void
     {
         $project = $this->createProject();
         $manager = $this->manager();
+        $floorPlan = $this->createAsset($project, ProjectAsset::KIND_FLOOR_PLAN, 'Primer piso');
+
+        $this->assertFalse(Route::has('inmopro.project-360.floor-plans.store'));
+        $this->assertFalse(Route::has('inmopro.project-360.floor-plans.destroy'));
 
         $this->actingAs($manager)
-            ->post(route('inmopro.project-360.floor-plans.store', $project), [
-                'floor_plan_files' => [$this->fakePng('primer-piso.png', 800, 600)],
-                'floor_plan_titles' => ['Primer piso'],
-            ])
-            ->assertSessionHasNoErrors();
+            ->post("/inmopro/project-360/{$project->id}/floor-plans")
+            ->assertNotFound();
 
-        $floorPlan = $project->floorPlans()->firstOrFail();
-        $this->assertSame(ProjectAsset::KIND_FLOOR_PLAN, $floorPlan->kind);
-        $this->assertStringContainsString('/floor-plans/', $floorPlan->file_path);
+        $this->assertModelExists($floorPlan);
         Storage::disk('public')->assertExists($floorPlan->file_path);
-
-        $this->actingAs($manager)
-            ->post(route('inmopro.project-360.floor-plans.store', $project), [
-                'floor_plan_files' => [$this->fakePng('pequeno.png', 599, 600)],
-                'floor_plan_titles' => ['Inválido'],
-            ])
-            ->assertSessionHasErrors(['floor_plan_files.0']);
-
-        $this->actingAs($manager)
-            ->post(route('inmopro.project-360.floor-plans.store', $project), [
-                'floor_plan_files' => [
-                    UploadedFile::fake()->create('plano.pdf', 20, 'application/pdf'),
-                ],
-                'floor_plan_titles' => ['PDF'],
-            ])
-            ->assertSessionHasErrors(['floor_plan_files.0']);
     }
 
     public function test_theme_is_inherited_and_hotspot_overrides_are_returned_in_payload(): void
@@ -131,13 +113,109 @@ class Project360EnhancementsTest extends TestCase
         $this->assertFalse($payload['hotspots'][0]['style']['pulse_enabled']);
     }
 
+    public function test_manager_can_create_update_and_delete_informational_polygon(): void
+    {
+        $project = $this->createProject();
+        $manager = $this->manager();
+        $panorama = $this->createAsset($project, ProjectAsset::KIND_PANORAMA, 'Entrada');
+
+        $this->actingAs($manager)
+            ->post(route('inmopro.project-360.polygons.store', $project), [
+                'source_panorama_id' => $panorama->id,
+                'title' => 'Área social',
+                'description' => 'Zona para reuniones.',
+                'vertices' => [
+                    ['yaw' => 170, 'pitch' => -10],
+                    ['yaw' => -170, 'pitch' => -10],
+                    ['yaw' => -172, 'pitch' => 8],
+                    ['yaw' => 172, 'pitch' => 8],
+                ],
+                'color' => '#123456',
+                'hover_color' => '#abcdef',
+                'opacity' => 0.35,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $polygon = $project->tour360()->firstOrFail()->polygons()->firstOrFail();
+        $payload = app(Project360TourService::class)->payload(
+            $project,
+            fn (ProjectAsset $asset): string => '/'.$asset->file_path,
+        );
+
+        $this->assertSame('Área social', $payload['polygons'][0]['title']);
+        $this->assertCount(4, $payload['polygons'][0]['vertices']);
+        $this->assertArrayNotHasKey('floor_plans', $payload);
+        $this->assertArrayNotHasKey('floor_plan_id', $payload['panoramas'][0]);
+
+        $this->actingAs($manager)
+            ->put(route('inmopro.project-360.polygons.update', [$project, $polygon]), [
+                'source_panorama_id' => $panorama->id,
+                'title' => 'Área social principal',
+                'description' => null,
+                'vertices' => $polygon->vertices,
+                'color' => '#654321',
+                'hover_color' => '#abcdef',
+                'opacity' => 0.4,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('Área social principal', $polygon->fresh()->title);
+
+        $this->actingAs($manager)
+            ->delete(route('inmopro.project-360.polygons.destroy', [$project, $polygon]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertModelMissing($polygon);
+    }
+
+    public function test_polygon_rejects_foreign_panorama_and_crossed_sides(): void
+    {
+        $project = $this->createProject();
+        $otherProject = $this->createProject('Otro proyecto');
+        $manager = $this->manager();
+        $foreignPanorama = $this->createAsset($otherProject, ProjectAsset::KIND_PANORAMA, 'Ajeno');
+        $validStyle = [
+            'title' => 'Polígono inválido',
+            'description' => null,
+            'color' => '#f97316',
+            'hover_color' => '#fb923c',
+            'opacity' => 0.28,
+        ];
+
+        $this->actingAs($manager)
+            ->post(route('inmopro.project-360.polygons.store', $project), [
+                ...$validStyle,
+                'source_panorama_id' => $foreignPanorama->id,
+                'vertices' => [
+                    ['yaw' => 0, 'pitch' => 0],
+                    ['yaw' => 10, 'pitch' => 0],
+                    ['yaw' => 5, 'pitch' => 10],
+                ],
+            ])
+            ->assertSessionHasErrors(['source_panorama_id']);
+
+        $panorama = $this->createAsset($project, ProjectAsset::KIND_PANORAMA, 'Entrada');
+
+        $this->actingAs($manager)
+            ->post(route('inmopro.project-360.polygons.store', $project), [
+                ...$validStyle,
+                'source_panorama_id' => $panorama->id,
+                'vertices' => [
+                    ['yaw' => 0, 'pitch' => 0],
+                    ['yaw' => 10, 'pitch' => 10],
+                    ['yaw' => 0, 'pitch' => 10],
+                    ['yaw' => 10, 'pitch' => 0],
+                ],
+            ])
+            ->assertSessionHasErrors(['vertices']);
+    }
+
     public function test_theme_hotspot_and_scene_values_are_validated(): void
     {
         $project = $this->createProject();
         $manager = $this->manager();
         $source = $this->createAsset($project, ProjectAsset::KIND_PANORAMA, 'Entrada', 1);
         $target = $this->createAsset($project, ProjectAsset::KIND_PANORAMA, 'Sala', 2);
-        $floorPlan = $this->createAsset($project, ProjectAsset::KIND_FLOOR_PLAN, 'Plano');
 
         $this->actingAs($manager)
             ->put(route('inmopro.project-360.settings.update', $project), $this->validTheme([
@@ -166,60 +244,44 @@ class Project360EnhancementsTest extends TestCase
         $this->actingAs($manager)
             ->put(route('inmopro.project-360.scene-settings.update', $project), [
                 'panorama_id' => $source->id,
-                'initial_yaw' => 0,
-                'initial_pitch' => 0,
-                'floor_plan_id' => $floorPlan->id,
-                'plan_x' => 101,
-                'plan_y' => -1,
+                'initial_yaw' => 181,
+                'initial_pitch' => -86,
             ])
-            ->assertSessionHasErrors(['plan_x', 'plan_y']);
+            ->assertSessionHasErrors(['initial_yaw', 'initial_pitch']);
     }
 
-    public function test_scene_rejects_foreign_assets_and_floor_plan_deletion_clears_association(): void
+    public function test_scene_orientation_update_preserves_archived_floor_plan_data(): void
     {
         $project = $this->createProject();
-        $otherProject = $this->createProject('Otro proyecto');
         $manager = $this->manager();
         $panorama = $this->createAsset($project, ProjectAsset::KIND_PANORAMA, 'Entrada');
         $floorPlan = $this->createAsset($project, ProjectAsset::KIND_FLOOR_PLAN, 'Plano');
-        $foreignPlan = $this->createAsset($otherProject, ProjectAsset::KIND_FLOOR_PLAN, 'Ajeno');
+        $tour = Project360Tour::query()->create(['project_id' => $project->id]);
+        $setting = $tour->sceneSettings()->create([
+            'panorama_id' => $panorama->id,
+            'initial_yaw' => 0,
+            'initial_pitch' => 0,
+            'floor_plan_id' => $floorPlan->id,
+            'plan_x' => 30,
+            'plan_y' => 70,
+        ]);
 
         $this->actingAs($manager)
             ->put(route('inmopro.project-360.scene-settings.update', $project), [
                 'panorama_id' => $panorama->id,
                 'initial_yaw' => 25,
                 'initial_pitch' => -6,
-                'floor_plan_id' => $foreignPlan->id,
-                'plan_x' => 30,
-                'plan_y' => 70,
-            ])
-            ->assertSessionHasErrors(['floor_plan_id']);
-
-        $this->actingAs($manager)
-            ->put(route('inmopro.project-360.scene-settings.update', $project), [
-                'panorama_id' => $panorama->id,
-                'initial_yaw' => 25,
-                'initial_pitch' => -6,
-                'floor_plan_id' => $floorPlan->id,
-                'plan_x' => 30,
-                'plan_y' => 70,
             ])
             ->assertSessionHasNoErrors();
 
-        $setting = $project->tour360()->firstOrFail()->sceneSettings()->firstOrFail();
-        $this->assertSame($floorPlan->id, $setting->floor_plan_id);
-
-        $this->actingAs($manager)
-            ->delete(route('inmopro.project-360.floor-plans.destroy', [$project, $floorPlan]))
-            ->assertSessionHasNoErrors();
-
-        $this->assertModelMissing($floorPlan);
-        $this->assertNull($setting->fresh()->floor_plan_id);
-        $this->assertNull($setting->fresh()->plan_x);
-        Storage::disk('public')->assertMissing($floorPlan->file_path);
+        $this->assertSame(25.0, $setting->fresh()->initial_yaw);
+        $this->assertSame(-6.0, $setting->fresh()->initial_pitch);
+        $this->assertSame($floorPlan->id, $setting->fresh()->floor_plan_id);
+        $this->assertSame(30.0, $setting->fresh()->plan_x);
+        $this->assertModelExists($floorPlan);
     }
 
-    public function test_signed_floor_plan_is_public_only_for_active_link_and_project(): void
+    public function test_public_floor_plan_route_is_retired_without_deleting_asset(): void
     {
         $project = $this->createProject();
         $panorama = $this->createAsset($project, ProjectAsset::KIND_PANORAMA, 'Entrada');
@@ -233,26 +295,11 @@ class Project360EnhancementsTest extends TestCase
             'created_by' => User::factory()->create()->id,
             'label' => 'Cliente',
         ]);
-        $url = app(Project360ShareService::class)->floorPlanUrl($shareLink, $floorPlan);
-
-        $this->get($url)
-            ->assertOk()
-            ->assertHeader('content-type', 'image/jpeg');
-
-        $this->get($url.'&altered=1')->assertForbidden();
-
-        $shareLink->update(['revoked_at' => now()]);
-        $this->get($url)->assertNotFound();
-
-        $shareLink->update(['revoked_at' => null]);
-        $project->update(['is_active' => false]);
-        $this->get($url)->assertNotFound();
-
-        $tampered = URL::signedRoute('public.project-360.floor-plans.show', [
-            'shareLink' => $shareLink,
-            'floorPlan' => $panorama,
-        ]);
-        $this->get($tampered)->assertNotFound();
+        $this->assertFalse(Route::has('public.project-360.floor-plans.show'));
+        $this->get("/tours/360/{$shareLink->id}/floor-plans/{$floorPlan->id}")
+            ->assertNotFound();
+        $this->assertModelExists($floorPlan);
+        Storage::disk('public')->assertExists($floorPlan->file_path);
     }
 
     private function manager(): User

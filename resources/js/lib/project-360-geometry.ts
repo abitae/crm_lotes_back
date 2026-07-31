@@ -54,6 +54,137 @@ export function pointToAngles(
     };
 }
 
+export function unwrapPolygonVertices(
+    vertices: Project360Angles[],
+): Project360Angles[] {
+    let previousYaw: number | null = null;
+
+    return vertices.map((vertex) => {
+        let yaw = vertex.yaw;
+
+        if (previousYaw !== null) {
+            while (yaw - previousYaw > 180) {
+                yaw -= 360;
+            }
+
+            while (yaw - previousYaw < -180) {
+                yaw += 360;
+            }
+        }
+
+        previousYaw = yaw;
+
+        return { yaw, pitch: vertex.pitch };
+    });
+}
+
+export function polygonHasSelfIntersection(
+    vertices: Project360Angles[],
+): boolean {
+    const points = unwrapPolygonVertices(vertices);
+
+    for (let first = 0; first < points.length; first += 1) {
+        const firstNext = (first + 1) % points.length;
+
+        for (let second = first + 1; second < points.length; second += 1) {
+            const secondNext = (second + 1) % points.length;
+
+            if (
+                first === second ||
+                firstNext === second ||
+                secondNext === first
+            ) {
+                continue;
+            }
+
+            if (
+                segmentsIntersect(
+                    points[first],
+                    points[firstNext],
+                    points[second],
+                    points[secondNext],
+                )
+            ) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+export function polygonCentroid(
+    vertices: Project360Angles[],
+): Project360Angles {
+    const points = unwrapPolygonVertices(vertices);
+    const total = points.reduce(
+        (current, point) => ({
+            yaw: current.yaw + point.yaw,
+            pitch: current.pitch + point.pitch,
+        }),
+        { yaw: 0, pitch: 0 },
+    );
+
+    return {
+        yaw: normalizeYaw(total.yaw / Math.max(1, points.length)),
+        pitch: total.pitch / Math.max(1, points.length),
+    };
+}
+
+function segmentsIntersect(
+    first: Project360Angles,
+    second: Project360Angles,
+    third: Project360Angles,
+    fourth: Project360Angles,
+): boolean {
+    const orientationOne = orientation(first, second, third);
+    const orientationTwo = orientation(first, second, fourth);
+    const orientationThree = orientation(third, fourth, first);
+    const orientationFour = orientation(third, fourth, second);
+
+    if (
+        (Math.abs(orientationOne) < 0.000001 &&
+            isOnSegment(first, third, second)) ||
+        (Math.abs(orientationTwo) < 0.000001 &&
+            isOnSegment(first, fourth, second)) ||
+        (Math.abs(orientationThree) < 0.000001 &&
+            isOnSegment(third, first, fourth)) ||
+        (Math.abs(orientationFour) < 0.000001 &&
+            isOnSegment(third, second, fourth))
+    ) {
+        return true;
+    }
+
+    return (
+        orientationOne * orientationTwo < 0 &&
+        orientationThree * orientationFour < 0
+    );
+}
+
+function isOnSegment(
+    start: Project360Angles,
+    point: Project360Angles,
+    end: Project360Angles,
+): boolean {
+    return (
+        point.yaw >= Math.min(start.yaw, end.yaw) - 0.000001 &&
+        point.yaw <= Math.max(start.yaw, end.yaw) + 0.000001 &&
+        point.pitch >= Math.min(start.pitch, end.pitch) - 0.000001 &&
+        point.pitch <= Math.max(start.pitch, end.pitch) + 0.000001
+    );
+}
+
+function orientation(
+    first: Project360Angles,
+    second: Project360Angles,
+    third: Project360Angles,
+): number {
+    return (
+        (second.yaw - first.yaw) * (third.pitch - first.pitch) -
+        (second.pitch - first.pitch) * (third.yaw - first.yaw)
+    );
+}
+
 export function pointerToPlanCoordinates(
     clientX: number,
     clientY: number,

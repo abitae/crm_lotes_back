@@ -1,15 +1,18 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, type InertiaFormProps } from '@inertiajs/react';
 import {
     Check,
     Clipboard,
+    Crosshair,
     ExternalLink,
     Link2,
-    MapPinned,
     MousePointer2,
+    Pentagon,
     Plus,
+    Rotate3D,
     Save,
     Star,
     Trash2,
+    Undo2,
     Upload,
     X,
 } from 'lucide-react';
@@ -21,22 +24,15 @@ import {
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
-import { pointerToPlanCoordinates } from '@/lib/project-360-geometry';
+import { polygonHasSelfIntersection } from '@/lib/project-360-geometry';
 import { confirmDelete } from '@/lib/swal';
 import project360 from '@/routes/inmopro/project-360';
-import floorPlanRoutes from '@/routes/inmopro/project-360/floor-plans';
 import hotspotRoutes from '@/routes/inmopro/project-360/hotspots';
 import panoramaRoutes from '@/routes/inmopro/project-360/panoramas';
+import polygonRoutes from '@/routes/inmopro/project-360/polygons';
 import sceneSettingsRoutes from '@/routes/inmopro/project-360/scene-settings';
 import settingsRoutes from '@/routes/inmopro/project-360/settings';
 import shareLinkRoutes from '@/routes/inmopro/project-360/share-links';
@@ -46,6 +42,8 @@ import type {
     Project360Hotspot,
     Project360HotspotShape,
     Project360LabelVisibility,
+    Project360Polygon,
+    Project360PolygonVertex,
     Project360Tour,
 } from '@/types/project-360';
 
@@ -66,11 +64,6 @@ type UploadForm = {
     panorama_titles: string[];
 };
 
-type FloorPlanUploadForm = {
-    floor_plan_files: File[];
-    floor_plan_titles: string[];
-};
-
 type HotspotDraft = {
     label: string;
     target_panorama_id: number;
@@ -85,10 +78,31 @@ type HotspotDraft = {
     pulse_enabled: boolean | null;
 };
 
+type PolygonDraft = {
+    title: string;
+    description: string;
+    vertices: Project360PolygonVertex[];
+    color: string;
+    hover_color: string;
+    opacity: number;
+};
+
 type PlacementMode =
-    | { type: 'create' }
-    | { type: 'reposition'; hotspotId: number }
+    | { type: 'create-hotspot' }
+    | { type: 'reposition-hotspot'; hotspotId: number }
+    | { type: 'draw-polygon' }
+    | { type: 'redraw-polygon'; polygonId: number }
     | null;
+
+type EditorTab = 'panoramas' | 'hotspots' | 'polygons' | 'appearance' | 'share';
+
+const editorTabs: { id: EditorTab; label: string }[] = [
+    { id: 'panoramas', label: 'Panoramas' },
+    { id: 'hotspots', label: 'Hotspots' },
+    { id: 'polygons', label: 'Polígonos' },
+    { id: 'appearance', label: 'Apariencia' },
+    { id: 'share', label: 'Compartir' },
+];
 
 const project360DateFormatter = new Intl.DateTimeFormat('es-PE', {
     dateStyle: 'short',
@@ -112,6 +126,17 @@ function hotspotDraft(hotspot: Project360Hotspot): HotspotDraft {
     };
 }
 
+function polygonDraft(polygon: Project360Polygon): PolygonDraft {
+    return {
+        title: polygon.title,
+        description: polygon.description ?? '',
+        vertices: polygon.vertices,
+        color: polygon.color,
+        hover_color: polygon.hover_color,
+        opacity: polygon.opacity,
+    };
+}
+
 export default function Project360Show({
     project,
     tour,
@@ -121,8 +146,8 @@ export default function Project360Show({
     const initialPanoramaId =
         tour.start_panorama_id ?? tour.panoramas[0]?.id ?? null;
     const initialPanorama =
-        tour.panoramas.find((panorama) => panorama.id === initialPanoramaId) ??
-        null;
+        tour.panoramas.find((item) => item.id === initialPanoramaId) ?? null;
+    const [activeTab, setActiveTab] = useState<EditorTab>('panoramas');
     const [activePanoramaId, setActivePanoramaId] = useState<number | null>(
         initialPanoramaId,
     );
@@ -131,25 +156,12 @@ export default function Project360Show({
     const [selectedHotspotId, setSelectedHotspotId] = useState<number | null>(
         null,
     );
+    const [selectedPolygonId, setSelectedPolygonId] = useState<number | null>(
+        null,
+    );
     const [panoramaTitles, setPanoramaTitles] = useState(
         Object.fromEntries(
             tour.panoramas.map((panorama) => [panorama.id, panorama.title]),
-        ),
-    );
-    const [floorPlanTitles, setFloorPlanTitles] = useState(
-        Object.fromEntries(
-            tour.floor_plans.map((floorPlan) => [
-                floorPlan.id,
-                floorPlan.title,
-            ]),
-        ),
-    );
-    const [floorPlanOrders, setFloorPlanOrders] = useState(
-        Object.fromEntries(
-            tour.floor_plans.map((floorPlan) => [
-                floorPlan.id,
-                floorPlan.sort_order,
-            ]),
         ),
     );
     const [hotspotDrafts, setHotspotDrafts] = useState<
@@ -159,28 +171,28 @@ export default function Project360Show({
             tour.hotspots.map((hotspot) => [hotspot.id, hotspotDraft(hotspot)]),
         ),
     );
+    const [polygonDrafts, setPolygonDrafts] = useState<
+        Record<number, PolygonDraft>
+    >(
+        Object.fromEntries(
+            tour.polygons.map((polygon) => [polygon.id, polygonDraft(polygon)]),
+        ),
+    );
     const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
     const [sceneDraft, setSceneDraft] = useState({
         initial_yaw: initialPanorama?.initial_yaw ?? 0,
         initial_pitch: initialPanorama?.initial_pitch ?? 0,
-        floor_plan_id: initialPanorama?.floor_plan_id ?? null,
-        plan_x: initialPanorama?.plan_x ?? null,
-        plan_y: initialPanorama?.plan_y ?? null,
     });
 
     const uploadForm = useForm<UploadForm>({
         panorama_files: [],
         panorama_titles: [],
     });
-    const floorPlanUploadForm = useForm<FloorPlanUploadForm>({
-        floor_plan_files: [],
-        floor_plan_titles: [],
-    });
     const hotspotForm = useForm<HotspotDraft & { source_panorama_id: number }>({
         source_panorama_id: initialPanoramaId ?? 0,
         target_panorama_id:
-            tour.panoramas.find((panorama) => panorama.id !== initialPanoramaId)
-                ?.id ?? 0,
+            tour.panoramas.find((item) => item.id !== initialPanoramaId)?.id ??
+            0,
         label: '',
         yaw: 0,
         pitch: 0,
@@ -192,27 +204,50 @@ export default function Project360Show({
         label_visibility: null,
         pulse_enabled: null,
     });
+    const polygonForm = useForm<PolygonDraft & { source_panorama_id: number }>({
+        source_panorama_id: initialPanoramaId ?? 0,
+        title: '',
+        description: '',
+        vertices: [],
+        color: tour.settings.accent_color,
+        hover_color: tour.settings.hotspot_hover_color,
+        opacity: 0.28,
+    });
     const themeForm = useForm({ ...tour.settings });
     const shareForm = useForm({ label: '' });
 
     const currentPanorama =
-        tour.panoramas.find((panorama) => panorama.id === activePanoramaId) ??
-        tour.panoramas.find(
-            (panorama) => panorama.id === tour.start_panorama_id,
-        ) ??
+        tour.panoramas.find((item) => item.id === activePanoramaId) ??
         tour.panoramas[0] ??
         null;
     const currentPanoramaId = currentPanorama?.id ?? null;
     const currentHotspots = tour.hotspots.filter(
         (hotspot) => hotspot.source_panorama_id === currentPanoramaId,
     );
+    const currentPolygons = tour.polygons.filter(
+        (polygon) => polygon.source_panorama_id === currentPanoramaId,
+    );
     const selectedHotspot = tour.hotspots.find(
         (hotspot) => hotspot.id === selectedHotspotId,
     );
-    const selectedDraft = selectedHotspot
+    const selectedHotspotDraft = selectedHotspot
         ? hotspotDrafts[selectedHotspot.id]
         : null;
+    const selectedPolygon = tour.polygons.find(
+        (polygon) => polygon.id === selectedPolygonId,
+    );
+    const selectedPolygonDraft = selectedPolygon
+        ? polygonDrafts[selectedPolygon.id]
+        : null;
+
     const previewPoint = useMemo(() => {
+        if (selectedHotspotDraft) {
+            return {
+                yaw: Number(selectedHotspotDraft.yaw),
+                pitch: Number(selectedHotspotDraft.pitch),
+            };
+        }
+
         if (createPointSelected) {
             return {
                 yaw: Number(hotspotForm.data.yaw),
@@ -220,22 +255,15 @@ export default function Project360Show({
             };
         }
 
-        if (selectedDraft) {
-            return {
-                yaw: Number(selectedDraft.yaw),
-                pitch: Number(selectedDraft.pitch),
-            };
-        }
-
         return null;
     }, [
+        createPointSelected,
         hotspotForm.data.pitch,
         hotspotForm.data.yaw,
-        createPointSelected,
-        selectedDraft,
+        selectedHotspotDraft,
     ]);
     const draftStyle = useMemo(() => {
-        const draft = selectedDraft ?? hotspotForm.data;
+        const draft = selectedHotspotDraft ?? hotspotForm.data;
 
         return {
             color: draft.color ?? tour.settings.hotspot_color,
@@ -249,7 +277,14 @@ export default function Project360Show({
             pulse_enabled:
                 draft.pulse_enabled ?? tour.settings.hotspot_pulse_enabled,
         };
-    }, [hotspotForm.data, selectedDraft, tour.settings]);
+    }, [hotspotForm.data, selectedHotspotDraft, tour.settings]);
+    const polygonPreview =
+        placementMode?.type === 'redraw-polygon' && selectedPolygonDraft
+            ? selectedPolygonDraft.vertices
+            : placementMode?.type === 'draw-polygon'
+              ? polygonForm.data.vertices
+              : [];
+    const polygonPreviewInvalid = polygonHasSelfIntersection(polygonPreview);
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
@@ -260,21 +295,21 @@ export default function Project360Show({
     const handlePanoramaChange = (panoramaId: number) => {
         setActivePanoramaId(panoramaId);
         setSelectedHotspotId(null);
+        setSelectedPolygonId(null);
         setPlacementMode(null);
         setCreatePointSelected(false);
-        const alternative = tour.panoramas.find(
-            (panorama) => panorama.id !== panoramaId,
-        );
         const panorama = tour.panoramas.find((item) => item.id === panoramaId);
+        const alternative = tour.panoramas.find(
+            (item) => item.id !== panoramaId,
+        );
+
         if (panorama) {
             setSceneDraft({
                 initial_yaw: panorama.initial_yaw,
                 initial_pitch: panorama.initial_pitch,
-                floor_plan_id: panorama.floor_plan_id,
-                plan_x: panorama.plan_x,
-                plan_y: panorama.plan_y,
             });
         }
+
         hotspotForm.setData((current) => ({
             ...current,
             source_panorama_id: panoramaId,
@@ -283,34 +318,59 @@ export default function Project360Show({
                     ? (alternative?.id ?? 0)
                     : current.target_panorama_id,
         }));
+        polygonForm.setData('source_panorama_id', panoramaId);
     };
 
-    const handlePlacement = ({
-        yaw,
-        pitch,
-    }: {
-        yaw: number;
-        pitch: number;
-    }) => {
-        if (placementMode?.type === 'reposition') {
-            const hotspotId = placementMode.hotspotId;
-            setHotspotDrafts((current) => ({
+    const handlePlacement = (point: Project360PolygonVertex) => {
+        if (placementMode?.type === 'reposition-hotspot') {
+            updateHotspotDraft(placementMode.hotspotId, point);
+            setPlacementMode(null);
+
+            return;
+        }
+
+        if (placementMode?.type === 'create-hotspot') {
+            hotspotForm.setData((current) => ({ ...current, ...point }));
+            setCreatePointSelected(true);
+            setPlacementMode(null);
+
+            return;
+        }
+
+        if (placementMode?.type === 'redraw-polygon') {
+            const polygonId = placementMode.polygonId;
+            setPolygonDrafts((current) => ({
                 ...current,
-                [hotspotId]: {
-                    ...current[hotspotId],
-                    yaw,
-                    pitch,
+                [polygonId]: {
+                    ...current[polygonId],
+                    vertices: [...current[polygonId].vertices, point],
                 },
             }));
-            setSelectedHotspotId(hotspotId);
-        } else {
-            hotspotForm.setData((current) => ({
+
+            return;
+        }
+
+        if (placementMode?.type === 'draw-polygon') {
+            polygonForm.setData((current) => ({
                 ...current,
-                yaw,
-                pitch,
+                vertices: [...current.vertices, point],
             }));
+        }
+    };
+
+    const captureHotspotOrientation = () => {
+        const angles = viewerRef.current?.getViewAngles();
+        if (!angles) {
+            return;
+        }
+
+        if (selectedHotspot) {
+            updateHotspotDraft(selectedHotspot.id, angles);
+        } else {
+            hotspotForm.setData((current) => ({ ...current, ...angles }));
             setCreatePointSelected(true);
         }
+
         setPlacementMode(null);
     };
 
@@ -320,15 +380,6 @@ export default function Project360Show({
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => uploadForm.reset(),
-        });
-    };
-
-    const submitFloorPlans = (event: React.FormEvent) => {
-        event.preventDefault();
-        floorPlanUploadForm.post(floorPlanRoutes.store(project.id).url, {
-            forceFormData: true,
-            preserveScroll: true,
-            onSuccess: () => floorPlanUploadForm.reset(),
         });
     };
 
@@ -353,14 +404,13 @@ export default function Project360Show({
                     'label_visibility',
                     'pulse_enabled',
                 );
-                setPlacementMode(null);
                 setCreatePointSelected(false);
+                setPlacementMode(null);
             },
         });
     };
 
     const updateHotspot = (hotspot: Project360Hotspot) => {
-        const draft = hotspotDrafts[hotspot.id] ?? hotspotDraft(hotspot);
         router.put(
             hotspotRoutes.update({
                 project: project.id,
@@ -368,7 +418,7 @@ export default function Project360Show({
             }).url,
             {
                 source_panorama_id: hotspot.source_panorama_id,
-                ...draft,
+                ...(hotspotDrafts[hotspot.id] ?? hotspotDraft(hotspot)),
             },
             {
                 preserveScroll: true,
@@ -377,16 +427,39 @@ export default function Project360Show({
         );
     };
 
-    const deleteHotspot = async (hotspot: Project360Hotspot) => {
-        if (await confirmDelete(`¿Eliminar el hotspot "${hotspot.label}"?`)) {
-            router.delete(
-                hotspotRoutes.destroy({
-                    project: project.id,
-                    hotspot: hotspot.id,
-                }).url,
-                { preserveScroll: true },
-            );
-        }
+    const createPolygon = (event: React.FormEvent) => {
+        event.preventDefault();
+        polygonForm.transform((data) => ({
+            ...data,
+            source_panorama_id: currentPanoramaId,
+            description: data.description || null,
+        }));
+        polygonForm.post(polygonRoutes.store(project.id).url, {
+            preserveScroll: true,
+            onSuccess: () => {
+                polygonForm.reset('title', 'description', 'vertices');
+                setPlacementMode(null);
+            },
+        });
+    };
+
+    const updatePolygon = (polygon: Project360Polygon) => {
+        const draft = polygonDrafts[polygon.id] ?? polygonDraft(polygon);
+        router.put(
+            polygonRoutes.update({
+                project: project.id,
+                polygon: polygon.id,
+            }).url,
+            {
+                source_panorama_id: polygon.source_panorama_id,
+                ...draft,
+                description: draft.description || null,
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => setSelectedPolygonId(null),
+            },
+        );
     };
 
     const saveSceneSettings = () => {
@@ -396,26 +469,9 @@ export default function Project360Show({
 
         router.put(
             sceneSettingsRoutes.update(project.id).url,
-            {
-                panorama_id: currentPanoramaId,
-                ...sceneDraft,
-            },
+            { panorama_id: currentPanoramaId, ...sceneDraft },
             { preserveScroll: true },
         );
-    };
-
-    const createShareLink = (event: React.FormEvent) => {
-        event.preventDefault();
-        shareForm.post(shareLinkRoutes.store(project.id).url, {
-            preserveScroll: true,
-            onSuccess: () => shareForm.reset(),
-        });
-    };
-
-    const copyLink = async (id: string, url: string) => {
-        await navigator.clipboard.writeText(url);
-        setCopiedLinkId(id);
-        window.setTimeout(() => setCopiedLinkId(null), 1800);
     };
 
     const updateHotspotDraft = (
@@ -424,17 +480,91 @@ export default function Project360Show({
     ) => {
         setHotspotDrafts((current) => ({
             ...current,
-            [hotspotId]: {
-                ...current[hotspotId],
-                ...changes,
-            },
+            [hotspotId]: { ...current[hotspotId], ...changes },
         }));
+    };
+
+    const updatePolygonDraft = (
+        polygonId: number,
+        changes: Partial<PolygonDraft>,
+    ) => {
+        setPolygonDrafts((current) => ({
+            ...current,
+            [polygonId]: { ...current[polygonId], ...changes },
+        }));
+    };
+
+    const cancelPlacement = () => {
+        if (placementMode?.type === 'redraw-polygon' && selectedPolygon) {
+            setPolygonDrafts((current) => ({
+                ...current,
+                [selectedPolygon.id]: polygonDraft(selectedPolygon),
+            }));
+        }
+
+        if (placementMode?.type === 'draw-polygon') {
+            polygonForm.setData('vertices', []);
+        }
+
+        setPlacementMode(null);
+    };
+
+    const undoPolygonVertex = () => {
+        if (placementMode?.type === 'redraw-polygon') {
+            const polygonId = placementMode.polygonId;
+            updatePolygonDraft(polygonId, {
+                vertices: polygonDrafts[polygonId]?.vertices.slice(0, -1) ?? [],
+            });
+        } else {
+            polygonForm.setData(
+                'vertices',
+                polygonForm.data.vertices.slice(0, -1),
+            );
+        }
+    };
+
+    const deleteHotspot = async (hotspot: Project360Hotspot) => {
+        if (
+            !(await confirmDelete(`¿Eliminar el hotspot "${hotspot.label}"?`))
+        ) {
+            return;
+        }
+
+        router.delete(
+            hotspotRoutes.destroy({
+                project: project.id,
+                hotspot: hotspot.id,
+            }).url,
+            { preserveScroll: true },
+        );
+    };
+
+    const deletePolygon = async (polygon: Project360Polygon) => {
+        if (
+            !(await confirmDelete(`¿Eliminar el polígono "${polygon.title}"?`))
+        ) {
+            return;
+        }
+
+        router.delete(
+            polygonRoutes.destroy({
+                project: project.id,
+                polygon: polygon.id,
+            }).url,
+            { preserveScroll: true },
+        );
+    };
+
+    const copyLink = async (id: string, url: string) => {
+        await navigator.clipboard.writeText(url);
+        setCopiedLinkId(id);
+        window.setTimeout(() => setCopiedLinkId(null), 1800);
     };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Vista 360 - ${project.name}`} />
-            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
+            <div className="flex h-full flex-1 flex-col gap-4 p-4 md:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <div className="flex items-center gap-2">
@@ -450,1199 +580,1285 @@ export default function Project360Show({
                             </Badge>
                         </div>
                         <p className="mt-1 text-sm text-slate-500">
-                            Pulsa directamente en la imagen para colocar los
-                            puntos de navegación.
+                            Configura escenas, navegación y zonas informativas
+                            directamente sobre el panorama.
                         </p>
                     </div>
                 </div>
 
-                <Project360Viewer
-                    ref={viewerRef}
-                    panoramas={tour.panoramas}
-                    hotspots={tour.hotspots}
-                    floorPlans={tour.floor_plans}
-                    settings={tour.settings}
-                    startPanoramaId={tour.start_panorama_id}
-                    placementMode={placementMode !== null}
-                    draftPoint={previewPoint}
-                    draftStyle={draftStyle}
-                    onPlacement={handlePlacement}
-                    onPanoramaChange={handlePanoramaChange}
-                    className="min-h-[32rem]"
-                />
-
-                {canManage ? (
-                    <div className="grid gap-6 xl:grid-cols-2">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Panoramas</CardTitle>
-                                <CardDescription>
-                                    Hasta 5 imágenes 2:1 por carga, entre
-                                    2048×1024 y 8192×4096.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <form
-                                    onSubmit={submitPanoramas}
-                                    className="space-y-3 rounded-lg border p-4"
-                                >
-                                    <Input
-                                        type="file"
-                                        accept="image/jpeg,image/png,image/webp"
-                                        multiple
-                                        onChange={(event) => {
-                                            const files = Array.from(
-                                                event.target.files ?? [],
-                                            );
-                                            uploadForm.setData({
-                                                panorama_files: files,
-                                                panorama_titles: files.map(
-                                                    (file) =>
-                                                        file.name.replace(
-                                                            /\.[^.]+$/,
-                                                            '',
-                                                        ),
-                                                ),
-                                            });
-                                        }}
-                                    />
-                                    {uploadForm.data.panorama_titles.map(
-                                        (title, index) => (
-                                            <Input
-                                                key={`${uploadForm.data.panorama_files[index]?.name}-${index}`}
-                                                value={title}
-                                                onChange={(event) => {
-                                                    const titles = [
-                                                        ...uploadForm.data
-                                                            .panorama_titles,
-                                                    ];
-                                                    titles[index] =
-                                                        event.target.value;
-                                                    uploadForm.setData(
-                                                        'panorama_titles',
-                                                        titles,
-                                                    );
-                                                }}
-                                                placeholder={`Título ${index + 1}`}
-                                            />
-                                        ),
-                                    )}
-                                    <InputError
-                                        message={
-                                            uploadForm.errors.panorama_files
-                                        }
-                                    />
-                                    <Button
-                                        type="submit"
-                                        disabled={
-                                            uploadForm.processing ||
-                                            uploadForm.data.panorama_files
-                                                .length === 0
-                                        }
-                                    >
-                                        <Upload className="h-4 w-4" />
-                                        Subir panoramas
-                                    </Button>
-                                </form>
-
-                                {tour.panoramas.map((panorama) => (
-                                    <div
-                                        key={panorama.id}
-                                        className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center"
-                                    >
-                                        <Input
-                                            value={
-                                                panoramaTitles[panorama.id] ??
-                                                panorama.title
-                                            }
-                                            onChange={(event) =>
-                                                setPanoramaTitles(
-                                                    (current) => ({
-                                                        ...current,
-                                                        [panorama.id]:
-                                                            event.target.value,
-                                                    }),
-                                                )
-                                            }
-                                        />
-                                        <Button
-                                            type="button"
-                                            size="icon"
-                                            variant="outline"
-                                            onClick={() =>
-                                                router.patch(
-                                                    panoramaRoutes.update({
-                                                        project: project.id,
-                                                        panorama: panorama.id,
-                                                    }).url,
-                                                    {
-                                                        title: panoramaTitles[
-                                                            panorama.id
-                                                        ],
-                                                    },
-                                                    {
-                                                        preserveScroll: true,
-                                                    },
-                                                )
-                                            }
-                                            title="Guardar título"
-                                        >
-                                            <Save className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="icon"
-                                            variant={
-                                                panorama.is_starting
-                                                    ? 'default'
-                                                    : 'outline'
-                                            }
-                                            onClick={() =>
-                                                router.put(
-                                                    startPanoramaRoutes.update(
-                                                        project.id,
-                                                    ).url,
-                                                    {
-                                                        panorama_id:
-                                                            panorama.id,
-                                                    },
-                                                    {
-                                                        preserveScroll: true,
-                                                    },
-                                                )
-                                            }
-                                            title="Escena inicial"
-                                        >
-                                            <Star className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="icon"
-                                            variant="destructive"
-                                            onClick={() =>
-                                                void (async () => {
-                                                    if (
-                                                        await confirmDelete(
-                                                            `¿Eliminar el panorama "${panorama.title}"?`,
-                                                        )
-                                                    ) {
-                                                        router.delete(
-                                                            panoramaRoutes.destroy(
-                                                                {
-                                                                    project:
-                                                                        project.id,
-                                                                    panorama:
-                                                                        panorama.id,
-                                                                },
-                                                            ).url,
-                                                            {
-                                                                preserveScroll: true,
-                                                            },
-                                                        );
-                                                    }
-                                                })()
-                                            }
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                ))}
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Hotspots visuales</CardTitle>
-                                <CardDescription>
-                                    Selecciona el punto, previsualiza y completa
-                                    sus datos.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {tour.panoramas.length < 2 ? (
-                                    <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-                                        Añade al menos dos panoramas para crear
-                                        navegación.
-                                    </p>
-                                ) : (
-                                    <>
-                                        <div className="flex flex-wrap gap-2">
-                                            <Button
-                                                type="button"
-                                                onClick={() => {
-                                                    setPlacementMode({
-                                                        type: 'create',
-                                                    });
-                                                    setSelectedHotspotId(null);
-                                                    setCreatePointSelected(
-                                                        false,
-                                                    );
-                                                }}
-                                                disabled={
-                                                    currentPanoramaId === null
-                                                }
-                                            >
-                                                <MousePointer2 className="h-4 w-4" />
-                                                Añadir hotspot
-                                            </Button>
-                                            {placementMode ? (
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    onClick={() => {
-                                                        setPlacementMode(null);
-                                                        setCreatePointSelected(
-                                                            false,
-                                                        );
-                                                    }}
-                                                >
-                                                    <X className="h-4 w-4" />
-                                                    Cancelar colocación
-                                                </Button>
-                                            ) : null}
-                                        </div>
-
-                                        <form
-                                            onSubmit={createHotspot}
-                                            className="space-y-3 rounded-lg border p-4"
-                                        >
-                                            <div className="grid gap-3 sm:grid-cols-2">
-                                                <div>
-                                                    <Label>Etiqueta</Label>
-                                                    <Input
-                                                        value={
-                                                            hotspotForm.data
-                                                                .label
-                                                        }
-                                                        onChange={(event) =>
-                                                            hotspotForm.setData(
-                                                                'label',
-                                                                event.target
-                                                                    .value,
-                                                            )
-                                                        }
-                                                        placeholder="Ir a la sala"
-                                                    />
-                                                    <InputError
-                                                        message={
-                                                            hotspotForm.errors
-                                                                .label
-                                                        }
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <Label>Destino</Label>
-                                                    <select
-                                                        value={
-                                                            hotspotForm.data
-                                                                .target_panorama_id
-                                                        }
-                                                        onChange={(event) =>
-                                                            hotspotForm.setData(
-                                                                'target_panorama_id',
-                                                                Number(
-                                                                    event.target
-                                                                        .value,
-                                                                ),
-                                                            )
-                                                        }
-                                                        className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                                                    >
-                                                        {tour.panoramas
-                                                            .filter(
-                                                                (panorama) =>
-                                                                    panorama.id !==
-                                                                    currentPanoramaId,
-                                                            )
-                                                            .map((panorama) => (
-                                                                <option
-                                                                    key={
-                                                                        panorama.id
-                                                                    }
-                                                                    value={
-                                                                        panorama.id
-                                                                    }
-                                                                >
-                                                                    {
-                                                                        panorama.title
-                                                                    }
-                                                                </option>
-                                                            ))}
-                                                    </select>
-                                                </div>
-                                                <NumberField
-                                                    label="Yaw"
-                                                    value={hotspotForm.data.yaw}
-                                                    min={-180}
-                                                    max={180}
-                                                    step={0.001}
-                                                    onChange={(value) => {
-                                                        hotspotForm.setData(
-                                                            'yaw',
-                                                            value,
-                                                        );
-                                                        setCreatePointSelected(
-                                                            true,
-                                                        );
-                                                    }}
-                                                />
-                                                <NumberField
-                                                    label="Pitch"
-                                                    value={
-                                                        hotspotForm.data.pitch
-                                                    }
-                                                    min={-85}
-                                                    max={85}
-                                                    step={0.001}
-                                                    onChange={(value) => {
-                                                        hotspotForm.setData(
-                                                            'pitch',
-                                                            value,
-                                                        );
-                                                        setCreatePointSelected(
-                                                            true,
-                                                        );
-                                                    }}
-                                                />
-                                            </div>
-                                            <HotspotStyleFields
-                                                value={hotspotForm.data}
-                                                onChange={(changes) =>
-                                                    hotspotForm.setData(
-                                                        (current) => ({
-                                                            ...current,
-                                                            ...changes,
-                                                        }),
-                                                    )
-                                                }
-                                                inherited={{
-                                                    color: tour.settings
-                                                        .hotspot_color,
-                                                    hover_color:
-                                                        tour.settings
-                                                            .hotspot_hover_color,
-                                                    text_color:
-                                                        tour.settings
-                                                            .hotspot_text_color,
-                                                    size: tour.settings
-                                                        .hotspot_size,
-                                                    shape: tour.settings
-                                                        .hotspot_shape,
-                                                    label_visibility:
-                                                        tour.settings
-                                                            .hotspot_label_visibility,
-                                                    pulse_enabled:
-                                                        tour.settings
-                                                            .hotspot_pulse_enabled,
-                                                }}
-                                            />
-                                            <Button
-                                                type="submit"
-                                                disabled={
-                                                    hotspotForm.processing ||
-                                                    !hotspotForm.data.label ||
-                                                    !createPointSelected
-                                                }
-                                            >
-                                                <Plus className="h-4 w-4" />
-                                                Guardar hotspot
-                                            </Button>
-                                            {createPointSelected ? (
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    onClick={() => {
-                                                        setCreatePointSelected(
-                                                            false,
-                                                        );
-                                                        hotspotForm.setData(
-                                                            (current) => ({
-                                                                ...current,
-                                                                yaw: 0,
-                                                                pitch: 0,
-                                                            }),
-                                                        );
-                                                    }}
-                                                >
-                                                    Cancelar punto
-                                                </Button>
-                                            ) : null}
-                                        </form>
-                                    </>
-                                )}
-
-                                <div className="space-y-2">
-                                    <h3 className="text-sm font-semibold">
-                                        Hotspots de esta escena
-                                    </h3>
-                                    {currentHotspots.map((hotspot) => (
-                                        <button
-                                            key={hotspot.id}
-                                            type="button"
-                                            onClick={() => {
-                                                setSelectedHotspotId(
-                                                    hotspot.id,
-                                                );
-                                                setCreatePointSelected(false);
-                                            }}
-                                            className={`flex w-full items-center justify-between rounded-lg border p-3 text-left ${
-                                                selectedHotspotId === hotspot.id
-                                                    ? 'border-orange-500 bg-orange-50'
-                                                    : ''
-                                            }`}
-                                        >
-                                            <span>
-                                                <span className="block font-medium">
-                                                    {hotspot.label}
-                                                </span>
-                                                <span className="text-xs text-slate-500">
-                                                    yaw {hotspot.yaw} · pitch{' '}
-                                                    {hotspot.pitch}
-                                                </span>
-                                            </span>
-                                            <MapPinned className="h-4 w-4" />
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {selectedHotspot && selectedDraft ? (
-                                    <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-4">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="font-semibold">
-                                                Editar hotspot
-                                            </h3>
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setSelectedHotspotId(null)
-                                                }
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                        <Input
-                                            value={selectedDraft.label}
-                                            onChange={(event) =>
-                                                updateHotspotDraft(
-                                                    selectedHotspot.id,
-                                                    {
-                                                        label: event.target
-                                                            .value,
-                                                    },
-                                                )
-                                            }
-                                        />
-                                        <Input
-                                            type="number"
-                                            className="w-24"
-                                            min={0}
-                                            value={
-                                                floorPlanOrders[floorPlan.id] ??
-                                                floorPlan.sort_order
-                                            }
-                                            onChange={(event) =>
-                                                setFloorPlanOrders(
-                                                    (current) => ({
-                                                        ...current,
-                                                        [floorPlan.id]: Number(
-                                                            event.target.value,
-                                                        ),
-                                                    }),
-                                                )
-                                            }
-                                            title="Orden"
-                                        />
-                                        <div className="grid gap-3 sm:grid-cols-2">
-                                            <NumberField
-                                                label="Yaw"
-                                                value={selectedDraft.yaw}
-                                                min={-180}
-                                                max={180}
-                                                step={0.001}
-                                                onChange={(yaw) =>
-                                                    updateHotspotDraft(
-                                                        selectedHotspot.id,
-                                                        { yaw },
-                                                    )
-                                                }
-                                            />
-                                            <NumberField
-                                                label="Pitch"
-                                                value={selectedDraft.pitch}
-                                                min={-85}
-                                                max={85}
-                                                step={0.001}
-                                                onChange={(pitch) =>
-                                                    updateHotspotDraft(
-                                                        selectedHotspot.id,
-                                                        { pitch },
-                                                    )
-                                                }
-                                            />
-                                        </div>
-                                        <HotspotStyleFields
-                                            value={selectedDraft}
-                                            onChange={(changes) =>
-                                                updateHotspotDraft(
-                                                    selectedHotspot.id,
-                                                    changes,
-                                                )
-                                            }
-                                            inherited={{
-                                                color: tour.settings
-                                                    .hotspot_color,
-                                                hover_color:
-                                                    tour.settings
-                                                        .hotspot_hover_color,
-                                                text_color:
-                                                    tour.settings
-                                                        .hotspot_text_color,
-                                                size: tour.settings
-                                                    .hotspot_size,
-                                                shape: tour.settings
-                                                    .hotspot_shape,
-                                                label_visibility:
-                                                    tour.settings
-                                                        .hotspot_label_visibility,
-                                                pulse_enabled:
-                                                    tour.settings
-                                                        .hotspot_pulse_enabled,
-                                            }}
-                                        />
-                                        <div className="flex flex-wrap gap-2">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={() =>
-                                                    setPlacementMode({
-                                                        type: 'reposition',
-                                                        hotspotId:
-                                                            selectedHotspot.id,
-                                                    })
-                                                }
-                                            >
-                                                <MousePointer2 className="h-4 w-4" />
-                                                Reposicionar
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                onClick={() =>
-                                                    updateHotspot(
-                                                        selectedHotspot,
-                                                    )
-                                                }
-                                            >
-                                                <Save className="h-4 w-4" />
-                                                Guardar cambios
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant="destructive"
-                                                onClick={() =>
-                                                    void deleteHotspot(
-                                                        selectedHotspot,
-                                                    )
-                                                }
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ) : null}
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Tema visual</CardTitle>
-                                <CardDescription>
-                                    Apariencia predeterminada del tour y sus
-                                    hotspots.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <form
-                                    className="grid gap-4 sm:grid-cols-2"
-                                    onSubmit={(event) => {
-                                        event.preventDefault();
-                                        themeForm.put(
-                                            settingsRoutes.update(project.id)
-                                                .url,
-                                            { preserveScroll: true },
-                                        );
-                                    }}
-                                >
-                                    <ColorField
-                                        label="Color principal"
-                                        value={themeForm.data.accent_color}
-                                        onChange={(value) =>
-                                            themeForm.setData(
-                                                'accent_color',
-                                                value,
-                                            )
-                                        }
-                                    />
-                                    <ColorField
-                                        label="Hotspot"
-                                        value={themeForm.data.hotspot_color}
-                                        onChange={(value) =>
-                                            themeForm.setData(
-                                                'hotspot_color',
-                                                value,
-                                            )
-                                        }
-                                    />
-                                    <ColorField
-                                        label="Hover"
-                                        value={
-                                            themeForm.data.hotspot_hover_color
-                                        }
-                                        onChange={(value) =>
-                                            themeForm.setData(
-                                                'hotspot_hover_color',
-                                                value,
-                                            )
-                                        }
-                                    />
-                                    <ColorField
-                                        label="Texto"
-                                        value={
-                                            themeForm.data.hotspot_text_color
-                                        }
-                                        onChange={(value) =>
-                                            themeForm.setData(
-                                                'hotspot_text_color',
-                                                value,
-                                            )
-                                        }
-                                    />
-                                    <NumberField
-                                        label="Tamaño"
-                                        value={themeForm.data.hotspot_size}
-                                        min={0.08}
-                                        max={0.5}
-                                        step={0.01}
-                                        onChange={(value) =>
-                                            themeForm.setData(
-                                                'hotspot_size',
-                                                value,
-                                            )
-                                        }
-                                    />
-                                    <SelectField
-                                        label="Forma"
-                                        value={themeForm.data.hotspot_shape}
-                                        options={[
-                                            ['sphere', 'Esfera'],
-                                            ['ring', 'Anillo'],
-                                            ['pin', 'Pin'],
-                                        ]}
-                                        onChange={(value) =>
-                                            themeForm.setData(
-                                                'hotspot_shape',
-                                                value as Project360HotspotShape,
-                                            )
-                                        }
-                                    />
-                                    <SelectField
-                                        label="Etiqueta"
-                                        value={
-                                            themeForm.data
-                                                .hotspot_label_visibility
-                                        }
-                                        options={[
-                                            ['always', 'Siempre'],
-                                            ['hover', 'Al pasar'],
-                                            ['hidden', 'Oculta'],
-                                        ]}
-                                        onChange={(value) =>
-                                            themeForm.setData(
-                                                'hotspot_label_visibility',
-                                                value as Project360LabelVisibility,
-                                            )
-                                        }
-                                    />
-                                    <label className="flex items-center gap-2 self-end pb-2 text-sm">
-                                        <input
-                                            type="checkbox"
-                                            checked={
-                                                themeForm.data
-                                                    .hotspot_pulse_enabled
-                                            }
-                                            onChange={(event) =>
-                                                themeForm.setData(
-                                                    'hotspot_pulse_enabled',
-                                                    event.target.checked,
-                                                )
-                                            }
-                                        />
-                                        Animación de pulso
-                                    </label>
-                                    <Button
-                                        type="submit"
-                                        className="sm:col-span-2 sm:w-fit"
-                                        disabled={themeForm.processing}
-                                    >
-                                        <Save className="h-4 w-4" />
-                                        Guardar tema
-                                    </Button>
-                                </form>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Planos y posición</CardTitle>
-                                <CardDescription>
-                                    Sube planos y pulsa sobre uno para ubicar la
-                                    escena actual.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <form
-                                    onSubmit={submitFloorPlans}
-                                    className="space-y-3 rounded-lg border p-4"
-                                >
-                                    <Input
-                                        type="file"
-                                        accept="image/jpeg,image/png,image/webp"
-                                        multiple
-                                        onChange={(event) => {
-                                            const files = Array.from(
-                                                event.target.files ?? [],
-                                            );
-                                            floorPlanUploadForm.setData({
-                                                floor_plan_files: files,
-                                                floor_plan_titles: files.map(
-                                                    (file) =>
-                                                        file.name.replace(
-                                                            /\.[^.]+$/,
-                                                            '',
-                                                        ),
-                                                ),
-                                            });
-                                        }}
-                                    />
-                                    {floorPlanUploadForm.data.floor_plan_titles.map(
-                                        (title, index) => (
-                                            <Input
-                                                key={`${floorPlanUploadForm.data.floor_plan_files[index]?.name}-${index}`}
-                                                value={title}
-                                                onChange={(event) => {
-                                                    const titles = [
-                                                        ...floorPlanUploadForm
-                                                            .data
-                                                            .floor_plan_titles,
-                                                    ];
-                                                    titles[index] =
-                                                        event.target.value;
-                                                    floorPlanUploadForm.setData(
-                                                        'floor_plan_titles',
-                                                        titles,
-                                                    );
-                                                }}
-                                            />
-                                        ),
-                                    )}
-                                    <InputError
-                                        message={
-                                            floorPlanUploadForm.errors
-                                                .floor_plan_files
-                                        }
-                                    />
-                                    <Button
-                                        type="submit"
-                                        disabled={
-                                            floorPlanUploadForm.processing ||
-                                            floorPlanUploadForm.data
-                                                .floor_plan_files.length === 0
-                                        }
-                                    >
-                                        <Upload className="h-4 w-4" />
-                                        Subir planos
-                                    </Button>
-                                </form>
-
-                                {tour.floor_plans.map((floorPlan) => (
-                                    <div
-                                        key={floorPlan.id}
-                                        className="flex gap-2"
-                                    >
-                                        <Input
-                                            value={
-                                                floorPlanTitles[floorPlan.id] ??
-                                                floorPlan.title
-                                            }
-                                            onChange={(event) =>
-                                                setFloorPlanTitles(
-                                                    (current) => ({
-                                                        ...current,
-                                                        [floorPlan.id]:
-                                                            event.target.value,
-                                                    }),
-                                                )
-                                            }
-                                        />
-                                        <Button
-                                            type="button"
-                                            size="icon"
-                                            variant="outline"
-                                            onClick={() =>
-                                                router.patch(
-                                                    floorPlanRoutes.update({
-                                                        project: project.id,
-                                                        floorPlan: floorPlan.id,
-                                                    }).url,
-                                                    {
-                                                        title: floorPlanTitles[
-                                                            floorPlan.id
-                                                        ],
-                                                        sort_order:
-                                                            floorPlanOrders[
-                                                                floorPlan.id
-                                                            ] ??
-                                                            floorPlan.sort_order,
-                                                    },
-                                                    {
-                                                        preserveScroll: true,
-                                                    },
-                                                )
-                                            }
-                                        >
-                                            <Save className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="icon"
-                                            variant="destructive"
-                                            onClick={() =>
-                                                void (async () => {
-                                                    if (
-                                                        await confirmDelete(
-                                                            `¿Eliminar el plano "${floorPlan.title}"?`,
-                                                        )
-                                                    ) {
-                                                        router.delete(
-                                                            floorPlanRoutes.destroy(
-                                                                {
-                                                                    project:
-                                                                        project.id,
-                                                                    floorPlan:
-                                                                        floorPlan.id,
-                                                                },
-                                                            ).url,
-                                                            {
-                                                                preserveScroll: true,
-                                                            },
-                                                        );
-                                                    }
-                                                })()
-                                            }
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                ))}
-
-                                {currentPanorama ? (
-                                    <div className="space-y-3 rounded-lg border p-4">
-                                        <h3 className="font-semibold">
-                                            Escena: {currentPanorama.title}
-                                        </h3>
-                                        <div className="grid gap-3 sm:grid-cols-2">
-                                            <NumberField
-                                                label="Yaw inicial"
-                                                value={sceneDraft.initial_yaw}
-                                                min={-180}
-                                                max={180}
-                                                step={0.001}
-                                                onChange={(initial_yaw) =>
-                                                    setSceneDraft(
-                                                        (current) => ({
-                                                            ...current,
-                                                            initial_yaw,
-                                                        }),
-                                                    )
-                                                }
-                                            />
-                                            <NumberField
-                                                label="Pitch inicial"
-                                                value={sceneDraft.initial_pitch}
-                                                min={-85}
-                                                max={85}
-                                                step={0.001}
-                                                onChange={(initial_pitch) =>
-                                                    setSceneDraft(
-                                                        (current) => ({
-                                                            ...current,
-                                                            initial_pitch,
-                                                        }),
-                                                    )
-                                                }
-                                            />
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => {
-                                                const angles =
-                                                    viewerRef.current?.getViewAngles();
-                                                if (angles) {
-                                                    setSceneDraft(
-                                                        (current) => ({
-                                                            ...current,
-                                                            initial_yaw:
-                                                                angles.yaw,
-                                                            initial_pitch:
-                                                                angles.pitch,
-                                                        }),
-                                                    );
-                                                }
-                                            }}
-                                        >
-                                            <MapPinned className="h-4 w-4" />
-                                            Capturar orientación actual
-                                        </Button>
-                                        <SelectField
-                                            label="Plano asociado"
-                                            value={
-                                                sceneDraft.floor_plan_id?.toString() ??
-                                                ''
-                                            }
-                                            options={[
-                                                ['', 'Sin plano'],
-                                                ...tour.floor_plans.map(
-                                                    (floorPlan) =>
-                                                        [
-                                                            String(
-                                                                floorPlan.id,
-                                                            ),
-                                                            floorPlan.title,
-                                                        ] as [string, string],
-                                                ),
-                                            ]}
-                                            onChange={(value) =>
-                                                setSceneDraft((current) => ({
-                                                    ...current,
-                                                    floor_plan_id: value
-                                                        ? Number(value)
-                                                        : null,
-                                                    plan_x: value
-                                                        ? current.plan_x
-                                                        : null,
-                                                    plan_y: value
-                                                        ? current.plan_y
-                                                        : null,
-                                                }))
-                                            }
-                                        />
-                                        {tour.floor_plans.find(
-                                            (floorPlan) =>
-                                                floorPlan.id ===
-                                                sceneDraft.floor_plan_id,
-                                        ) ? (
-                                            <button
-                                                type="button"
-                                                className="relative block w-full overflow-hidden rounded-lg border bg-slate-100"
-                                                onClick={(event) => {
-                                                    const coordinates =
-                                                        pointerToPlanCoordinates(
-                                                            event.clientX,
-                                                            event.clientY,
-                                                            event.currentTarget.getBoundingClientRect(),
-                                                        );
-                                                    setSceneDraft(
-                                                        (current) => ({
-                                                            ...current,
-                                                            plan_x: coordinates.x,
-                                                            plan_y: coordinates.y,
-                                                        }),
-                                                    );
-                                                }}
-                                                onPointerMove={(event) => {
-                                                    if (event.buttons !== 1) {
-                                                        return;
-                                                    }
-
-                                                    const coordinates =
-                                                        pointerToPlanCoordinates(
-                                                            event.clientX,
-                                                            event.clientY,
-                                                            event.currentTarget.getBoundingClientRect(),
-                                                        );
-                                                    setSceneDraft(
-                                                        (current) => ({
-                                                            ...current,
-                                                            plan_x: coordinates.x,
-                                                            plan_y: coordinates.y,
-                                                        }),
-                                                    );
-                                                }}
-                                            >
-                                                <img
-                                                    src={
-                                                        tour.floor_plans.find(
-                                                            (floorPlan) =>
-                                                                floorPlan.id ===
-                                                                sceneDraft.floor_plan_id,
-                                                        )?.image_url
-                                                    }
-                                                    alt="Plano seleccionado"
-                                                    className="max-h-80 w-full object-contain"
-                                                    draggable={false}
-                                                />
-                                                {sceneDraft.plan_x !== null &&
-                                                sceneDraft.plan_y !== null ? (
-                                                    <MapPinned
-                                                        className="absolute h-7 w-7 -translate-x-1/2 -translate-y-full text-orange-600 drop-shadow"
-                                                        style={{
-                                                            left: `${sceneDraft.plan_x}%`,
-                                                            top: `${sceneDraft.plan_y}%`,
-                                                        }}
-                                                    />
-                                                ) : null}
-                                            </button>
-                                        ) : null}
-                                        <Button
-                                            type="button"
-                                            onClick={saveSceneSettings}
-                                        >
-                                            <Save className="h-4 w-4" />
-                                            Guardar escena
-                                        </Button>
-                                    </div>
-                                ) : null}
-                            </CardContent>
-                        </Card>
-
-                        <Card className="xl:col-span-2">
-                            <CardHeader>
-                                <CardTitle>Enlaces públicos</CardTitle>
-                                <CardDescription>
-                                    Incluyen panoramas y planos; permanecen
-                                    activos hasta revocarlos.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <form
-                                    onSubmit={createShareLink}
-                                    className="flex flex-col gap-3 sm:flex-row"
-                                >
-                                    <div className="flex-1">
-                                        <Label>Etiqueta opcional</Label>
-                                        <Input
-                                            value={shareForm.data.label}
-                                            onChange={(event) =>
-                                                shareForm.setData(
-                                                    'label',
-                                                    event.target.value,
-                                                )
-                                            }
-                                            placeholder="Cliente o campaña"
-                                        />
-                                    </div>
-                                    <Button
-                                        type="submit"
-                                        className="sm:self-end"
-                                        disabled={shareForm.processing}
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                        Crear enlace
-                                    </Button>
-                                </form>
-                                {(tour.share_links ?? []).map((link) => (
-                                    <div
-                                        key={link.id}
-                                        className="flex flex-col gap-3 rounded-lg border p-3 lg:flex-row lg:items-center"
-                                    >
-                                        <div className="min-w-0 flex-1">
-                                            <p className="font-medium">
-                                                {link.label || 'Sin etiqueta'}
-                                            </p>
-                                            <p className="truncate text-xs text-slate-500">
-                                                {link.url}
-                                            </p>
-                                            <p className="text-xs text-slate-400">
-                                                Último acceso:{' '}
-                                                {link.last_accessed_at
-                                                    ? project360DateFormatter.format(
-                                                          new Date(
-                                                              link.last_accessed_at,
-                                                          ),
-                                                      )
-                                                    : 'Nunca'}
-                                            </p>
-                                        </div>
-                                        {link.revoked_at ? (
-                                            <Badge variant="secondary">
-                                                Revocado
-                                            </Badge>
-                                        ) : (
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    type="button"
-                                                    size="icon"
-                                                    variant="outline"
-                                                    onClick={() =>
-                                                        void copyLink(
-                                                            link.id,
-                                                            link.url,
-                                                        )
-                                                    }
-                                                >
-                                                    {copiedLinkId ===
-                                                    link.id ? (
-                                                        <Check className="h-4 w-4" />
-                                                    ) : (
-                                                        <Clipboard className="h-4 w-4" />
-                                                    )}
-                                                </Button>
-                                                <Button
-                                                    asChild
-                                                    size="icon"
-                                                    variant="outline"
-                                                >
-                                                    <a
-                                                        href={link.url}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                    >
-                                                        <ExternalLink className="h-4 w-4" />
-                                                    </a>
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    size="icon"
-                                                    variant="destructive"
-                                                    onClick={() =>
-                                                        router.patch(
-                                                            shareLinkRoutes.revoke(
-                                                                {
-                                                                    project:
-                                                                        project.id,
-                                                                    shareLink:
-                                                                        link.id,
-                                                                },
-                                                            ).url,
-                                                            {},
-                                                            {
-                                                                preserveScroll: true,
-                                                            },
-                                                        )
-                                                    }
-                                                >
-                                                    <Link2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </CardContent>
-                        </Card>
+                <div
+                    className={`grid min-h-0 flex-1 gap-4 ${
+                        canManage
+                            ? 'xl:grid-cols-[minmax(0,1fr)_26rem]'
+                            : 'grid-cols-1'
+                    }`}
+                >
+                    <div className="min-h-[34rem] xl:sticky xl:top-4 xl:h-[calc(100vh-7.5rem)]">
+                        <Project360Viewer
+                            ref={viewerRef}
+                            panoramas={tour.panoramas}
+                            hotspots={tour.hotspots}
+                            polygons={tour.polygons}
+                            settings={tour.settings}
+                            startPanoramaId={tour.start_panorama_id}
+                            placementMode={placementMode !== null}
+                            draftPoint={previewPoint}
+                            draftStyle={draftStyle}
+                            editingHotspotId={selectedHotspotId}
+                            polygonDraft={polygonPreview}
+                            editingPolygonId={
+                                placementMode?.type === 'redraw-polygon'
+                                    ? placementMode.polygonId
+                                    : null
+                            }
+                            selectedPolygonId={selectedPolygonId}
+                            onPlacement={handlePlacement}
+                            onPanoramaChange={handlePanoramaChange}
+                            onPolygonSelect={(polygonId) => {
+                                setSelectedPolygonId(polygonId);
+                                if (polygonId !== null) {
+                                    setActiveTab('polygons');
+                                }
+                            }}
+                            className="h-full min-h-[34rem] w-full"
+                        />
                     </div>
-                ) : null}
+
+                    {canManage ? (
+                        <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-background shadow-sm xl:sticky xl:top-4 xl:h-[calc(100vh-7.5rem)]">
+                            <div
+                                role="tablist"
+                                aria-label="Configuración del tour 360"
+                                className="flex gap-1 overflow-x-auto border-b bg-slate-50 p-2"
+                            >
+                                {editorTabs.map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={activeTab === tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`shrink-0 rounded-md px-3 py-2 text-xs font-medium transition ${
+                                            activeTab === tab.id
+                                                ? 'bg-slate-900 text-white shadow-sm'
+                                                : 'text-slate-600 hover:bg-white hover:text-slate-950'
+                                        }`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-20">
+                                {activeTab === 'panoramas' ? (
+                                    <PanoramasPanel
+                                        project={project}
+                                        tour={tour}
+                                        currentPanorama={currentPanorama}
+                                        panoramaTitles={panoramaTitles}
+                                        setPanoramaTitles={setPanoramaTitles}
+                                        uploadForm={uploadForm}
+                                        submitPanoramas={submitPanoramas}
+                                        sceneDraft={sceneDraft}
+                                        setSceneDraft={setSceneDraft}
+                                        viewerRef={viewerRef}
+                                        saveSceneSettings={saveSceneSettings}
+                                    />
+                                ) : null}
+
+                                {activeTab === 'hotspots' ? (
+                                    <HotspotsPanel
+                                        tour={tour}
+                                        currentPanoramaId={currentPanoramaId}
+                                        currentHotspots={currentHotspots}
+                                        selectedHotspot={selectedHotspot}
+                                        selectedDraft={selectedHotspotDraft}
+                                        hotspotForm={hotspotForm}
+                                        placementMode={placementMode}
+                                        createPointSelected={
+                                            createPointSelected
+                                        }
+                                        setCreatePointSelected={
+                                            setCreatePointSelected
+                                        }
+                                        setPlacementMode={setPlacementMode}
+                                        setSelectedHotspotId={
+                                            setSelectedHotspotId
+                                        }
+                                        setSelectedPolygonId={
+                                            setSelectedPolygonId
+                                        }
+                                        captureOrientation={
+                                            captureHotspotOrientation
+                                        }
+                                        createHotspot={createHotspot}
+                                        updateDraft={updateHotspotDraft}
+                                        updateHotspot={updateHotspot}
+                                        deleteHotspot={deleteHotspot}
+                                        cancelPlacement={cancelPlacement}
+                                    />
+                                ) : null}
+
+                                {activeTab === 'polygons' ? (
+                                    <PolygonsPanel
+                                        currentPanoramaId={currentPanoramaId}
+                                        currentPolygons={currentPolygons}
+                                        selectedPolygon={selectedPolygon}
+                                        selectedDraft={selectedPolygonDraft}
+                                        polygonForm={polygonForm}
+                                        placementMode={placementMode}
+                                        polygonPreview={polygonPreview}
+                                        polygonPreviewInvalid={
+                                            polygonPreviewInvalid
+                                        }
+                                        setPlacementMode={setPlacementMode}
+                                        setSelectedPolygonId={
+                                            setSelectedPolygonId
+                                        }
+                                        setSelectedHotspotId={
+                                            setSelectedHotspotId
+                                        }
+                                        createPolygon={createPolygon}
+                                        updateDraft={updatePolygonDraft}
+                                        updatePolygon={updatePolygon}
+                                        deletePolygon={deletePolygon}
+                                        undoVertex={undoPolygonVertex}
+                                        cancelPlacement={cancelPlacement}
+                                    />
+                                ) : null}
+
+                                {activeTab === 'appearance' ? (
+                                    <AppearancePanel
+                                        themeForm={themeForm}
+                                        projectId={project.id}
+                                    />
+                                ) : null}
+
+                                {activeTab === 'share' ? (
+                                    <SharePanel
+                                        projectId={project.id}
+                                        tour={tour}
+                                        shareForm={shareForm}
+                                        copiedLinkId={copiedLinkId}
+                                        copyLink={copyLink}
+                                    />
+                                ) : null}
+                            </div>
+                        </aside>
+                    ) : null}
+                </div>
             </div>
         </AppLayout>
+    );
+}
+
+type InertiaForm<T extends object> = InertiaFormProps<T>;
+
+function PanoramasPanel({
+    project,
+    tour,
+    currentPanorama,
+    panoramaTitles,
+    setPanoramaTitles,
+    uploadForm,
+    submitPanoramas,
+    sceneDraft,
+    setSceneDraft,
+    viewerRef,
+    saveSceneSettings,
+}: {
+    project: Project;
+    tour: Project360Tour;
+    currentPanorama: Project360Tour['panoramas'][number] | null;
+    panoramaTitles: Record<number, string>;
+    setPanoramaTitles: React.Dispatch<
+        React.SetStateAction<Record<number, string>>
+    >;
+    uploadForm: InertiaForm<UploadForm>;
+    submitPanoramas: (event: React.FormEvent) => void;
+    sceneDraft: { initial_yaw: number; initial_pitch: number };
+    setSceneDraft: React.Dispatch<
+        React.SetStateAction<{ initial_yaw: number; initial_pitch: number }>
+    >;
+    viewerRef: React.RefObject<Project360ViewerHandle | null>;
+    saveSceneSettings: () => void;
+}) {
+    return (
+        <PanelSection
+            title="Panoramas"
+            description="Carga imágenes 2:1 y define la vista inicial de cada escena."
+        >
+            <form
+                onSubmit={submitPanoramas}
+                className="space-y-3 rounded-lg border bg-slate-50 p-3"
+            >
+                <Input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    onChange={(event) => {
+                        const files = Array.from(event.target.files ?? []);
+                        uploadForm.setData({
+                            panorama_files: files,
+                            panorama_titles: files.map((file) =>
+                                file.name.replace(/\.[^.]+$/, ''),
+                            ),
+                        });
+                    }}
+                />
+                {uploadForm.data.panorama_titles.map((title, index) => (
+                    <Input
+                        key={`${uploadForm.data.panorama_files[index]?.name}-${index}`}
+                        value={title}
+                        onChange={(event) => {
+                            const titles = [...uploadForm.data.panorama_titles];
+                            titles[index] = event.target.value;
+                            uploadForm.setData('panorama_titles', titles);
+                        }}
+                        placeholder={`Título ${index + 1}`}
+                    />
+                ))}
+                <InputError message={uploadForm.errors.panorama_files} />
+                <Button
+                    type="submit"
+                    size="sm"
+                    disabled={
+                        uploadForm.processing ||
+                        uploadForm.data.panorama_files.length === 0
+                    }
+                >
+                    <Upload className="h-4 w-4" /> Subir panoramas
+                </Button>
+            </form>
+
+            <div className="space-y-2">
+                {tour.panoramas.map((panorama) => (
+                    <div
+                        key={panorama.id}
+                        className="flex items-center gap-2 rounded-lg border p-2"
+                    >
+                        <Input
+                            value={
+                                panoramaTitles[panorama.id] ?? panorama.title
+                            }
+                            onChange={(event) =>
+                                setPanoramaTitles((current) => ({
+                                    ...current,
+                                    [panorama.id]: event.target.value,
+                                }))
+                            }
+                        />
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            title="Guardar título"
+                            onClick={() =>
+                                router.patch(
+                                    panoramaRoutes.update({
+                                        project: project.id,
+                                        panorama: panorama.id,
+                                    }).url,
+                                    { title: panoramaTitles[panorama.id] },
+                                    { preserveScroll: true },
+                                )
+                            }
+                        >
+                            <Save className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant={
+                                panorama.is_starting ? 'default' : 'outline'
+                            }
+                            title="Escena inicial"
+                            onClick={() =>
+                                router.put(
+                                    startPanoramaRoutes.update(project.id).url,
+                                    { panorama_id: panorama.id },
+                                    { preserveScroll: true },
+                                )
+                            }
+                        >
+                            <Star className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="destructive"
+                            title="Eliminar panorama"
+                            onClick={() =>
+                                void (async () => {
+                                    if (
+                                        await confirmDelete(
+                                            `¿Eliminar el panorama "${panorama.title}"?`,
+                                        )
+                                    ) {
+                                        router.delete(
+                                            panoramaRoutes.destroy({
+                                                project: project.id,
+                                                panorama: panorama.id,
+                                            }).url,
+                                            { preserveScroll: true },
+                                        );
+                                    }
+                                })()
+                            }
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                ))}
+            </div>
+
+            {currentPanorama ? (
+                <div className="space-y-3 rounded-lg border p-3">
+                    <div>
+                        <h3 className="text-sm font-semibold">
+                            Orientación inicial
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                            Escena: {currentPanorama.title}
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <NumberField
+                            label="Yaw"
+                            value={sceneDraft.initial_yaw}
+                            min={-180}
+                            max={180}
+                            step={0.001}
+                            onChange={(initial_yaw) =>
+                                setSceneDraft((current) => ({
+                                    ...current,
+                                    initial_yaw,
+                                }))
+                            }
+                        />
+                        <NumberField
+                            label="Pitch"
+                            value={sceneDraft.initial_pitch}
+                            min={-85}
+                            max={85}
+                            step={0.001}
+                            onChange={(initial_pitch) =>
+                                setSceneDraft((current) => ({
+                                    ...current,
+                                    initial_pitch,
+                                }))
+                            }
+                        />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                                const angles =
+                                    viewerRef.current?.getViewAngles();
+                                if (angles) {
+                                    setSceneDraft({
+                                        initial_yaw: angles.yaw,
+                                        initial_pitch: angles.pitch,
+                                    });
+                                }
+                            }}
+                        >
+                            <Rotate3D className="h-4 w-4" /> Usar vista actual
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={saveSceneSettings}
+                        >
+                            <Save className="h-4 w-4" /> Guardar orientación
+                        </Button>
+                    </div>
+                </div>
+            ) : null}
+        </PanelSection>
+    );
+}
+
+function HotspotsPanel({
+    tour,
+    currentPanoramaId,
+    currentHotspots,
+    selectedHotspot,
+    selectedDraft,
+    hotspotForm,
+    placementMode,
+    createPointSelected,
+    setCreatePointSelected,
+    setPlacementMode,
+    setSelectedHotspotId,
+    setSelectedPolygonId,
+    captureOrientation,
+    createHotspot,
+    updateDraft,
+    updateHotspot,
+    deleteHotspot,
+    cancelPlacement,
+}: {
+    tour: Project360Tour;
+    currentPanoramaId: number | null;
+    currentHotspots: Project360Hotspot[];
+    selectedHotspot: Project360Hotspot | undefined;
+    selectedDraft: HotspotDraft | null;
+    hotspotForm: InertiaForm<HotspotDraft & { source_panorama_id: number }>;
+    placementMode: PlacementMode;
+    createPointSelected: boolean;
+    setCreatePointSelected: React.Dispatch<React.SetStateAction<boolean>>;
+    setPlacementMode: React.Dispatch<React.SetStateAction<PlacementMode>>;
+    setSelectedHotspotId: React.Dispatch<React.SetStateAction<number | null>>;
+    setSelectedPolygonId: React.Dispatch<React.SetStateAction<number | null>>;
+    captureOrientation: () => void;
+    createHotspot: (event: React.FormEvent) => void;
+    updateDraft: (id: number, changes: Partial<HotspotDraft>) => void;
+    updateHotspot: (hotspot: Project360Hotspot) => void;
+    deleteHotspot: (hotspot: Project360Hotspot) => Promise<void>;
+    cancelPlacement: () => void;
+}) {
+    const inheritedStyle = {
+        color: tour.settings.hotspot_color,
+        hover_color: tour.settings.hotspot_hover_color,
+        text_color: tour.settings.hotspot_text_color,
+        size: tour.settings.hotspot_size,
+        shape: tour.settings.hotspot_shape,
+        label_visibility: tour.settings.hotspot_label_visibility,
+        pulse_enabled: tour.settings.hotspot_pulse_enabled,
+    };
+
+    return (
+        <PanelSection
+            title="Hotspots visuales"
+            description="Crea accesos entre panoramas y ajusta su posición con la vista actual."
+        >
+            {tour.panoramas.length < 2 ? (
+                <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                    Añade al menos dos panoramas para crear navegación.
+                </p>
+            ) : (
+                <>
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => {
+                                setSelectedHotspotId(null);
+                                setSelectedPolygonId(null);
+                                setPlacementMode({ type: 'create-hotspot' });
+                            }}
+                            disabled={currentPanoramaId === null}
+                        >
+                            <MousePointer2 className="h-4 w-4" /> Añadir hotspot
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={captureOrientation}
+                            disabled={currentPanoramaId === null}
+                        >
+                            <Crosshair className="h-4 w-4" /> Capturar
+                            orientación actual
+                        </Button>
+                        {placementMode?.type.includes('hotspot') ? (
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={cancelPlacement}
+                            >
+                                <X className="h-4 w-4" /> Cancelar
+                            </Button>
+                        ) : null}
+                    </div>
+
+                    {!selectedHotspot ? (
+                        <form
+                            onSubmit={createHotspot}
+                            className="space-y-3 rounded-lg border p-3"
+                        >
+                            <div>
+                                <Label>Etiqueta</Label>
+                                <Input
+                                    value={hotspotForm.data.label}
+                                    onChange={(event) =>
+                                        hotspotForm.setData(
+                                            'label',
+                                            event.target.value,
+                                        )
+                                    }
+                                    placeholder="Ir a la sala"
+                                />
+                                <InputError
+                                    message={hotspotForm.errors.label}
+                                />
+                            </div>
+                            <SelectField
+                                label="Destino"
+                                value={String(
+                                    hotspotForm.data.target_panorama_id,
+                                )}
+                                options={tour.panoramas
+                                    .filter(
+                                        (panorama) =>
+                                            panorama.id !== currentPanoramaId,
+                                    )
+                                    .map((panorama) => [
+                                        String(panorama.id),
+                                        panorama.title,
+                                    ])}
+                                onChange={(value) =>
+                                    hotspotForm.setData(
+                                        'target_panorama_id',
+                                        Number(value),
+                                    )
+                                }
+                            />
+                            <details className="rounded-lg border bg-slate-50 p-3">
+                                <summary className="cursor-pointer text-sm font-medium">
+                                    Ajuste fino
+                                </summary>
+                                <div className="mt-3 grid grid-cols-2 gap-3">
+                                    <NumberField
+                                        label="Yaw"
+                                        value={hotspotForm.data.yaw}
+                                        min={-180}
+                                        max={180}
+                                        step={0.001}
+                                        onChange={(yaw) => {
+                                            hotspotForm.setData('yaw', yaw);
+                                            setCreatePointSelected(true);
+                                        }}
+                                    />
+                                    <NumberField
+                                        label="Pitch"
+                                        value={hotspotForm.data.pitch}
+                                        min={-85}
+                                        max={85}
+                                        step={0.001}
+                                        onChange={(pitch) => {
+                                            hotspotForm.setData('pitch', pitch);
+                                            setCreatePointSelected(true);
+                                        }}
+                                    />
+                                </div>
+                            </details>
+                            <HotspotStyleFields
+                                value={hotspotForm.data}
+                                inherited={inheritedStyle}
+                                onChange={(changes) =>
+                                    hotspotForm.setData((current) => ({
+                                        ...current,
+                                        ...changes,
+                                    }))
+                                }
+                            />
+                            <Button
+                                type="submit"
+                                size="sm"
+                                disabled={
+                                    hotspotForm.processing ||
+                                    !hotspotForm.data.label ||
+                                    !createPointSelected
+                                }
+                            >
+                                <Plus className="h-4 w-4" /> Guardar hotspot
+                            </Button>
+                        </form>
+                    ) : null}
+                </>
+            )}
+
+            <div className="space-y-2">
+                <h3 className="text-sm font-semibold">
+                    Hotspots de esta escena
+                </h3>
+                {currentHotspots.length === 0 ? (
+                    <p className="text-sm text-slate-500">
+                        Aún no hay hotspots en este panorama.
+                    </p>
+                ) : null}
+                {currentHotspots.map((hotspot) => (
+                    <button
+                        key={hotspot.id}
+                        type="button"
+                        className={`flex w-full items-center justify-between rounded-lg border p-3 text-left text-sm transition ${
+                            selectedHotspot?.id === hotspot.id
+                                ? 'border-orange-400 bg-orange-50'
+                                : 'hover:bg-slate-50'
+                        }`}
+                        onClick={() => setSelectedHotspotId(hotspot.id)}
+                    >
+                        <span>{hotspot.label}</span>
+                        <span className="text-xs text-slate-500">
+                            {hotspot.yaw.toFixed(1)}° /{' '}
+                            {hotspot.pitch.toFixed(1)}°
+                        </span>
+                    </button>
+                ))}
+            </div>
+
+            {selectedHotspot && selectedDraft ? (
+                <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-sm font-semibold">
+                            Editar hotspot
+                        </h3>
+                        <button
+                            type="button"
+                            onClick={() => setSelectedHotspotId(null)}
+                            aria-label="Cerrar edición"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                    <div>
+                        <Label>Etiqueta</Label>
+                        <Input
+                            value={selectedDraft.label}
+                            onChange={(event) =>
+                                updateDraft(selectedHotspot.id, {
+                                    label: event.target.value,
+                                })
+                            }
+                        />
+                    </div>
+                    <SelectField
+                        label="Destino"
+                        value={String(selectedDraft.target_panorama_id)}
+                        options={tour.panoramas
+                            .filter(
+                                (panorama) =>
+                                    panorama.id !==
+                                    selectedHotspot.source_panorama_id,
+                            )
+                            .map((panorama) => [
+                                String(panorama.id),
+                                panorama.title,
+                            ])}
+                        onChange={(value) =>
+                            updateDraft(selectedHotspot.id, {
+                                target_panorama_id: Number(value),
+                            })
+                        }
+                    />
+                    <details className="rounded-lg border bg-white p-3">
+                        <summary className="cursor-pointer text-sm font-medium">
+                            Ajuste fino
+                        </summary>
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                            <NumberField
+                                label="Yaw"
+                                value={selectedDraft.yaw}
+                                min={-180}
+                                max={180}
+                                step={0.001}
+                                onChange={(yaw) =>
+                                    updateDraft(selectedHotspot.id, { yaw })
+                                }
+                            />
+                            <NumberField
+                                label="Pitch"
+                                value={selectedDraft.pitch}
+                                min={-85}
+                                max={85}
+                                step={0.001}
+                                onChange={(pitch) =>
+                                    updateDraft(selectedHotspot.id, { pitch })
+                                }
+                            />
+                        </div>
+                    </details>
+                    <HotspotStyleFields
+                        value={selectedDraft}
+                        inherited={inheritedStyle}
+                        onChange={(changes) =>
+                            updateDraft(selectedHotspot.id, changes)
+                        }
+                    />
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                                setPlacementMode({
+                                    type: 'reposition-hotspot',
+                                    hotspotId: selectedHotspot.id,
+                                })
+                            }
+                        >
+                            <MousePointer2 className="h-4 w-4" /> Reposicionar
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => updateHotspot(selectedHotspot)}
+                        >
+                            <Save className="h-4 w-4" /> Guardar
+                        </Button>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="destructive"
+                            onClick={() => void deleteHotspot(selectedHotspot)}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            ) : null}
+        </PanelSection>
+    );
+}
+
+function PolygonsPanel({
+    currentPanoramaId,
+    currentPolygons,
+    selectedPolygon,
+    selectedDraft,
+    polygonForm,
+    placementMode,
+    polygonPreview,
+    polygonPreviewInvalid,
+    setPlacementMode,
+    setSelectedPolygonId,
+    setSelectedHotspotId,
+    createPolygon,
+    updateDraft,
+    updatePolygon,
+    deletePolygon,
+    undoVertex,
+    cancelPlacement,
+}: {
+    currentPanoramaId: number | null;
+    currentPolygons: Project360Polygon[];
+    selectedPolygon: Project360Polygon | undefined;
+    selectedDraft: PolygonDraft | null;
+    polygonForm: InertiaForm<PolygonDraft & { source_panorama_id: number }>;
+    placementMode: PlacementMode;
+    polygonPreview: Project360PolygonVertex[];
+    polygonPreviewInvalid: boolean;
+    setPlacementMode: React.Dispatch<React.SetStateAction<PlacementMode>>;
+    setSelectedPolygonId: React.Dispatch<React.SetStateAction<number | null>>;
+    setSelectedHotspotId: React.Dispatch<React.SetStateAction<number | null>>;
+    createPolygon: (event: React.FormEvent) => void;
+    updateDraft: (id: number, changes: Partial<PolygonDraft>) => void;
+    updatePolygon: (polygon: Project360Polygon) => void;
+    deletePolygon: (polygon: Project360Polygon) => Promise<void>;
+    undoVertex: () => void;
+    cancelPlacement: () => void;
+}) {
+    const drawing =
+        placementMode?.type === 'draw-polygon' ||
+        placementMode?.type === 'redraw-polygon';
+
+    return (
+        <PanelSection
+            title="Polígonos informativos"
+            description="Dibuja zonas independientes de los hotspots y añade información contextual."
+        >
+            <div className="flex flex-wrap gap-2">
+                {!selectedPolygon ? (
+                    <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                            polygonForm.setData('vertices', []);
+                            setSelectedHotspotId(null);
+                            setPlacementMode({ type: 'draw-polygon' });
+                        }}
+                        disabled={currentPanoramaId === null}
+                    >
+                        <Pentagon className="h-4 w-4" /> Dibujar polígono
+                    </Button>
+                ) : null}
+                {drawing ? (
+                    <>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={undoVertex}
+                            disabled={polygonPreview.length === 0}
+                        >
+                            <Undo2 className="h-4 w-4" /> Deshacer punto
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setPlacementMode(null)}
+                            disabled={
+                                polygonPreview.length < 3 ||
+                                polygonPreviewInvalid
+                            }
+                        >
+                            <Check className="h-4 w-4" /> Finalizar dibujo
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={cancelPlacement}
+                        >
+                            <X className="h-4 w-4" /> Cancelar
+                        </Button>
+                    </>
+                ) : null}
+            </div>
+
+            {drawing ? (
+                <div
+                    className={`rounded-lg p-3 text-sm ${
+                        polygonPreviewInvalid
+                            ? 'bg-red-50 text-red-700'
+                            : 'bg-orange-50 text-orange-800'
+                    }`}
+                >
+                    {polygonPreviewInvalid
+                        ? 'Los lados se cruzan. Deshaz el último punto antes de finalizar.'
+                        : `${polygonPreview.length} vértice(s). Pulsa sobre el panorama para continuar.`}
+                </div>
+            ) : null}
+
+            {!selectedPolygon ? (
+                <form
+                    onSubmit={createPolygon}
+                    className="space-y-3 rounded-lg border p-3"
+                >
+                    <div>
+                        <Label>Título</Label>
+                        <Input
+                            value={polygonForm.data.title}
+                            onChange={(event) =>
+                                polygonForm.setData('title', event.target.value)
+                            }
+                            placeholder="Área social"
+                        />
+                        <InputError message={polygonForm.errors.title} />
+                    </div>
+                    <div>
+                        <Label>Descripción</Label>
+                        <textarea
+                            value={polygonForm.data.description}
+                            maxLength={500}
+                            onChange={(event) =>
+                                polygonForm.setData(
+                                    'description',
+                                    event.target.value,
+                                )
+                            }
+                            className="min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                            placeholder="Información que verá el visitante."
+                        />
+                    </div>
+                    <PolygonStyleFields
+                        value={polygonForm.data}
+                        onChange={(changes) =>
+                            polygonForm.setData((current) => ({
+                                ...current,
+                                ...changes,
+                            }))
+                        }
+                    />
+                    <InputError message={polygonForm.errors.vertices} />
+                    <Button
+                        type="submit"
+                        size="sm"
+                        disabled={
+                            polygonForm.processing ||
+                            drawing ||
+                            !polygonForm.data.title ||
+                            polygonForm.data.vertices.length < 3 ||
+                            polygonHasSelfIntersection(
+                                polygonForm.data.vertices,
+                            )
+                        }
+                    >
+                        <Plus className="h-4 w-4" /> Guardar polígono
+                    </Button>
+                </form>
+            ) : null}
+
+            <div className="space-y-2">
+                <h3 className="text-sm font-semibold">
+                    Polígonos de esta escena
+                </h3>
+                {currentPolygons.length === 0 ? (
+                    <p className="text-sm text-slate-500">
+                        Aún no hay zonas informativas.
+                    </p>
+                ) : null}
+                {currentPolygons.map((polygon) => (
+                    <button
+                        key={polygon.id}
+                        type="button"
+                        className={`flex w-full items-center justify-between rounded-lg border p-3 text-left text-sm transition ${
+                            selectedPolygon?.id === polygon.id
+                                ? 'border-orange-400 bg-orange-50'
+                                : 'hover:bg-slate-50'
+                        }`}
+                        onClick={() => setSelectedPolygonId(polygon.id)}
+                    >
+                        <span>{polygon.title}</span>
+                        <span className="text-xs text-slate-500">
+                            {polygon.vertices.length} vértices
+                        </span>
+                    </button>
+                ))}
+            </div>
+
+            {selectedPolygon && selectedDraft ? (
+                <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-sm font-semibold">
+                            Editar polígono
+                        </h3>
+                        <button
+                            type="button"
+                            onClick={() => setSelectedPolygonId(null)}
+                            aria-label="Cerrar edición"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                    <div>
+                        <Label>Título</Label>
+                        <Input
+                            value={selectedDraft.title}
+                            onChange={(event) =>
+                                updateDraft(selectedPolygon.id, {
+                                    title: event.target.value,
+                                })
+                            }
+                        />
+                    </div>
+                    <div>
+                        <Label>Descripción</Label>
+                        <textarea
+                            value={selectedDraft.description}
+                            maxLength={500}
+                            onChange={(event) =>
+                                updateDraft(selectedPolygon.id, {
+                                    description: event.target.value,
+                                })
+                            }
+                            className="min-h-24 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
+                        />
+                    </div>
+                    <PolygonStyleFields
+                        value={selectedDraft}
+                        onChange={(changes) =>
+                            updateDraft(selectedPolygon.id, changes)
+                        }
+                    />
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                                updateDraft(selectedPolygon.id, {
+                                    vertices: [],
+                                });
+                                setPlacementMode({
+                                    type: 'redraw-polygon',
+                                    polygonId: selectedPolygon.id,
+                                });
+                            }}
+                        >
+                            <Pentagon className="h-4 w-4" /> Redibujar
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            disabled={
+                                drawing ||
+                                selectedDraft.vertices.length < 3 ||
+                                polygonHasSelfIntersection(
+                                    selectedDraft.vertices,
+                                )
+                            }
+                            onClick={() => updatePolygon(selectedPolygon)}
+                        >
+                            <Save className="h-4 w-4" /> Guardar
+                        </Button>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="destructive"
+                            onClick={() => void deletePolygon(selectedPolygon)}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            ) : null}
+        </PanelSection>
+    );
+}
+
+function AppearancePanel({
+    themeForm,
+    projectId,
+}: {
+    themeForm: InertiaForm<Project360Tour['settings']>;
+    projectId: number;
+}) {
+    return (
+        <PanelSection
+            title="Apariencia"
+            description="Define el estilo general y la animación de los hotspots."
+        >
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                <ColorField
+                    label="Acento"
+                    value={themeForm.data.accent_color}
+                    onChange={(value) =>
+                        themeForm.setData('accent_color', value)
+                    }
+                />
+                <ColorField
+                    label="Hotspot"
+                    value={themeForm.data.hotspot_color}
+                    onChange={(value) =>
+                        themeForm.setData('hotspot_color', value)
+                    }
+                />
+                <ColorField
+                    label="Hover"
+                    value={themeForm.data.hotspot_hover_color}
+                    onChange={(value) =>
+                        themeForm.setData('hotspot_hover_color', value)
+                    }
+                />
+                <ColorField
+                    label="Texto"
+                    value={themeForm.data.hotspot_text_color}
+                    onChange={(value) =>
+                        themeForm.setData('hotspot_text_color', value)
+                    }
+                />
+                <NumberField
+                    label="Tamaño"
+                    value={themeForm.data.hotspot_size}
+                    min={0.08}
+                    max={0.5}
+                    step={0.01}
+                    onChange={(value) =>
+                        themeForm.setData('hotspot_size', value)
+                    }
+                />
+                <SelectField
+                    label="Forma"
+                    value={themeForm.data.hotspot_shape}
+                    options={[
+                        ['sphere', 'Esfera'],
+                        ['ring', 'Anillo'],
+                        ['pin', 'Pin'],
+                    ]}
+                    onChange={(value) =>
+                        themeForm.setData(
+                            'hotspot_shape',
+                            value as Project360HotspotShape,
+                        )
+                    }
+                />
+                <SelectField
+                    label="Etiqueta"
+                    value={themeForm.data.hotspot_label_visibility}
+                    options={[
+                        ['always', 'Siempre'],
+                        ['hover', 'Al pasar'],
+                        ['hidden', 'Oculta'],
+                    ]}
+                    onChange={(value) =>
+                        themeForm.setData(
+                            'hotspot_label_visibility',
+                            value as Project360LabelVisibility,
+                        )
+                    }
+                />
+            </div>
+            <label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+                <input
+                    type="checkbox"
+                    checked={themeForm.data.hotspot_pulse_enabled}
+                    onChange={(event) =>
+                        themeForm.setData(
+                            'hotspot_pulse_enabled',
+                            event.target.checked,
+                        )
+                    }
+                />
+                Activar halo animado
+            </label>
+            <Button
+                type="button"
+                onClick={() =>
+                    themeForm.put(settingsRoutes.update(projectId).url, {
+                        preserveScroll: true,
+                    })
+                }
+                disabled={themeForm.processing}
+            >
+                <Save className="h-4 w-4" /> Guardar apariencia
+            </Button>
+        </PanelSection>
+    );
+}
+
+function SharePanel({
+    projectId,
+    tour,
+    shareForm,
+    copiedLinkId,
+    copyLink,
+}: {
+    projectId: number;
+    tour: Project360Tour;
+    shareForm: InertiaForm<{ label: string }>;
+    copiedLinkId: string | null;
+    copyLink: (id: string, url: string) => Promise<void>;
+}) {
+    return (
+        <PanelSection
+            title="Compartir"
+            description="Genera enlaces firmados para mostrar el recorrido."
+        >
+            <form
+                className="flex gap-2"
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    shareForm.post(shareLinkRoutes.store(projectId).url, {
+                        preserveScroll: true,
+                        onSuccess: () => shareForm.reset(),
+                    });
+                }}
+            >
+                <Input
+                    value={shareForm.data.label}
+                    maxLength={100}
+                    onChange={(event) =>
+                        shareForm.setData('label', event.target.value)
+                    }
+                    placeholder="Cliente o campaña"
+                />
+                <Button
+                    type="submit"
+                    size="icon"
+                    disabled={shareForm.processing}
+                >
+                    <Plus className="h-4 w-4" />
+                </Button>
+            </form>
+            <InputError message={shareForm.errors.label} />
+
+            <div className="space-y-2">
+                {(tour.share_links ?? []).length === 0 ? (
+                    <p className="text-sm text-slate-500">
+                        Todavía no hay enlaces públicos.
+                    </p>
+                ) : null}
+                {(tour.share_links ?? []).map((link) => (
+                    <div
+                        key={link.id}
+                        className="space-y-2 rounded-lg border p-3"
+                    >
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">
+                                    {link.label || 'Enlace sin etiqueta'}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                    Último acceso:{' '}
+                                    {link.last_accessed_at
+                                        ? project360DateFormatter.format(
+                                              new Date(link.last_accessed_at),
+                                          )
+                                        : 'Nunca'}
+                                </p>
+                            </div>
+                            {link.revoked_at ? (
+                                <Badge variant="secondary">Revocado</Badge>
+                            ) : null}
+                        </div>
+                        {!link.revoked_at ? (
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="outline"
+                                    onClick={() =>
+                                        void copyLink(link.id, link.url)
+                                    }
+                                    title="Copiar enlace"
+                                >
+                                    {copiedLinkId === link.id ? (
+                                        <Check className="h-4 w-4" />
+                                    ) : (
+                                        <Clipboard className="h-4 w-4" />
+                                    )}
+                                </Button>
+                                <Button asChild size="icon" variant="outline">
+                                    <a
+                                        href={link.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        title="Abrir tour"
+                                    >
+                                        <ExternalLink className="h-4 w-4" />
+                                    </a>
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="destructive"
+                                    title="Revocar enlace"
+                                    onClick={() =>
+                                        router.patch(
+                                            shareLinkRoutes.revoke({
+                                                project: projectId,
+                                                shareLink: link.id,
+                                            }).url,
+                                            {},
+                                            { preserveScroll: true },
+                                        )
+                                    }
+                                >
+                                    <Link2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        ) : null}
+                    </div>
+                ))}
+            </div>
+        </PanelSection>
+    );
+}
+
+function PanelSection({
+    title,
+    description,
+    children,
+}: {
+    title: string;
+    description: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <section className="space-y-4">
+            <div>
+                <h2 className="text-lg font-semibold">{title}</h2>
+                <p className="mt-1 text-sm text-slate-500">{description}</p>
+            </div>
+            {children}
+        </section>
     );
 }
 
@@ -1734,6 +1950,42 @@ function SelectField({
     );
 }
 
+function PolygonStyleFields({
+    value,
+    onChange,
+}: {
+    value: Pick<PolygonDraft, 'color' | 'hover_color' | 'opacity'>;
+    onChange: (changes: Partial<PolygonDraft>) => void;
+}) {
+    return (
+        <details className="rounded-lg border bg-white p-3">
+            <summary className="cursor-pointer text-sm font-medium">
+                Apariencia del polígono
+            </summary>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                <ColorField
+                    label="Color"
+                    value={value.color}
+                    onChange={(color) => onChange({ color })}
+                />
+                <ColorField
+                    label="Hover"
+                    value={value.hover_color}
+                    onChange={(hover_color) => onChange({ hover_color })}
+                />
+                <NumberField
+                    label="Opacidad"
+                    value={value.opacity}
+                    min={0.1}
+                    max={0.7}
+                    step={0.05}
+                    onChange={(opacity) => onChange({ opacity })}
+                />
+            </div>
+        </details>
+    );
+}
+
 function HotspotStyleFields({
     value,
     inherited,
@@ -1797,7 +2049,7 @@ function HotspotStyleFields({
                 Sobrescribir el tema general
             </label>
             {custom ? (
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                     <ColorField
                         label="Color"
                         value={value.color ?? inherited.color}
@@ -1864,7 +2116,7 @@ function HotspotStyleFields({
                                 })
                             }
                         />
-                        Animación de pulso
+                        Halo animado
                     </label>
                 </div>
             ) : null}

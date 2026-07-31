@@ -1,10 +1,9 @@
 import {
     Expand,
-    Glasses,
+    Info,
     LoaderCircle,
-    Map,
-    MapPinned,
     Rotate3D,
+    Sparkles,
     X,
 } from 'lucide-react';
 import {
@@ -23,14 +22,15 @@ import {
     anglesToPoint,
     normalizeYaw,
     pointToAngles,
+    polygonCentroid,
     type Project360Angles,
     type Project360Point,
 } from '@/lib/project-360-geometry';
 import type {
-    Project360FloorPlan,
     Project360Hotspot,
     Project360HotspotStyle,
     Project360Panorama,
+    Project360Polygon,
     Project360TourSettings,
 } from '@/types/project-360';
 
@@ -41,14 +41,19 @@ export type Project360ViewerHandle = {
 type Project360ViewerProps = {
     panoramas: Project360Panorama[];
     hotspots: Project360Hotspot[];
-    floorPlans?: Project360FloorPlan[];
+    polygons: Project360Polygon[];
     settings: Project360TourSettings;
     startPanoramaId: number | null;
     placementMode?: boolean;
     draftPoint?: Project360Angles | null;
     draftStyle?: Project360HotspotStyle;
+    editingHotspotId?: number | null;
+    polygonDraft?: Project360Angles[];
+    editingPolygonId?: number | null;
+    selectedPolygonId?: number | null;
     onPlacement?: (angles: Project360Angles) => void;
     onPanoramaChange?: (panoramaId: number) => void;
+    onPolygonSelect?: (polygonId: number | null) => void;
     className?: string;
 };
 
@@ -57,8 +62,8 @@ type AFrameModule = {
     default?: Parameters<typeof registerProject360Components>[0];
 };
 
-function pointPosition(yaw: number, pitch: number): string {
-    const point = anglesToPoint(yaw, pitch);
+function pointPosition(yaw: number, pitch: number, radius = 4): string {
+    const point = anglesToPoint(yaw, pitch, radius);
 
     return `${point.x.toFixed(4)} ${point.y.toFixed(4)} ${point.z.toFixed(4)}`;
 }
@@ -84,76 +89,152 @@ function supportsWebGl(): boolean {
 function HotspotMarker({
     hotspot,
     draft = false,
+    reducedMotion = false,
 }: {
     hotspot: Pick<
         Project360Hotspot,
         'id' | 'label' | 'target_panorama_id' | 'yaw' | 'pitch'
-    > & {
-        style: Project360HotspotStyle;
-    };
+    > & { style: Project360HotspotStyle };
     draft?: boolean;
+    reducedMotion?: boolean;
 }) {
     const { style } = hotspot;
-    const commonProps = {
-        className: draft ? 'tour-hotspot-draft' : 'tour-hotspot',
-        'data-target-panorama-id': hotspot.target_panorama_id,
-        'data-color': style.color,
-        'data-hover-color': style.hover_color,
-        position: pointPosition(hotspot.yaw, hotspot.pitch),
-        material: `color: ${style.color}; shader: flat; opacity: ${draft ? 0.75 : 1}`,
-        'tour-hotspot-interaction': draft ? undefined : '',
-        animation__pulse:
-            style.pulse_enabled && !draft
-                ? 'property: scale; from: 1 1 1; to: 1.22 1.22 1.22; dir: alternate; loop: true; dur: 900'
-                : undefined,
-        title: hotspot.label,
-    };
     const labelVisible = style.label_visibility === 'always';
-    const label = (
-        <a-text
-            className="tour-hotspot-label"
-            data-visibility={style.label_visibility}
-            value={hotspot.label || 'Nuevo hotspot'}
-            align="center"
-            color={style.text_color}
-            position={`0 ${style.size * 2.4} 0`}
-            width={Math.max(2.4, style.size * 18)}
-            visible={labelVisible ? 'true' : 'false'}
-        />
-    );
+    const pulse = style.pulse_enabled && !draft && !reducedMotion;
+    const markerRotation = `${hotspot.pitch} ${-hotspot.yaw} 0`;
+    const coreMaterial = `color: ${style.color}; shader: flat; opacity: ${draft ? 0.72 : 1}; transparent: true`;
 
-    if (style.shape === 'ring') {
-        return (
+    const core =
+        style.shape === 'ring' ? (
             <a-ring
-                {...commonProps}
-                radius-inner={style.size * 0.55}
+                className="tour-hotspot-core"
+                radius-inner={style.size * 0.52}
                 radius-outer={style.size}
-                rotation={`${hotspot.pitch} ${-hotspot.yaw} 0`}
-            >
-                {label}
-            </a-ring>
-        );
-    }
-
-    if (style.shape === 'pin') {
-        return (
-            <a-sphere {...commonProps} radius={style.size * 0.72}>
-                <a-cone
-                    radius-bottom={style.size * 0.45}
-                    radius-top="0"
-                    height={style.size * 1.35}
-                    position={`0 ${-style.size} 0`}
-                    material={`color: ${style.color}; shader: flat`}
+                material={coreMaterial}
+            />
+        ) : style.shape === 'pin' ? (
+            <a-entity>
+                <a-sphere
+                    className="tour-hotspot-core"
+                    radius={style.size * 0.7}
+                    material={coreMaterial}
                 />
-                {label}
-            </a-sphere>
+                <a-cone
+                    radius-bottom={style.size * 0.4}
+                    radius-top="0"
+                    height={style.size * 1.2}
+                    position={`0 ${-style.size * 0.95} 0`}
+                    material={coreMaterial}
+                />
+            </a-entity>
+        ) : (
+            <a-sphere
+                className="tour-hotspot-core"
+                radius={style.size}
+                material={coreMaterial}
+            />
         );
-    }
 
     return (
-        <a-sphere {...commonProps} radius={style.size}>
-            {label}
-        </a-sphere>
+        <a-entity
+            className={draft ? 'tour-hotspot-draft' : 'tour-hotspot'}
+            data-target-panorama-id={hotspot.target_panorama_id}
+            data-color={style.color}
+            data-hover-color={style.hover_color}
+            position={pointPosition(hotspot.yaw, hotspot.pitch)}
+            rotation={markerRotation}
+            tour-hotspot-interaction={draft ? undefined : ''}
+            animation__appear={
+                reducedMotion || draft
+                    ? undefined
+                    : 'property: scale; from: 0.45 0.45 0.45; to: 1 1 1; dur: 360; easing: easeOutBack'
+            }
+            animation__hoverin={
+                draft || reducedMotion
+                    ? undefined
+                    : 'property: scale; to: 1.14 1.14 1.14; dur: 180; easing: easeOutQuad; startEvents: tour-hover-start'
+            }
+            animation__hoverout={
+                draft || reducedMotion
+                    ? undefined
+                    : 'property: scale; to: 1 1 1; dur: 180; easing: easeOutQuad; startEvents: tour-hover-end,tour-press-end'
+            }
+            animation__press={
+                draft || reducedMotion
+                    ? undefined
+                    : 'property: scale; to: 0.9 0.9 0.9; dur: 90; easing: easeOutQuad; startEvents: tour-press-start'
+            }
+            title={hotspot.label}
+        >
+            <a-sphere
+                radius={style.size * 1.65}
+                material="opacity: 0; transparent: true; depthWrite: false"
+            />
+            <a-ring
+                radius-inner={style.size * 1.15}
+                radius-outer={style.size * 1.32}
+                material={`color: ${style.color}; shader: flat; opacity: ${draft ? 0.22 : 0.55}; transparent: true; depthWrite: false`}
+                animation__halo={
+                    pulse
+                        ? 'property: scale; from: 0.8 0.8 0.8; to: 1.42 1.42 1.42; dir: alternate; loop: true; dur: 1050; easing: easeInOutSine'
+                        : undefined
+                }
+                animation__opacity={
+                    pulse
+                        ? 'property: material.opacity; from: 0.65; to: 0.16; dir: alternate; loop: true; dur: 1050; easing: easeInOutSine'
+                        : undefined
+                }
+            />
+            {core}
+            <a-entity
+                className="tour-hotspot-label"
+                data-visibility={style.label_visibility}
+                position={`0 ${style.size * 2.35} 0.02`}
+                visible={labelVisible ? 'true' : 'false'}
+            >
+                <a-plane
+                    width={Math.max(0.75, hotspot.label.length * 0.055)}
+                    height="0.25"
+                    material="color: #0f172a; shader: flat; opacity: 0.88; transparent: true"
+                />
+                <a-text
+                    value={hotspot.label || 'Nuevo hotspot'}
+                    align="center"
+                    color={style.text_color}
+                    position="0 0 0.01"
+                    width={Math.max(2.6, style.size * 19)}
+                />
+            </a-entity>
+        </a-entity>
+    );
+}
+
+function PolygonEntity({
+    polygon,
+    selected,
+}: {
+    polygon: Project360Polygon;
+    selected: boolean;
+}) {
+    const centroid = polygonCentroid(polygon.vertices);
+
+    return (
+        <a-entity
+            className="tour-polygon"
+            data-polygon-id={polygon.id}
+            tour-polygon-mesh={`vertices: ${JSON.stringify(polygon.vertices)}; color: ${polygon.color}; hoverColor: ${polygon.hover_color}; opacity: ${polygon.opacity}; selected: ${selected}`}
+            title={polygon.title}
+        >
+            <a-text
+                value={polygon.title}
+                align="center"
+                color="#ffffff"
+                position={pointPosition(centroid.yaw, centroid.pitch, 3.88)}
+                rotation={`${centroid.pitch} ${-centroid.yaw} 0`}
+                width="2.8"
+                visible={selected ? 'true' : 'false'}
+            />
+        </a-entity>
     );
 }
 
@@ -164,14 +245,19 @@ const Project360ViewerBase = forwardRef<
     {
         panoramas,
         hotspots,
-        floorPlans = [],
+        polygons,
         settings,
         startPanoramaId,
         placementMode = false,
         draftPoint = null,
         draftStyle,
+        editingHotspotId = null,
+        polygonDraft = [],
+        editingPolygonId = null,
+        selectedPolygonId = null,
         onPlacement,
         onPanoramaChange,
+        onPolygonSelect,
         className = '',
     },
     ref,
@@ -182,8 +268,10 @@ const Project360ViewerBase = forwardRef<
     const [aframeReady, setAframeReady] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [switching, setSwitching] = useState(false);
-    const [mapOpen, setMapOpen] = useState(false);
-    const [immersiveMapOpen, setImmersiveMapOpen] = useState(false);
+    const [internalPolygonId, setInternalPolygonId] = useState<number | null>(
+        null,
+    );
+    const [reducedMotion, setReducedMotion] = useState(false);
     const initialPanoramaId =
         panoramas.find((panorama) => panorama.id === startPanoramaId)?.id ??
         panoramas[0]?.id ??
@@ -191,6 +279,15 @@ const Project360ViewerBase = forwardRef<
     const [activePanoramaId, setActivePanoramaId] = useState<number | null>(
         initialPanoramaId,
     );
+
+    useEffect(() => {
+        const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const updatePreference = () => setReducedMotion(media.matches);
+        updatePreference();
+        media.addEventListener('change', updatePreference);
+
+        return () => media.removeEventListener('change', updatePreference);
+    }, []);
 
     useEffect(() => {
         let active = true;
@@ -201,6 +298,7 @@ const Project360ViewerBase = forwardRef<
                     setLoadError('Este dispositivo no tiene WebGL disponible.');
                 }
             });
+
             return () => {
                 active = false;
             };
@@ -245,7 +343,6 @@ const Project360ViewerBase = forwardRef<
     )
         ? activePanoramaId
         : initialPanoramaId;
-
     const activePanorama = useMemo(
         () =>
             panoramas.find(
@@ -257,25 +354,24 @@ const Project360ViewerBase = forwardRef<
         () =>
             hotspots.filter(
                 (hotspot) =>
-                    hotspot.source_panorama_id === resolvedActivePanoramaId,
+                    hotspot.source_panorama_id === resolvedActivePanoramaId &&
+                    hotspot.id !== editingHotspotId,
             ),
-        [hotspots, resolvedActivePanoramaId],
+        [editingHotspotId, hotspots, resolvedActivePanoramaId],
     );
-    const activeFloorPlan = useMemo(
+    const activePolygons = useMemo(
         () =>
-            floorPlans.find(
-                (floorPlan) => floorPlan.id === activePanorama?.floor_plan_id,
-            ) ??
-            floorPlans[0] ??
-            null,
-        [activePanorama?.floor_plan_id, floorPlans],
+            polygons.filter(
+                (polygon) =>
+                    polygon.source_panorama_id === resolvedActivePanoramaId &&
+                    polygon.id !== editingPolygonId,
+            ),
+        [editingPolygonId, polygons, resolvedActivePanoramaId],
     );
-    const [selectedFloorPlanId, setSelectedFloorPlanId] = useState<
-        number | null
-    >(activeFloorPlan?.id ?? null);
-    const selectedFloorPlan =
-        floorPlans.find((floorPlan) => floorPlan.id === selectedFloorPlanId) ??
-        activeFloorPlan;
+    const effectiveSelectedPolygonId = selectedPolygonId ?? internalPolygonId;
+    const selectedPolygon = activePolygons.find(
+        (polygon) => polygon.id === effectiveSelectedPolygonId,
+    );
 
     const selectPanorama = useCallback(
         (panoramaId: number) => {
@@ -290,6 +386,7 @@ const Project360ViewerBase = forwardRef<
             const panorama = panoramas.find((item) => item.id === panoramaId);
             if (!panorama) {
                 setLoadError('El panorama seleccionado ya no está disponible.');
+
                 return;
             }
 
@@ -297,9 +394,13 @@ const Project360ViewerBase = forwardRef<
             const image = new Image();
             image.onload = () => {
                 setActivePanoramaId(panorama.id);
-                setSelectedFloorPlanId(panorama.floor_plan_id);
+                setInternalPolygonId(null);
+                onPolygonSelect?.(null);
                 onPanoramaChange?.(panorama.id);
-                setSwitching(false);
+                window.setTimeout(
+                    () => setSwitching(false),
+                    reducedMotion ? 0 : 180,
+                );
                 setLoadError(null);
             };
             image.onerror = () => {
@@ -310,8 +411,10 @@ const Project360ViewerBase = forwardRef<
         },
         [
             onPanoramaChange,
+            onPolygonSelect,
             panoramas,
             placementMode,
+            reducedMotion,
             resolvedActivePanoramaId,
             switching,
         ],
@@ -324,25 +427,36 @@ const Project360ViewerBase = forwardRef<
         }
 
         const onPlacementSelected = (event: Event) => {
-            if (!placementMode) {
-                return;
+            if (placementMode) {
+                onPlacement?.(
+                    pointToAngles(
+                        (event as CustomEvent<Project360Point>).detail,
+                    ),
+                );
             }
-
-            onPlacement?.(
-                pointToAngles((event as CustomEvent<Project360Point>).detail),
-            );
         };
         scene.addEventListener('tour-placement-selected', onPlacementSelected);
-
-        const hotspotElements = Array.from(
-            scene.querySelectorAll<HTMLElement>(
-                '.tour-hotspot, .tour-floor-plan-marker',
-            ),
+        const interactiveElements = Array.from(
+            scene.querySelectorAll<HTMLElement>('.tour-hotspot, .tour-polygon'),
         );
-        const listeners = hotspotElements.map((element) => {
+        const listeners = interactiveElements.map((element) => {
             const listener = () => {
+                if (placementMode) {
+                    return;
+                }
+
+                if (element.classList.contains('tour-polygon')) {
+                    const polygonId = Number(element.dataset.polygonId);
+                    if (Number.isFinite(polygonId)) {
+                        setInternalPolygonId(polygonId);
+                        onPolygonSelect?.(polygonId);
+                    }
+
+                    return;
+                }
+
                 const target = Number(element.dataset.targetPanoramaId);
-                if (!placementMode && Number.isFinite(target)) {
+                if (Number.isFinite(target)) {
                     selectPanorama(target);
                 }
             };
@@ -362,11 +476,11 @@ const Project360ViewerBase = forwardRef<
         };
     }, [
         activeHotspots,
+        activePolygons,
         aframeReady,
-        immersiveMapOpen,
         onPlacement,
+        onPolygonSelect,
         placementMode,
-        selectedFloorPlan,
         selectPanorama,
     ]);
 
@@ -386,7 +500,13 @@ const Project360ViewerBase = forwardRef<
     }));
 
     const openFullscreen = async () => {
-        if (containerRef.current?.requestFullscreen) {
+        if (!containerRef.current) {
+            return;
+        }
+
+        if (document.fullscreenElement) {
+            await document.exitFullscreen();
+        } else {
             await containerRef.current.requestFullscreen();
         }
     };
@@ -394,14 +514,13 @@ const Project360ViewerBase = forwardRef<
     if (panoramas.length === 0) {
         return (
             <div
-                className={`flex min-h-96 items-center justify-center rounded-xl bg-slate-950 p-8 text-center text-slate-200 ${className}`}
+                className={`flex min-h-96 items-center justify-center rounded-xl border border-dashed bg-slate-950 p-8 text-center text-slate-200 ${className}`}
             >
                 <div>
-                    <Glasses className="mx-auto mb-3 h-10 w-10 text-slate-400" />
+                    <Rotate3D className="mx-auto mb-3 h-10 w-10 text-orange-400" />
                     <p className="font-semibold">Tour 360 sin panoramas</p>
                     <p className="mt-1 text-sm text-slate-400">
-                        Añade una imagen equirectangular para iniciar el
-                        recorrido.
+                        Sube una imagen panorámica 2:1 para comenzar.
                     </p>
                 </div>
             </div>
@@ -414,22 +533,33 @@ const Project360ViewerBase = forwardRef<
         text_color: settings.hotspot_text_color,
         size: settings.hotspot_size,
         shape: settings.hotspot_shape,
-        label_visibility: 'always',
-        pulse_enabled: false,
+        label_visibility: settings.hotspot_label_visibility,
+        pulse_enabled: settings.hotspot_pulse_enabled,
     };
     const raycastObjects = placementMode
         ? '.hotspot-placement-surface'
-        : immersiveMapOpen
-          ? '.tour-hotspot, .tour-floor-plan-marker'
-          : '.tour-hotspot';
+        : '.tour-hotspot, .tour-polygon';
+    const polygonPreview: Project360Polygon | null =
+        polygonDraft.length >= 3
+            ? {
+                  id: -1,
+                  source_panorama_id: activePanorama?.id ?? 0,
+                  title: 'Vista previa',
+                  description: null,
+                  vertices: polygonDraft,
+                  color: settings.accent_color,
+                  hover_color: settings.hotspot_hover_color,
+                  opacity: 0.24,
+              }
+            : null;
 
     return (
         <div
             ref={containerRef}
-            className={`relative min-h-96 overflow-hidden rounded-xl bg-slate-950 ${className}`}
+            className={`relative overflow-hidden rounded-xl bg-slate-950 shadow-xl ${className}`}
         >
             {!aframeReady || !activePanorama ? (
-                <div className="absolute inset-0 z-20 flex items-center justify-center text-slate-200">
+                <div className="flex h-full min-h-96 items-center justify-center text-white">
                     <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
                     Preparando visor 360…
                 </div>
@@ -444,7 +574,7 @@ const Project360ViewerBase = forwardRef<
                     loading-screen="enabled: false"
                     style={{
                         height: '100%',
-                        minHeight: '24rem',
+                        minHeight: '32rem',
                         width: '100%',
                         cursor: placementMode ? 'crosshair' : 'grab',
                     }}
@@ -473,12 +603,53 @@ const Project360ViewerBase = forwardRef<
                         material="shader: flat"
                         tour-placement-surface={placementMode ? '' : undefined}
                     />
+                    {activePolygons.map((polygon) => (
+                        <PolygonEntity
+                            key={polygon.id}
+                            polygon={polygon}
+                            selected={polygon.id === effectiveSelectedPolygonId}
+                        />
+                    ))}
+                    {polygonPreview ? (
+                        <PolygonEntity polygon={polygonPreview} selected />
+                    ) : null}
+                    {polygonDraft.map((vertex, index) => (
+                        <a-sphere
+                            key={`${vertex.yaw}-${vertex.pitch}-${index}`}
+                            position={pointPosition(
+                                vertex.yaw,
+                                vertex.pitch,
+                                3.87,
+                            )}
+                            radius="0.045"
+                            material={`color: ${settings.accent_color}; shader: flat`}
+                        />
+                    ))}
+                    {polygonDraft.slice(1).map((vertex, index) => (
+                        <a-entity
+                            key={`line-${vertex.yaw}-${vertex.pitch}-${index}`}
+                            line={`start: ${pointPosition(
+                                polygonDraft[index].yaw,
+                                polygonDraft[index].pitch,
+                                3.86,
+                            )}; end: ${pointPosition(
+                                vertex.yaw,
+                                vertex.pitch,
+                                3.86,
+                            )}; color: ${settings.accent_color}; opacity: 0.9`}
+                        />
+                    ))}
                     {activeHotspots.map((hotspot) => (
-                        <HotspotMarker key={hotspot.id} hotspot={hotspot} />
+                        <HotspotMarker
+                            key={hotspot.id}
+                            hotspot={hotspot}
+                            reducedMotion={reducedMotion}
+                        />
                     ))}
                     {draftPoint ? (
                         <HotspotMarker
                             draft
+                            reducedMotion
                             hotspot={{
                                 id: -1,
                                 label: 'Vista previa',
@@ -502,45 +673,6 @@ const Project360ViewerBase = forwardRef<
                             raycaster={`objects: ${raycastObjects}`}
                             color={settings.accent_color}
                         />
-                        {immersiveMapOpen && selectedFloorPlan ? (
-                            <a-entity position="0 -0.15 -1.5">
-                                <a-image
-                                    src={selectedFloorPlan.image_url}
-                                    width="1.2"
-                                    height="0.8"
-                                    material="shader: flat"
-                                />
-                                <a-text
-                                    value={selectedFloorPlan.title}
-                                    align="center"
-                                    color="#ffffff"
-                                    position="0 0.48 0.01"
-                                    width="2.8"
-                                />
-                                {selectedFloorPlan.markers.map((marker) => (
-                                    <a-circle
-                                        key={marker.panorama_id}
-                                        className="tour-floor-plan-marker"
-                                        data-target-panorama-id={
-                                            marker.panorama_id
-                                        }
-                                        radius={
-                                            marker.panorama_id ===
-                                            resolvedActivePanoramaId
-                                                ? '0.035'
-                                                : '0.026'
-                                        }
-                                        position={`${(((marker.x - 50) / 100) * 1.2).toFixed(4)} ${(((50 - marker.y) / 100) * 0.8).toFixed(4)} 0.02`}
-                                        material={`color: ${
-                                            marker.panorama_id ===
-                                            resolvedActivePanoramaId
-                                                ? settings.accent_color
-                                                : '#0f172a'
-                                        }; shader: flat`}
-                                    />
-                                ))}
-                            </a-entity>
-                        ) : null}
                     </a-camera>
                     <a-entity
                         laser-controls="hand: right"
@@ -549,48 +681,23 @@ const Project360ViewerBase = forwardRef<
                 </a-scene>
             )}
 
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between bg-gradient-to-b from-black/70 to-transparent p-3 text-white">
-                <div className="pointer-events-auto flex items-center gap-2 rounded-lg bg-black/35 px-3 py-2 text-sm backdrop-blur">
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between bg-gradient-to-b from-black/75 to-transparent p-3 text-white">
+                <div className="pointer-events-auto flex items-center gap-2 rounded-lg bg-black/40 px-3 py-2 text-sm backdrop-blur">
                     <Rotate3D className="h-4 w-4" />
                     <span className="max-w-48 truncate">
                         {activePanorama?.title ?? 'Vista 360'}
                     </span>
                 </div>
-                <div className="pointer-events-auto flex gap-2">
-                    {floorPlans.length > 0 ? (
-                        <>
-                            <Button
-                                type="button"
-                                size="icon"
-                                variant="secondary"
-                                onClick={() => setMapOpen((open) => !open)}
-                                title="Abrir minimapa"
-                            >
-                                <Map className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                type="button"
-                                size="icon"
-                                variant="secondary"
-                                onClick={() =>
-                                    setImmersiveMapOpen((open) => !open)
-                                }
-                                title="Mostrar plano dentro del visor"
-                            >
-                                <Glasses className="h-4 w-4" />
-                            </Button>
-                        </>
-                    ) : null}
-                    <Button
-                        type="button"
-                        size="icon"
-                        variant="secondary"
-                        onClick={() => void openFullscreen()}
-                        title="Pantalla completa"
-                    >
-                        <Expand className="h-4 w-4" />
-                    </Button>
-                </div>
+                <Button
+                    type="button"
+                    size="icon"
+                    variant="secondary"
+                    className="pointer-events-auto"
+                    onClick={() => void openFullscreen()}
+                    title="Pantalla completa"
+                >
+                    <Expand className="h-4 w-4" />
+                </Button>
             </div>
 
             {placementMode ? (
@@ -600,88 +707,49 @@ const Project360ViewerBase = forwardRef<
                 </div>
             ) : null}
 
-            {mapOpen && selectedFloorPlan ? (
-                <div className="absolute top-16 right-3 z-30 w-72 max-w-[calc(100%-1.5rem)] overflow-hidden rounded-xl border border-white/20 bg-slate-950/95 text-white shadow-2xl backdrop-blur">
-                    <div className="flex items-center justify-between gap-2 p-2">
-                        <div className="flex min-w-0 gap-1 overflow-x-auto">
-                            {floorPlans.map((floorPlan) => (
-                                <button
-                                    key={floorPlan.id}
-                                    type="button"
-                                    className={`shrink-0 rounded-md px-2 py-1 text-xs ${
-                                        floorPlan.id === selectedFloorPlan.id
-                                            ? 'bg-orange-500'
-                                            : 'bg-white/10'
-                                    }`}
-                                    onClick={() =>
-                                        setSelectedFloorPlanId(floorPlan.id)
-                                    }
-                                >
-                                    {floorPlan.title}
-                                </button>
-                            ))}
+            {selectedPolygon ? (
+                <div className="absolute top-16 right-3 z-30 w-80 max-w-[calc(100%-1.5rem)] rounded-xl border border-white/15 bg-slate-950/94 p-4 text-white shadow-2xl backdrop-blur">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <div className="mb-1 flex items-center gap-2 text-xs font-semibold tracking-wide text-orange-300 uppercase">
+                                <Info className="h-3.5 w-3.5" /> Zona destacada
+                            </div>
+                            <p className="font-semibold">
+                                {selectedPolygon.title}
+                            </p>
+                            {selectedPolygon.description ? (
+                                <p className="mt-1 text-sm text-slate-300">
+                                    {selectedPolygon.description}
+                                </p>
+                            ) : null}
                         </div>
                         <button
                             type="button"
-                            className="rounded p-1 hover:bg-white/10"
-                            onClick={() => setMapOpen(false)}
-                            aria-label="Cerrar minimapa"
+                            className="rounded-md p-1 text-slate-300 hover:bg-white/10 hover:text-white"
+                            onClick={() => {
+                                setInternalPolygonId(null);
+                                onPolygonSelect?.(null);
+                            }}
+                            aria-label="Cerrar información del polígono"
                         >
                             <X className="h-4 w-4" />
                         </button>
                     </div>
-                    <div className="relative">
-                        <img
-                            src={selectedFloorPlan.image_url}
-                            alt={`Plano ${selectedFloorPlan.title}`}
-                            className="max-h-72 w-full object-contain"
-                            loading="lazy"
-                        />
-                        {selectedFloorPlan.markers.map((marker) => {
-                            const panorama = panoramas.find(
-                                (item) => item.id === marker.panorama_id,
-                            );
-
-                            return (
-                                <button
-                                    key={marker.panorama_id}
-                                    type="button"
-                                    onClick={() =>
-                                        selectPanorama(marker.panorama_id)
-                                    }
-                                    className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white p-1 shadow ${
-                                        marker.panorama_id ===
-                                        resolvedActivePanoramaId
-                                            ? 'scale-125 bg-orange-500'
-                                            : 'bg-slate-800 hover:bg-orange-400'
-                                    }`}
-                                    style={{
-                                        left: `${marker.x}%`,
-                                        top: `${marker.y}%`,
-                                    }}
-                                    title={panorama?.title}
-                                    aria-label={`Ir a ${panorama?.title ?? 'panorama'}`}
-                                >
-                                    <MapPinned className="h-3 w-3" />
-                                </button>
-                            );
-                        })}
-                    </div>
                 </div>
             ) : null}
 
-            <div className="absolute inset-x-0 bottom-0 z-10 flex gap-2 overflow-x-auto bg-gradient-to-t from-black/80 to-transparent p-3 pt-8">
+            <div className="absolute inset-x-0 bottom-0 z-10 flex gap-2 overflow-x-auto bg-gradient-to-t from-black/85 to-transparent p-3 pt-10">
                 {panoramas.map((panorama) => (
                     <button
                         key={panorama.id}
                         type="button"
                         disabled={placementMode}
                         onClick={() => selectPanorama(panorama.id)}
-                        className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                        className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition disabled:opacity-60 ${
                             panorama.id === resolvedActivePanoramaId
-                                ? 'text-white'
+                                ? 'text-white shadow-lg'
                                 : 'bg-black/55 text-slate-100 hover:bg-black/75'
-                        } disabled:opacity-60`}
+                        }`}
                         style={
                             panorama.id === resolvedActivePanoramaId
                                 ? { backgroundColor: settings.accent_color }
@@ -694,14 +762,14 @@ const Project360ViewerBase = forwardRef<
             </div>
 
             {switching ? (
-                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45 text-white">
-                    <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
+                <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/55 text-white backdrop-blur-sm transition-opacity">
+                    <Sparkles className="mr-2 h-5 w-5 animate-pulse text-orange-300" />
                     Cargando panorama…
                 </div>
             ) : null}
 
             {loadError ? (
-                <div className="absolute inset-x-3 top-16 z-30 rounded-lg bg-red-600 px-4 py-3 text-sm text-white shadow-lg">
+                <div className="absolute inset-x-3 top-16 z-50 rounded-lg bg-red-600 px-4 py-3 text-sm text-white shadow-lg">
                     {loadError}
                 </div>
             ) : null}

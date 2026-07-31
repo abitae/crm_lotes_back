@@ -12,6 +12,7 @@ declare module 'react' {
             'a-cursor': AFrameElementProps;
             'a-entity': AFrameElementProps;
             'a-image': AFrameElementProps;
+            'a-plane': AFrameElementProps;
             'a-ring': AFrameElementProps;
             'a-scene': AFrameElementProps;
             'a-sky': AFrameElementProps;

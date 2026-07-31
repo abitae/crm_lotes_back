@@ -20,9 +20,6 @@ export type Project360Panorama = {
     is_starting: boolean;
     initial_yaw: number;
     initial_pitch: number;
-    floor_plan_id: number | null;
-    plan_x: number | null;
-    plan_y: number | null;
 };
 
 export type Project360HotspotStyle = {
@@ -54,16 +51,20 @@ export type Project360Hotspot = {
     };
 };
 
-export type Project360FloorPlan = {
+export type Project360PolygonVertex = {
+    yaw: number;
+    pitch: number;
+};
+
+export type Project360Polygon = {
     id: number;
     title: string;
-    sort_order: number;
-    image_url: string;
-    markers: {
-        panorama_id: number;
-        x: number;
-        y: number;
-    }[];
+    description: string | null;
+    source_panorama_id: number;
+    vertices: Project360PolygonVertex[];
+    color: string;
+    hover_color: string;
+    opacity: number;
 };
 
 export type Project360ShareLink = {
@@ -80,6 +81,6 @@ export type Project360Tour = {
     settings: Project360TourSettings;
     panoramas: Project360Panorama[];
     hotspots: Project360Hotspot[];
-    floor_plans: Project360FloorPlan[];
+    polygons: Project360Polygon[];
     share_links?: Project360ShareLink[];
 };

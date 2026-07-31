@@ -28,6 +28,19 @@ class PublicProject360TourTest extends TestCase
     public function test_signed_public_tour_and_panorama_are_available_without_authentication(): void
     {
         [$project, $tour, $panorama] = $this->createTour();
+        $tour->polygons()->create([
+            'source_panorama_id' => $panorama->id,
+            'title' => 'Área social',
+            'description' => 'Zona informativa',
+            'vertices' => [
+                ['yaw' => 0, 'pitch' => 0],
+                ['yaw' => 10, 'pitch' => 0],
+                ['yaw' => 5, 'pitch' => 10],
+            ],
+            'color' => '#f97316',
+            'hover_color' => '#fb923c',
+            'opacity' => 0.28,
+        ]);
         $shareLink = $this->createShareLink($tour);
         $service = app(Project360ShareService::class);
 
@@ -36,7 +49,9 @@ class PublicProject360TourTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->component('public/project-360/show')
                 ->where('project.name', $project->name)
-                ->has('tour.panoramas', 1));
+                ->has('tour.panoramas', 1)
+                ->has('tour.polygons', 1)
+                ->missing('tour.floor_plans'));
 
         $this->get($service->panoramaUrl($shareLink, $panorama))
             ->assertOk()

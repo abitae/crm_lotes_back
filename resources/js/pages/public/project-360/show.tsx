@@ -45,7 +45,7 @@ export default function PublicProject360Show({
                     <Project360Viewer
                         panoramas={tour.panoramas}
                         hotspots={tour.hotspots}
-                        floorPlans={tour.floor_plans}
+                        polygons={tour.polygons}
                         settings={tour.settings}
                         startPanoramaId={tour.start_panorama_id}
                         className="min-h-[calc(100vh-8rem)] w-full flex-1 rounded-lg"

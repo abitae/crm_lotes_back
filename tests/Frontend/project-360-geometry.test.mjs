@@ -3,7 +3,10 @@ import test from 'node:test';
 import {
     anglesToPoint,
     pointToAngles,
+    polygonCentroid,
+    polygonHasSelfIntersection,
     pointerToPlanCoordinates,
+    unwrapPolygonVertices,
 } from '../../resources/js/lib/project-360-geometry.ts';
 
 test('convierte yaw y pitch a un punto y recupera los mismos ángulos', () => {
@@ -26,4 +29,40 @@ test('convierte un clic de plano a coordenadas normalizadas y limita los bordes'
         x: 100,
         y: 0,
     });
+});
+
+test('desenvuelve polígonos que cruzan el meridiano de 180 grados', () => {
+    const result = unwrapPolygonVertices([
+        { yaw: 170, pitch: -10 },
+        { yaw: -170, pitch: -10 },
+        { yaw: -172, pitch: 8 },
+        { yaw: 172, pitch: 8 },
+    ]);
+
+    assert.deepEqual(
+        result.map((vertex) => vertex.yaw),
+        [170, 190, 188, 172],
+    );
+    assert.deepEqual(polygonCentroid(result), { yaw: 180 - 360, pitch: -1 });
+});
+
+test('detecta lados cruzados y acepta un polígono simple', () => {
+    assert.equal(
+        polygonHasSelfIntersection([
+            { yaw: 0, pitch: 0 },
+            { yaw: 10, pitch: 10 },
+            { yaw: 0, pitch: 10 },
+            { yaw: 10, pitch: 0 },
+        ]),
+        true,
+    );
+    assert.equal(
+        polygonHasSelfIntersection([
+            { yaw: 0, pitch: 0 },
+            { yaw: 10, pitch: 0 },
+            { yaw: 10, pitch: 10 },
+            { yaw: 0, pitch: 10 },
+        ]),
+        false,
+    );
 });
