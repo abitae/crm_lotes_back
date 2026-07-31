@@ -2,6 +2,7 @@
 
 namespace App\Services\Inmopro;
 
+use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\Project360Hotspot;
 use App\Models\Inmopro\Project360Polygon;
@@ -217,6 +218,44 @@ class Project360TourService
         abort_unless($polygon->tour?->project_id === $project->id, 404);
     }
 
+    /** @param array<string, mixed> $data */
+    public function polygonLot(
+        Project $project,
+        array $data,
+        ?Project360Polygon $currentPolygon = null,
+    ): ?Lot {
+        $lotId = $data['lot_id'] ?? null;
+
+        if ($lotId === null || $lotId === '') {
+            return null;
+        }
+
+        $lot = $project->lots()->with('status')->find((int) $lotId);
+
+        if (! $lot) {
+            throw ValidationException::withMessages([
+                'lot_id' => 'El lote seleccionado no pertenece al proyecto.',
+            ]);
+        }
+
+        $alreadyLinked = $this->tourForProject($project)
+            ->polygons()
+            ->where('lot_id', $lot->id)
+            ->when(
+                $currentPolygon,
+                fn ($query) => $query->whereKeyNot($currentPolygon->id),
+            )
+            ->exists();
+
+        if ($alreadyLinked) {
+            throw ValidationException::withMessages([
+                'lot_id' => 'Este lote ya está ligado a otro polígono del tour.',
+            ]);
+        }
+
+        return $lot;
+    }
+
     /**
      * @param  callable(ProjectAsset): string|null  $urlResolver
      * @return array<string, mixed>
@@ -250,7 +289,7 @@ class Project360TourService
             ? $tour->hotspots()->orderBy('id')->get()
             : collect();
         $polygons = $tour
-            ? $tour->polygons()->orderBy('id')->get()
+            ? $tour->polygons()->with('lot.status')->orderBy('id')->get()
             : collect();
         $startPanoramaId = $tour?->start_panorama_id;
 
@@ -305,19 +344,34 @@ class Project360TourService
                     'pulse_enabled' => $hotspot->pulse_enabled,
                 ],
             ])->values()->all(),
-            'polygons' => $polygons->map(fn (Project360Polygon $polygon): array => [
-                'id' => $polygon->id,
-                'source_panorama_id' => $polygon->source_panorama_id,
-                'title' => $polygon->title,
-                'description' => $polygon->description,
-                'vertices' => collect($polygon->vertices)->map(fn (array $vertex): array => [
-                    'yaw' => (float) $vertex['yaw'],
-                    'pitch' => (float) $vertex['pitch'],
-                ])->values()->all(),
-                'color' => $polygon->color,
-                'hover_color' => $polygon->hover_color,
-                'opacity' => (float) $polygon->opacity,
-            ])->values()->all(),
+            'polygons' => $polygons->map(function (Project360Polygon $polygon): array {
+                $lot = $polygon->lot;
+                $statusColor = $lot?->status?->color ?: '#94a3b8';
+
+                return [
+                    'id' => $polygon->id,
+                    'source_panorama_id' => $polygon->source_panorama_id,
+                    'lot_id' => $lot?->id,
+                    'lot' => $lot ? [
+                        'id' => $lot->id,
+                        'number' => (string) $lot->number,
+                        'status' => $lot->status ? [
+                            'name' => $lot->status->name,
+                            'code' => $lot->status->code,
+                            'color' => $statusColor,
+                        ] : null,
+                    ] : null,
+                    'title' => $lot ? 'Lote '.$lot->number : $polygon->title,
+                    'description' => $polygon->description,
+                    'vertices' => collect($polygon->vertices)->map(fn (array $vertex): array => [
+                        'yaw' => (float) $vertex['yaw'],
+                        'pitch' => (float) $vertex['pitch'],
+                    ])->values()->all(),
+                    'color' => $lot ? $statusColor : $polygon->color,
+                    'hover_color' => $lot ? $statusColor : $polygon->hover_color,
+                    'opacity' => (float) $polygon->opacity,
+                ];
+            })->values()->all(),
         ];
     }
 }

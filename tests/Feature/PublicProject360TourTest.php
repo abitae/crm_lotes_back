@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Inmopro\Lot;
+use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\Project360ShareLink;
 use App\Models\Inmopro\Project360Tour;
@@ -28,9 +30,25 @@ class PublicProject360TourTest extends TestCase
     public function test_signed_public_tour_and_panorama_are_available_without_authentication(): void
     {
         [$project, $tour, $panorama] = $this->createTour();
+        $status = LotStatus::query()->create([
+            'name' => 'Libre',
+            'code' => LotStatus::CODE_LIBRE,
+            'color' => '#10b981',
+            'sort_order' => 1,
+        ]);
+        $lot = Lot::query()->create([
+            'project_id' => $project->id,
+            'block' => 'A',
+            'number' => 12,
+            'area' => 120,
+            'price' => 50000,
+            'lot_status_id' => $status->id,
+            'client_name' => 'No debe publicarse',
+        ]);
         $tour->polygons()->create([
             'source_panorama_id' => $panorama->id,
-            'title' => 'Área social',
+            'lot_id' => $lot->id,
+            'title' => 'Lote 12',
             'description' => 'Zona informativa',
             'vertices' => [
                 ['yaw' => 0, 'pitch' => 0],
@@ -51,6 +69,11 @@ class PublicProject360TourTest extends TestCase
                 ->where('project.name', $project->name)
                 ->has('tour.panoramas', 1)
                 ->has('tour.polygons', 1)
+                ->where('tour.polygons.0.title', 'Lote 12')
+                ->where('tour.polygons.0.color', '#10b981')
+                ->where('tour.polygons.0.lot.number', '12')
+                ->where('tour.polygons.0.lot.status.name', 'Libre')
+                ->missing('tour.polygons.0.lot.client_name')
                 ->missing('tour.floor_plans'));
 
         $this->get($service->panoramaUrl($shareLink, $panorama))

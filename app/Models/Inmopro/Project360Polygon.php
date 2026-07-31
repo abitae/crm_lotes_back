@@ -13,6 +13,7 @@ class Project360Polygon extends Model
     protected $fillable = [
         'project_360_tour_id',
         'source_panorama_id',
+        'lot_id',
         'title',
         'description',
         'vertices',
@@ -37,5 +38,10 @@ class Project360Polygon extends Model
     public function sourcePanorama(): BelongsTo
     {
         return $this->belongsTo(ProjectAsset::class, 'source_panorama_id');
+    }
+
+    public function lot(): BelongsTo
+    {
+        return $this->belongsTo(Lot::class);
     }
 }

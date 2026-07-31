@@ -27,7 +27,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
-import { polygonHasSelfIntersection } from '@/lib/project-360-geometry';
+import {
+    polygonHasSelfIntersection,
+    polylineHasSelfIntersection,
+} from '@/lib/project-360-geometry';
 import { confirmDelete } from '@/lib/swal';
 import project360 from '@/routes/inmopro/project-360';
 import hotspotRoutes from '@/routes/inmopro/project-360/hotspots';
@@ -42,6 +45,7 @@ import type {
     Project360Hotspot,
     Project360HotspotShape,
     Project360LabelVisibility,
+    Project360LotOption,
     Project360Polygon,
     Project360PolygonVertex,
     Project360Tour,
@@ -57,6 +61,7 @@ type PageProps = {
     project: Project;
     tour: Project360Tour;
     canManage: boolean;
+    lotOptions: Project360LotOption[];
 };
 
 type UploadForm = {
@@ -79,6 +84,7 @@ type HotspotDraft = {
 };
 
 type PolygonDraft = {
+    lot_id: number | null;
     title: string;
     description: string;
     vertices: Project360PolygonVertex[];
@@ -86,6 +92,9 @@ type PolygonDraft = {
     hover_color: string;
     opacity: number;
 };
+
+type PolygonDrawingState = 'idle' | 'drawing' | 'closed';
+type PolygonDraftTarget = 'create' | number | null;
 
 type PlacementMode =
     | { type: 'create-hotspot' }
@@ -128,6 +137,7 @@ function hotspotDraft(hotspot: Project360Hotspot): HotspotDraft {
 
 function polygonDraft(polygon: Project360Polygon): PolygonDraft {
     return {
+        lot_id: polygon.lot_id,
         title: polygon.title,
         description: polygon.description ?? '',
         vertices: polygon.vertices,
@@ -141,6 +151,7 @@ export default function Project360Show({
     project,
     tour,
     canManage,
+    lotOptions,
 }: PageProps) {
     const viewerRef = useRef<Project360ViewerHandle>(null);
     const initialPanoramaId =
@@ -152,6 +163,13 @@ export default function Project360Show({
         initialPanoramaId,
     );
     const [placementMode, setPlacementMode] = useState<PlacementMode>(null);
+    const [polygonDrawingState, setPolygonDrawingState] =
+        useState<PolygonDrawingState>('idle');
+    const [polygonDraftTarget, setPolygonDraftTarget] =
+        useState<PolygonDraftTarget>(null);
+    const [polygonDrawingError, setPolygonDrawingError] = useState<
+        string | null
+    >(null);
     const [createPointSelected, setCreatePointSelected] = useState(false);
     const [selectedHotspotId, setSelectedHotspotId] = useState<number | null>(
         null,
@@ -206,6 +224,7 @@ export default function Project360Show({
     });
     const polygonForm = useForm<PolygonDraft & { source_panorama_id: number }>({
         source_panorama_id: initialPanoramaId ?? 0,
+        lot_id: null,
         title: '',
         description: '',
         vertices: [],
@@ -278,13 +297,46 @@ export default function Project360Show({
                 draft.pulse_enabled ?? tour.settings.hotspot_pulse_enabled,
         };
     }, [hotspotForm.data, selectedHotspotDraft, tour.settings]);
-    const polygonPreview =
-        placementMode?.type === 'redraw-polygon' && selectedPolygonDraft
-            ? selectedPolygonDraft.vertices
-            : placementMode?.type === 'draw-polygon'
-              ? polygonForm.data.vertices
-              : [];
-    const polygonPreviewInvalid = polygonHasSelfIntersection(polygonPreview);
+    const activePolygonDraft =
+        polygonDraftTarget === 'create'
+            ? polygonForm.data
+            : typeof polygonDraftTarget === 'number'
+              ? polygonDrafts[polygonDraftTarget]
+              : null;
+    const polygonDraftVertices = activePolygonDraft?.vertices ?? [];
+    const polygonPreviewInvalid =
+        polygonDrawingState === 'drawing'
+            ? polylineHasSelfIntersection(polygonDraftVertices)
+            : polygonHasSelfIntersection(polygonDraftVertices);
+    const previewLot = activePolygonDraft?.lot_id
+        ? (lotOptions.find((lot) => lot.id === activePolygonDraft.lot_id) ??
+          null)
+        : null;
+    const closedPolygonPreview: Project360Polygon | null =
+        polygonDrawingState === 'closed' && activePolygonDraft
+            ? {
+                  id: -1,
+                  source_panorama_id: currentPanoramaId ?? 0,
+                  lot_id: previewLot?.id ?? null,
+                  lot: previewLot
+                      ? {
+                            id: previewLot.id,
+                            number: previewLot.number,
+                            status: previewLot.status,
+                        }
+                      : null,
+                  title: previewLot
+                      ? `Lote ${previewLot.number}`
+                      : activePolygonDraft.title || 'Vista previa',
+                  description: activePolygonDraft.description || null,
+                  vertices: activePolygonDraft.vertices,
+                  color: previewLot?.status?.color ?? activePolygonDraft.color,
+                  hover_color:
+                      previewLot?.status?.color ??
+                      activePolygonDraft.hover_color,
+                  opacity: activePolygonDraft.opacity,
+              }
+            : null;
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
@@ -293,10 +345,27 @@ export default function Project360Show({
     ];
 
     const handlePanoramaChange = (panoramaId: number) => {
+        if (typeof polygonDraftTarget === 'number') {
+            const polygon = tour.polygons.find(
+                (item) => item.id === polygonDraftTarget,
+            );
+            if (polygon) {
+                setPolygonDrafts((current) => ({
+                    ...current,
+                    [polygon.id]: polygonDraft(polygon),
+                }));
+            }
+        }
+        if (polygonDraftTarget === 'create') {
+            polygonForm.setData('vertices', []);
+        }
         setActivePanoramaId(panoramaId);
         setSelectedHotspotId(null);
         setSelectedPolygonId(null);
         setPlacementMode(null);
+        setPolygonDrawingState('idle');
+        setPolygonDraftTarget(null);
+        setPolygonDrawingError(null);
         setCreatePointSelected(false);
         const panorama = tour.panoramas.find((item) => item.id === panoramaId);
         const alternative = tour.panoramas.find(
@@ -339,23 +408,104 @@ export default function Project360Show({
 
         if (placementMode?.type === 'redraw-polygon') {
             const polygonId = placementMode.polygonId;
+            const vertices = polygonDrafts[polygonId]?.vertices ?? [];
+            if (vertices.length >= 32) {
+                setPolygonDrawingError(
+                    'Llegaste al máximo de 32 vértices. Cierra el polígono o deshaz un punto.',
+                );
+
+                return;
+            }
+            const nextVertices = [...vertices, point];
             setPolygonDrafts((current) => ({
                 ...current,
                 [polygonId]: {
                     ...current[polygonId],
-                    vertices: [...current[polygonId].vertices, point],
+                    vertices: nextVertices,
                 },
             }));
+            setPolygonDrawingError(
+                polylineHasSelfIntersection(nextVertices)
+                    ? 'El trazado tiene lados cruzados. Deshaz el último punto.'
+                    : null,
+            );
 
             return;
         }
 
         if (placementMode?.type === 'draw-polygon') {
+            if (polygonForm.data.vertices.length >= 32) {
+                setPolygonDrawingError(
+                    'Llegaste al máximo de 32 vértices. Cierra el polígono o deshaz un punto.',
+                );
+
+                return;
+            }
+            const nextVertices = [...polygonForm.data.vertices, point];
             polygonForm.setData((current) => ({
                 ...current,
-                vertices: [...current.vertices, point],
+                vertices: nextVertices,
             }));
+            setPolygonDrawingError(
+                polylineHasSelfIntersection(nextVertices)
+                    ? 'El trazado tiene lados cruzados. Deshaz el último punto.'
+                    : null,
+            );
         }
+    };
+
+    const closePolygonDrawing = () => {
+        if (
+            polygonDrawingState !== 'drawing' ||
+            polygonDraftVertices.length < 3
+        ) {
+            return;
+        }
+
+        if (polygonHasSelfIntersection(polygonDraftVertices)) {
+            setPolygonDrawingError(
+                'No se puede cerrar porque alguno de sus lados se cruza.',
+            );
+
+            return;
+        }
+
+        setPolygonDrawingState('closed');
+        setPolygonDrawingError(null);
+        setPlacementMode(null);
+    };
+
+    const reopenPolygonDrawing = () => {
+        if (polygonDraftTarget === 'create') {
+            setPlacementMode({ type: 'draw-polygon' });
+        } else if (typeof polygonDraftTarget === 'number') {
+            setPlacementMode({
+                type: 'redraw-polygon',
+                polygonId: polygonDraftTarget,
+            });
+        }
+        setPolygonDrawingState('drawing');
+        setPolygonDrawingError(null);
+    };
+
+    const startPolygonDrawing = () => {
+        polygonForm.setData('vertices', []);
+        setSelectedHotspotId(null);
+        setPolygonDraftTarget('create');
+        setPolygonDrawingState('drawing');
+        setPolygonDrawingError(null);
+        setPlacementMode({ type: 'draw-polygon' });
+    };
+
+    const startPolygonRedraw = (polygon: Project360Polygon) => {
+        updatePolygonDraft(polygon.id, { vertices: [] });
+        setPolygonDraftTarget(polygon.id);
+        setPolygonDrawingState('drawing');
+        setPolygonDrawingError(null);
+        setPlacementMode({
+            type: 'redraw-polygon',
+            polygonId: polygon.id,
+        });
     };
 
     const captureHotspotOrientation = () => {
@@ -437,8 +587,11 @@ export default function Project360Show({
         polygonForm.post(polygonRoutes.store(project.id).url, {
             preserveScroll: true,
             onSuccess: () => {
-                polygonForm.reset('title', 'description', 'vertices');
+                polygonForm.reset('lot_id', 'title', 'description', 'vertices');
                 setPlacementMode(null);
+                setPolygonDrawingState('idle');
+                setPolygonDraftTarget(null);
+                setPolygonDrawingError(null);
             },
         });
     };
@@ -457,7 +610,12 @@ export default function Project360Show({
             },
             {
                 preserveScroll: true,
-                onSuccess: () => setSelectedPolygonId(null),
+                onSuccess: () => {
+                    setSelectedPolygonId(null);
+                    setPolygonDrawingState('idle');
+                    setPolygonDraftTarget(null);
+                    setPolygonDrawingError(null);
+                },
             },
         );
     };
@@ -495,18 +653,21 @@ export default function Project360Show({
     };
 
     const cancelPlacement = () => {
-        if (placementMode?.type === 'redraw-polygon' && selectedPolygon) {
+        if (typeof polygonDraftTarget === 'number' && selectedPolygon) {
             setPolygonDrafts((current) => ({
                 ...current,
                 [selectedPolygon.id]: polygonDraft(selectedPolygon),
             }));
         }
 
-        if (placementMode?.type === 'draw-polygon') {
+        if (polygonDraftTarget === 'create') {
             polygonForm.setData('vertices', []);
         }
 
         setPlacementMode(null);
+        setPolygonDrawingState('idle');
+        setPolygonDraftTarget(null);
+        setPolygonDrawingError(null);
     };
 
     const undoPolygonVertex = () => {
@@ -521,6 +682,7 @@ export default function Project360Show({
                 polygonForm.data.vertices.slice(0, -1),
             );
         }
+        setPolygonDrawingError(null);
     };
 
     const deleteHotspot = async (hotspot: Project360Hotspot) => {
@@ -605,14 +767,18 @@ export default function Project360Show({
                             draftPoint={previewPoint}
                             draftStyle={draftStyle}
                             editingHotspotId={selectedHotspotId}
-                            polygonDraft={polygonPreview}
+                            polygonDraft={polygonDraftVertices}
+                            polygonPreview={closedPolygonPreview}
+                            polygonDrawing={polygonDrawingState === 'drawing'}
+                            interactionLocked={polygonDrawingState !== 'idle'}
                             editingPolygonId={
-                                placementMode?.type === 'redraw-polygon'
-                                    ? placementMode.polygonId
+                                typeof polygonDraftTarget === 'number'
+                                    ? polygonDraftTarget
                                     : null
                             }
                             selectedPolygonId={selectedPolygonId}
                             onPlacement={handlePlacement}
+                            onPolygonClose={closePolygonDrawing}
                             onPanoramaChange={handlePanoramaChange}
                             onPolygonSelect={(polygonId) => {
                                 setSelectedPolygonId(polygonId);
@@ -700,17 +866,38 @@ export default function Project360Show({
 
                                 {activeTab === 'polygons' ? (
                                     <PolygonsPanel
+                                        lotOptions={lotOptions}
+                                        usedLotIds={
+                                            new Set(
+                                                tour.polygons
+                                                    .map(
+                                                        (polygon) =>
+                                                            polygon.lot_id,
+                                                    )
+                                                    .filter(
+                                                        (
+                                                            lotId,
+                                                        ): lotId is number =>
+                                                            lotId !== null,
+                                                    ),
+                                            )
+                                        }
                                         currentPanoramaId={currentPanoramaId}
                                         currentPolygons={currentPolygons}
                                         selectedPolygon={selectedPolygon}
                                         selectedDraft={selectedPolygonDraft}
                                         polygonForm={polygonForm}
-                                        placementMode={placementMode}
-                                        polygonPreview={polygonPreview}
+                                        polygonDrawingState={
+                                            polygonDrawingState
+                                        }
+                                        polygonDraftTarget={polygonDraftTarget}
+                                        polygonPreview={polygonDraftVertices}
                                         polygonPreviewInvalid={
                                             polygonPreviewInvalid
                                         }
-                                        setPlacementMode={setPlacementMode}
+                                        polygonDrawingError={
+                                            polygonDrawingError
+                                        }
                                         setSelectedPolygonId={
                                             setSelectedPolygonId
                                         }
@@ -723,6 +910,9 @@ export default function Project360Show({
                                         deletePolygon={deletePolygon}
                                         undoVertex={undoPolygonVertex}
                                         cancelPlacement={cancelPlacement}
+                                        startDrawing={startPolygonDrawing}
+                                        startRedraw={startPolygonRedraw}
+                                        reopenDrawing={reopenPolygonDrawing}
                                     />
                                 ) : null}
 
@@ -1317,15 +1507,18 @@ function HotspotsPanel({
 }
 
 function PolygonsPanel({
+    lotOptions,
+    usedLotIds,
     currentPanoramaId,
     currentPolygons,
     selectedPolygon,
     selectedDraft,
     polygonForm,
-    placementMode,
+    polygonDrawingState,
+    polygonDraftTarget,
     polygonPreview,
     polygonPreviewInvalid,
-    setPlacementMode,
+    polygonDrawingError,
     setSelectedPolygonId,
     setSelectedHotspotId,
     createPolygon,
@@ -1334,16 +1527,22 @@ function PolygonsPanel({
     deletePolygon,
     undoVertex,
     cancelPlacement,
+    startDrawing,
+    startRedraw,
+    reopenDrawing,
 }: {
+    lotOptions: Project360LotOption[];
+    usedLotIds: Set<number>;
     currentPanoramaId: number | null;
     currentPolygons: Project360Polygon[];
     selectedPolygon: Project360Polygon | undefined;
     selectedDraft: PolygonDraft | null;
     polygonForm: InertiaForm<PolygonDraft & { source_panorama_id: number }>;
-    placementMode: PlacementMode;
+    polygonDrawingState: PolygonDrawingState;
+    polygonDraftTarget: PolygonDraftTarget;
     polygonPreview: Project360PolygonVertex[];
     polygonPreviewInvalid: boolean;
-    setPlacementMode: React.Dispatch<React.SetStateAction<PlacementMode>>;
+    polygonDrawingError: string | null;
     setSelectedPolygonId: React.Dispatch<React.SetStateAction<number | null>>;
     setSelectedHotspotId: React.Dispatch<React.SetStateAction<number | null>>;
     createPolygon: (event: React.FormEvent) => void;
@@ -1352,10 +1551,20 @@ function PolygonsPanel({
     deletePolygon: (polygon: Project360Polygon) => Promise<void>;
     undoVertex: () => void;
     cancelPlacement: () => void;
+    startDrawing: () => void;
+    startRedraw: (polygon: Project360Polygon) => void;
+    reopenDrawing: () => void;
 }) {
-    const drawing =
-        placementMode?.type === 'draw-polygon' ||
-        placementMode?.type === 'redraw-polygon';
+    const drawing = polygonDrawingState === 'drawing';
+    const closed = polygonDrawingState === 'closed';
+    const createLot = lotOptions.find(
+        (lot) => lot.id === polygonForm.data.lot_id,
+    );
+    const selectedLot = lotOptions.find(
+        (lot) => lot.id === selectedDraft?.lot_id,
+    );
+    const selectedPolygonBeingRedrawn =
+        selectedPolygon && polygonDraftTarget === selectedPolygon.id;
 
     return (
         <PanelSection
@@ -1363,15 +1572,11 @@ function PolygonsPanel({
             description="Dibuja zonas independientes de los hotspots y añade información contextual."
         >
             <div className="flex flex-wrap gap-2">
-                {!selectedPolygon ? (
+                {!selectedPolygon && polygonDrawingState === 'idle' ? (
                     <Button
                         type="button"
                         size="sm"
-                        onClick={() => {
-                            polygonForm.setData('vertices', []);
-                            setSelectedHotspotId(null);
-                            setPlacementMode({ type: 'draw-polygon' });
-                        }}
+                        onClick={startDrawing}
                         disabled={currentPanoramaId === null}
                     >
                         <Pentagon className="h-4 w-4" /> Dibujar polígono
@@ -1391,14 +1596,22 @@ function PolygonsPanel({
                         <Button
                             type="button"
                             size="sm"
-                            variant="outline"
-                            onClick={() => setPlacementMode(null)}
-                            disabled={
-                                polygonPreview.length < 3 ||
-                                polygonPreviewInvalid
-                            }
+                            variant="ghost"
+                            onClick={cancelPlacement}
                         >
-                            <Check className="h-4 w-4" /> Finalizar dibujo
+                            <X className="h-4 w-4" /> Cancelar
+                        </Button>
+                    </>
+                ) : null}
+                {closed ? (
+                    <>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={reopenDrawing}
+                        >
+                            <Pentagon className="h-4 w-4" /> Reabrir dibujo
                         </Button>
                         <Button
                             type="button"
@@ -1406,7 +1619,7 @@ function PolygonsPanel({
                             variant="ghost"
                             onClick={cancelPlacement}
                         >
-                            <X className="h-4 w-4" /> Cancelar
+                            <X className="h-4 w-4" /> Cancelar dibujo
                         </Button>
                     </>
                 ) : null}
@@ -1415,14 +1628,24 @@ function PolygonsPanel({
             {drawing ? (
                 <div
                     className={`rounded-lg p-3 text-sm ${
-                        polygonPreviewInvalid
+                        polygonPreviewInvalid || polygonDrawingError
                             ? 'bg-red-50 text-red-700'
                             : 'bg-orange-50 text-orange-800'
                     }`}
                 >
-                    {polygonPreviewInvalid
-                        ? 'Los lados se cruzan. Deshaz el último punto antes de finalizar.'
-                        : `${polygonPreview.length} vértice(s). Pulsa sobre el panorama para continuar.`}
+                    {polygonDrawingError ??
+                        (polygonPreviewInvalid
+                            ? 'Los lados se cruzan. Deshaz el último punto.'
+                            : polygonPreview.length >= 3
+                              ? `${polygonPreview.length} vértices. Agrega más o pulsa el primer punto para cerrar.`
+                              : `${polygonPreview.length} vértice(s). Agrega al menos tres para poder cerrar.`)}
+                </div>
+            ) : null}
+
+            {closed ? (
+                <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
+                    Polígono cerrado con {polygonPreview.length} vértices. Ya
+                    puedes guardarlo o reabrir el trazado.
                 </div>
             ) : null}
 
@@ -1431,17 +1654,33 @@ function PolygonsPanel({
                     onSubmit={createPolygon}
                     className="space-y-3 rounded-lg border p-3"
                 >
-                    <div>
-                        <Label>Título</Label>
-                        <Input
-                            value={polygonForm.data.title}
-                            onChange={(event) =>
-                                polygonForm.setData('title', event.target.value)
-                            }
-                            placeholder="Área social"
-                        />
-                        <InputError message={polygonForm.errors.title} />
-                    </div>
+                    <PolygonLotSelector
+                        value={polygonForm.data.lot_id}
+                        lotOptions={lotOptions}
+                        usedLotIds={usedLotIds}
+                        onChange={(lot_id) =>
+                            polygonForm.setData('lot_id', lot_id)
+                        }
+                    />
+                    <InputError message={polygonForm.errors.lot_id} />
+                    {polygonForm.data.lot_id === null ? (
+                        <div>
+                            <Label>Título</Label>
+                            <Input
+                                value={polygonForm.data.title}
+                                onChange={(event) =>
+                                    polygonForm.setData(
+                                        'title',
+                                        event.target.value,
+                                    )
+                                }
+                                placeholder="Área social"
+                            />
+                            <InputError message={polygonForm.errors.title} />
+                        </div>
+                    ) : (
+                        <LinkedLotSummary lot={createLot ?? null} />
+                    )}
                     <div>
                         <Label>Descripción</Label>
                         <textarea
@@ -1457,23 +1696,34 @@ function PolygonsPanel({
                             placeholder="Información que verá el visitante."
                         />
                     </div>
-                    <PolygonStyleFields
-                        value={polygonForm.data}
-                        onChange={(changes) =>
-                            polygonForm.setData((current) => ({
-                                ...current,
-                                ...changes,
-                            }))
-                        }
-                    />
+                    {polygonForm.data.lot_id === null ? (
+                        <PolygonStyleFields
+                            value={polygonForm.data}
+                            onChange={(changes) =>
+                                polygonForm.setData((current) => ({
+                                    ...current,
+                                    ...changes,
+                                }))
+                            }
+                        />
+                    ) : (
+                        <PolygonOpacityField
+                            value={polygonForm.data.opacity}
+                            onChange={(opacity) =>
+                                polygonForm.setData('opacity', opacity)
+                            }
+                        />
+                    )}
                     <InputError message={polygonForm.errors.vertices} />
                     <Button
                         type="submit"
                         size="sm"
                         disabled={
                             polygonForm.processing ||
-                            drawing ||
-                            !polygonForm.data.title ||
+                            polygonDraftTarget !== 'create' ||
+                            !closed ||
+                            (polygonForm.data.lot_id === null &&
+                                !polygonForm.data.title) ||
                             polygonForm.data.vertices.length < 3 ||
                             polygonHasSelfIntersection(
                                 polygonForm.data.vertices,
@@ -1503,9 +1753,24 @@ function PolygonsPanel({
                                 ? 'border-orange-400 bg-orange-50'
                                 : 'hover:bg-slate-50'
                         }`}
-                        onClick={() => setSelectedPolygonId(polygon.id)}
+                        disabled={polygonDrawingState !== 'idle'}
+                        onClick={() => {
+                            setSelectedHotspotId(null);
+                            setSelectedPolygonId(polygon.id);
+                        }}
                     >
-                        <span>{polygon.title}</span>
+                        <span className="flex items-center gap-2">
+                            {polygon.lot?.status ? (
+                                <span
+                                    className="h-2.5 w-2.5 rounded-full"
+                                    style={{
+                                        backgroundColor:
+                                            polygon.lot.status.color,
+                                    }}
+                                />
+                            ) : null}
+                            {polygon.title}
+                        </span>
                         <span className="text-xs text-slate-500">
                             {polygon.vertices.length} vértices
                         </span>
@@ -1522,22 +1787,36 @@ function PolygonsPanel({
                         <button
                             type="button"
                             onClick={() => setSelectedPolygonId(null)}
+                            disabled={polygonDrawingState !== 'idle'}
                             aria-label="Cerrar edición"
                         >
                             <X className="h-4 w-4" />
                         </button>
                     </div>
-                    <div>
-                        <Label>Título</Label>
-                        <Input
-                            value={selectedDraft.title}
-                            onChange={(event) =>
-                                updateDraft(selectedPolygon.id, {
-                                    title: event.target.value,
-                                })
-                            }
-                        />
-                    </div>
+                    <PolygonLotSelector
+                        value={selectedDraft.lot_id}
+                        lotOptions={lotOptions}
+                        usedLotIds={usedLotIds}
+                        currentLotId={selectedPolygon.lot_id}
+                        onChange={(lot_id) =>
+                            updateDraft(selectedPolygon.id, { lot_id })
+                        }
+                    />
+                    {selectedDraft.lot_id === null ? (
+                        <div>
+                            <Label>Título</Label>
+                            <Input
+                                value={selectedDraft.title}
+                                onChange={(event) =>
+                                    updateDraft(selectedPolygon.id, {
+                                        title: event.target.value,
+                                    })
+                                }
+                            />
+                        </div>
+                    ) : (
+                        <LinkedLotSummary lot={selectedLot ?? null} />
+                    )}
                     <div>
                         <Label>Descripción</Label>
                         <textarea
@@ -1551,26 +1830,28 @@ function PolygonsPanel({
                             className="min-h-24 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
                         />
                     </div>
-                    <PolygonStyleFields
-                        value={selectedDraft}
-                        onChange={(changes) =>
-                            updateDraft(selectedPolygon.id, changes)
-                        }
-                    />
+                    {selectedDraft.lot_id === null ? (
+                        <PolygonStyleFields
+                            value={selectedDraft}
+                            onChange={(changes) =>
+                                updateDraft(selectedPolygon.id, changes)
+                            }
+                        />
+                    ) : (
+                        <PolygonOpacityField
+                            value={selectedDraft.opacity}
+                            onChange={(opacity) =>
+                                updateDraft(selectedPolygon.id, { opacity })
+                            }
+                        />
+                    )}
                     <div className="flex flex-wrap gap-2">
                         <Button
                             type="button"
                             size="sm"
                             variant="outline"
-                            onClick={() => {
-                                updateDraft(selectedPolygon.id, {
-                                    vertices: [],
-                                });
-                                setPlacementMode({
-                                    type: 'redraw-polygon',
-                                    polygonId: selectedPolygon.id,
-                                });
-                            }}
+                            onClick={() => startRedraw(selectedPolygon)}
+                            disabled={polygonDrawingState !== 'idle'}
                         >
                             <Pentagon className="h-4 w-4" /> Redibujar
                         </Button>
@@ -1578,7 +1859,9 @@ function PolygonsPanel({
                             type="button"
                             size="sm"
                             disabled={
-                                drawing ||
+                                (selectedPolygonBeingRedrawn && !closed) ||
+                                (selectedDraft.lot_id === null &&
+                                    !selectedDraft.title) ||
                                 selectedDraft.vertices.length < 3 ||
                                 polygonHasSelfIntersection(
                                     selectedDraft.vertices,
@@ -1592,6 +1875,7 @@ function PolygonsPanel({
                             type="button"
                             size="icon"
                             variant="destructive"
+                            disabled={polygonDrawingState !== 'idle'}
                             onClick={() => void deletePolygon(selectedPolygon)}
                         >
                             <Trash2 className="h-4 w-4" />
@@ -1600,6 +1884,124 @@ function PolygonsPanel({
                 </div>
             ) : null}
         </PanelSection>
+    );
+}
+
+function PolygonLotSelector({
+    value,
+    lotOptions,
+    usedLotIds,
+    currentLotId = null,
+    onChange,
+}: {
+    value: number | null;
+    lotOptions: Project360LotOption[];
+    usedLotIds: Set<number>;
+    currentLotId?: number | null;
+    onChange: (lotId: number | null) => void;
+}) {
+    const [search, setSearch] = useState('');
+    const normalizedSearch = search.trim().toLocaleLowerCase('es');
+    const filteredLots = lotOptions.filter(
+        (lot) =>
+            lot.id === value ||
+            `mz. ${lot.block} lote ${lot.number} ${lot.status?.name ?? ''} ${lot.status?.code ?? ''}`
+                .toLocaleLowerCase('es')
+                .includes(normalizedSearch),
+    );
+
+    return (
+        <div className="space-y-2">
+            <Label>Lote asociado (opcional)</Label>
+            <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar por manzana, lote o estado"
+                aria-label="Buscar lote para asociar"
+            />
+            <select
+                value={value ?? ''}
+                onChange={(event) =>
+                    onChange(
+                        event.target.value === ''
+                            ? null
+                            : Number(event.target.value),
+                    )
+                }
+                className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm"
+            >
+                <option value="">Sin lote · polígono informativo</option>
+                {filteredLots.map((lot) => {
+                    const unavailable =
+                        usedLotIds.has(lot.id) && lot.id !== currentLotId;
+
+                    return (
+                        <option
+                            key={lot.id}
+                            value={lot.id}
+                            disabled={unavailable}
+                        >
+                            Mz. {lot.block} · Lote {lot.number} —{' '}
+                            {lot.status?.name ?? 'Sin estado'}
+                            {unavailable ? ' · ya utilizado' : ''}
+                        </option>
+                    );
+                })}
+            </select>
+            {normalizedSearch && filteredLots.length === 0 ? (
+                <p className="text-xs text-slate-500">
+                    No se encontraron lotes con ese criterio.
+                </p>
+            ) : null}
+        </div>
+    );
+}
+
+function LinkedLotSummary({ lot }: { lot: Project360LotOption | null }) {
+    if (!lot) {
+        return null;
+    }
+
+    return (
+        <div className="rounded-lg border bg-slate-50 p-3 text-sm">
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <p className="font-semibold">Lote {lot.number}</p>
+                    <p className="text-xs text-slate-500">
+                        El título y el color se actualizarán desde el lote.
+                    </p>
+                </div>
+                <span
+                    className="rounded-full px-2 py-1 text-xs font-semibold text-white"
+                    style={{
+                        backgroundColor: lot.status?.color ?? '#94a3b8',
+                    }}
+                >
+                    {lot.status?.name ?? 'Sin estado'}
+                </span>
+            </div>
+        </div>
+    );
+}
+
+function PolygonOpacityField({
+    value,
+    onChange,
+}: {
+    value: number;
+    onChange: (opacity: number) => void;
+}) {
+    return (
+        <div className="rounded-lg border bg-white p-3">
+            <NumberField
+                label="Opacidad"
+                value={value}
+                min={0.1}
+                max={0.7}
+                step={0.05}
+                onChange={onChange}
+            />
+        </div>
     );
 }
 

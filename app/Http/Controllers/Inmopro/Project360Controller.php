@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Inmopro;
 
 use App\Http\Controllers\Controller;
+use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\Project360ShareLink;
 use App\Models\Inmopro\ProjectAsset;
@@ -75,6 +76,25 @@ class Project360Controller extends Controller
                 ->values()
                 ->all()
             : [];
+        $lotOptions = $canManage
+            ? $project->lots()
+                ->with('status')
+                ->orderBy('block')
+                ->orderBy('number')
+                ->get()
+                ->map(fn (Lot $lot): array => [
+                    'id' => $lot->id,
+                    'block' => $lot->block,
+                    'number' => (string) $lot->number,
+                    'status' => $lot->status ? [
+                        'name' => $lot->status->name,
+                        'code' => $lot->status->code,
+                        'color' => $lot->status->color ?: '#94a3b8',
+                    ] : null,
+                ])
+                ->values()
+                ->all()
+            : [];
 
         return Inertia::render('inmopro/project-360/show', [
             'project' => [
@@ -87,6 +107,7 @@ class Project360Controller extends Controller
                 'share_links' => $shareLinks,
             ],
             'canManage' => $canManage,
+            'lotOptions' => $lotOptions,
         ]);
     }
 }

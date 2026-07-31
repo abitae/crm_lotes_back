@@ -113,6 +113,29 @@ export function polygonHasSelfIntersection(
     return false;
 }
 
+export function polylineHasSelfIntersection(
+    vertices: Project360Angles[],
+): boolean {
+    const points = unwrapPolygonVertices(vertices);
+
+    for (let first = 0; first < points.length - 1; first += 1) {
+        for (let second = first + 2; second < points.length - 1; second += 1) {
+            if (
+                segmentsIntersect(
+                    points[first],
+                    points[first + 1],
+                    points[second],
+                    points[second + 1],
+                )
+            ) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 export function polygonCentroid(
     vertices: Project360Angles[],
 ): Project360Angles {

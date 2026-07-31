@@ -17,7 +17,8 @@ abstract class Project360PolygonRequest extends FormRequest
     {
         return [
             'source_panorama_id' => ['required', 'integer', 'exists:project_assets,id'],
-            'title' => ['required', 'string', 'max:100'],
+            'lot_id' => ['nullable', 'integer', 'exists:lots,id'],
+            'title' => ['nullable', 'required_without:lot_id', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:500'],
             'vertices' => ['required', 'array', 'min:3', 'max:32'],
             'vertices.*.yaw' => ['required', 'numeric', 'between:-180,180'],
@@ -57,6 +58,8 @@ abstract class Project360PolygonRequest extends FormRequest
     {
         return [
             'title.required' => 'El título del polígono es obligatorio.',
+            'title.required_without' => 'El título es obligatorio cuando el polígono no está ligado a un lote.',
+            'lot_id.exists' => 'El lote seleccionado no existe.',
             'title.max' => 'El título no puede superar 100 caracteres.',
             'description.max' => 'La descripción no puede superar 500 caracteres.',
             'vertices.min' => 'Dibuja al menos tres vértices.',

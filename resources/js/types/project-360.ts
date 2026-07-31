@@ -56,8 +56,28 @@ export type Project360PolygonVertex = {
     pitch: number;
 };
 
+export type Project360LotStatus = {
+    name: string;
+    code: string;
+    color: string;
+};
+
+export type Project360LotOption = {
+    id: number;
+    block: string;
+    number: string;
+    status: Project360LotStatus | null;
+};
+
+export type Project360PolygonLot = Pick<
+    Project360LotOption,
+    'id' | 'number' | 'status'
+>;
+
 export type Project360Polygon = {
     id: number;
+    lot_id: number | null;
+    lot: Project360PolygonLot | null;
     title: string;
     description: string | null;
     source_panorama_id: number;

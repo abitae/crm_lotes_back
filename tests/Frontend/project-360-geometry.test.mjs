@@ -5,6 +5,7 @@ import {
     pointToAngles,
     polygonCentroid,
     polygonHasSelfIntersection,
+    polylineHasSelfIntersection,
     pointerToPlanCoordinates,
     unwrapPolygonVertices,
 } from '../../resources/js/lib/project-360-geometry.ts';
@@ -65,4 +66,16 @@ test('detecta lados cruzados y acepta un polígono simple', () => {
         ]),
         false,
     );
+});
+
+test('mantiene abierto el trazado y valida el cierre por separado', () => {
+    const vertices = [
+        { yaw: 0, pitch: 0 },
+        { yaw: 10, pitch: 0 },
+        { yaw: 0, pitch: 10 },
+        { yaw: 10, pitch: 10 },
+    ];
+
+    assert.equal(polylineHasSelfIntersection(vertices), false);
+    assert.equal(polygonHasSelfIntersection(vertices), true);
 });

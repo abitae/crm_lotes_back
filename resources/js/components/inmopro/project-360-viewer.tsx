@@ -49,9 +49,13 @@ type Project360ViewerProps = {
     draftStyle?: Project360HotspotStyle;
     editingHotspotId?: number | null;
     polygonDraft?: Project360Angles[];
+    polygonPreview?: Project360Polygon | null;
+    polygonDrawing?: boolean;
+    interactionLocked?: boolean;
     editingPolygonId?: number | null;
     selectedPolygonId?: number | null;
     onPlacement?: (angles: Project360Angles) => void;
+    onPolygonClose?: () => void;
     onPanoramaChange?: (panoramaId: number) => void;
     onPolygonSelect?: (polygonId: number | null) => void;
     className?: string;
@@ -217,23 +221,34 @@ function PolygonEntity({
     selected: boolean;
 }) {
     const centroid = polygonCentroid(polygon.vertices);
+    const label = polygon.lot ? `Lote ${polygon.lot.number}` : polygon.title;
+    const interactive = polygon.id >= 0;
 
     return (
         <a-entity
-            className="tour-polygon"
-            data-polygon-id={polygon.id}
+            className={interactive ? 'tour-polygon' : undefined}
+            data-polygon-id={interactive ? polygon.id : undefined}
             tour-polygon-mesh={`vertices: ${JSON.stringify(polygon.vertices)}; color: ${polygon.color}; hoverColor: ${polygon.hover_color}; opacity: ${polygon.opacity}; selected: ${selected}`}
             title={polygon.title}
         >
-            <a-text
-                value={polygon.title}
-                align="center"
-                color="#ffffff"
+            <a-entity
                 position={pointPosition(centroid.yaw, centroid.pitch, 3.88)}
                 rotation={`${centroid.pitch} ${-centroid.yaw} 0`}
-                width="2.8"
-                visible={selected ? 'true' : 'false'}
-            />
+                visible={polygon.lot || selected ? 'true' : 'false'}
+            >
+                <a-plane
+                    width="0.9"
+                    height="0.28"
+                    material="color: #0f172a; shader: flat; opacity: 0.88; transparent: true; depthWrite: false"
+                />
+                <a-text
+                    value={label}
+                    align="center"
+                    color="#ffffff"
+                    position="0 0 0.01"
+                    width="2.6"
+                />
+            </a-entity>
         </a-entity>
     );
 }
@@ -253,9 +268,13 @@ const Project360ViewerBase = forwardRef<
         draftStyle,
         editingHotspotId = null,
         polygonDraft = [],
+        polygonPreview = null,
+        polygonDrawing = false,
+        interactionLocked = false,
         editingPolygonId = null,
         selectedPolygonId = null,
         onPlacement,
+        onPolygonClose,
         onPanoramaChange,
         onPolygonSelect,
         className = '',
@@ -378,7 +397,8 @@ const Project360ViewerBase = forwardRef<
             if (
                 panoramaId === resolvedActivePanoramaId ||
                 switching ||
-                placementMode
+                placementMode ||
+                interactionLocked
             ) {
                 return;
             }
@@ -413,6 +433,7 @@ const Project360ViewerBase = forwardRef<
             onPanoramaChange,
             onPolygonSelect,
             panoramas,
+            interactionLocked,
             placementMode,
             reducedMotion,
             resolvedActivePanoramaId,
@@ -441,7 +462,7 @@ const Project360ViewerBase = forwardRef<
         );
         const listeners = interactiveElements.map((element) => {
             const listener = () => {
-                if (placementMode) {
+                if (placementMode || interactionLocked) {
                     return;
                 }
 
@@ -464,6 +485,14 @@ const Project360ViewerBase = forwardRef<
 
             return { element, listener };
         });
+        const closeTarget = scene.querySelector<HTMLElement>(
+            '.polygon-close-target',
+        );
+        const closeListener = (event: Event) => {
+            event.stopPropagation();
+            onPolygonClose?.();
+        };
+        closeTarget?.addEventListener('click', closeListener);
 
         return () => {
             scene.removeEventListener(
@@ -473,14 +502,19 @@ const Project360ViewerBase = forwardRef<
             listeners.forEach(({ element, listener }) =>
                 element.removeEventListener('click', listener),
             );
+            closeTarget?.removeEventListener('click', closeListener);
         };
     }, [
         activeHotspots,
         activePolygons,
         aframeReady,
+        interactionLocked,
         onPlacement,
+        onPolygonClose,
         onPolygonSelect,
         placementMode,
+        polygonDraft.length,
+        polygonDrawing,
         selectPanorama,
     ]);
 
@@ -536,23 +570,14 @@ const Project360ViewerBase = forwardRef<
         label_visibility: settings.hotspot_label_visibility,
         pulse_enabled: settings.hotspot_pulse_enabled,
     };
+    const canClosePolygon = polygonDrawing && polygonDraft.length >= 3;
     const raycastObjects = placementMode
-        ? '.hotspot-placement-surface'
-        : '.tour-hotspot, .tour-polygon';
-    const polygonPreview: Project360Polygon | null =
-        polygonDraft.length >= 3
-            ? {
-                  id: -1,
-                  source_panorama_id: activePanorama?.id ?? 0,
-                  title: 'Vista previa',
-                  description: null,
-                  vertices: polygonDraft,
-                  color: settings.accent_color,
-                  hover_color: settings.hotspot_hover_color,
-                  opacity: 0.24,
-              }
-            : null;
-
+        ? canClosePolygon
+            ? '.hotspot-placement-surface, .polygon-close-target'
+            : '.hotspot-placement-surface'
+        : interactionLocked
+          ? '.tour-noninteractive'
+          : '.tour-hotspot, .tour-polygon';
     return (
         <div
             ref={containerRef}
@@ -613,32 +638,57 @@ const Project360ViewerBase = forwardRef<
                     {polygonPreview ? (
                         <PolygonEntity polygon={polygonPreview} selected />
                     ) : null}
-                    {polygonDraft.map((vertex, index) => (
-                        <a-sphere
-                            key={`${vertex.yaw}-${vertex.pitch}-${index}`}
-                            position={pointPosition(
-                                vertex.yaw,
-                                vertex.pitch,
-                                3.87,
-                            )}
-                            radius="0.045"
-                            material={`color: ${settings.accent_color}; shader: flat`}
-                        />
-                    ))}
-                    {polygonDraft.slice(1).map((vertex, index) => (
-                        <a-entity
-                            key={`line-${vertex.yaw}-${vertex.pitch}-${index}`}
-                            line={`start: ${pointPosition(
-                                polygonDraft[index].yaw,
-                                polygonDraft[index].pitch,
-                                3.86,
-                            )}; end: ${pointPosition(
-                                vertex.yaw,
-                                vertex.pitch,
-                                3.86,
-                            )}; color: ${settings.accent_color}; opacity: 0.9`}
-                        />
-                    ))}
+                    {polygonDrawing
+                        ? polygonDraft.map((vertex, index) => (
+                              <a-sphere
+                                  key={`${vertex.yaw}-${vertex.pitch}-${index}`}
+                                  position={pointPosition(
+                                      vertex.yaw,
+                                      vertex.pitch,
+                                      3.87,
+                                  )}
+                                  className={
+                                      index === 0 && canClosePolygon
+                                          ? 'polygon-close-target'
+                                          : undefined
+                                  }
+                                  radius={index === 0 ? '0.065' : '0.045'}
+                                  material={`color: ${settings.accent_color}; shader: flat`}
+                                  animation__closepulse={
+                                      index === 0 &&
+                                      canClosePolygon &&
+                                      !reducedMotion
+                                          ? 'property: scale; from: 1 1 1; to: 1.35 1.35 1.35; dir: alternate; loop: true; dur: 650; easing: easeInOutSine'
+                                          : undefined
+                                  }
+                              >
+                                  {index === 0 && canClosePolygon ? (
+                                      <a-sphere
+                                          radius="0.16"
+                                          material="color: #ffffff; opacity: 0.001; transparent: true; depthWrite: false"
+                                      />
+                                  ) : null}
+                              </a-sphere>
+                          ))
+                        : null}
+                    {polygonDrawing
+                        ? polygonDraft
+                              .slice(1)
+                              .map((vertex, index) => (
+                                  <a-entity
+                                      key={`line-${vertex.yaw}-${vertex.pitch}-${index}`}
+                                      line={`start: ${pointPosition(
+                                          polygonDraft[index].yaw,
+                                          polygonDraft[index].pitch,
+                                          3.86,
+                                      )}; end: ${pointPosition(
+                                          vertex.yaw,
+                                          vertex.pitch,
+                                          3.86,
+                                      )}; color: ${settings.accent_color}; opacity: 0.9`}
+                                  />
+                              ))
+                        : null}
                     {activeHotspots.map((hotspot) => (
                         <HotspotMarker
                             key={hotspot.id}
@@ -702,8 +752,11 @@ const Project360ViewerBase = forwardRef<
 
             {placementMode ? (
                 <div className="pointer-events-none absolute inset-x-3 top-16 z-20 rounded-lg bg-orange-500/95 px-4 py-3 text-center text-sm font-medium text-white shadow-lg">
-                    Pulsa el punto exacto del panorama. Arrastrar solo gira la
-                    cámara.
+                    {polygonDrawing
+                        ? canClosePolygon
+                            ? 'Agrega más puntos o pulsa el primer vértice para cerrar.'
+                            : 'Pulsa el panorama para agregar al menos tres vértices.'
+                        : 'Pulsa el punto exacto del panorama. Arrastrar solo gira la cámara.'}
                 </div>
             ) : null}
 
@@ -712,11 +765,25 @@ const Project360ViewerBase = forwardRef<
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <div className="mb-1 flex items-center gap-2 text-xs font-semibold tracking-wide text-orange-300 uppercase">
-                                <Info className="h-3.5 w-3.5" /> Zona destacada
+                                <Info className="h-3.5 w-3.5" />{' '}
+                                {selectedPolygon.lot
+                                    ? 'Lote del proyecto'
+                                    : 'Zona destacada'}
                             </div>
                             <p className="font-semibold">
                                 {selectedPolygon.title}
                             </p>
+                            {selectedPolygon.lot?.status ? (
+                                <span
+                                    className="mt-2 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold text-white"
+                                    style={{
+                                        backgroundColor:
+                                            selectedPolygon.lot.status.color,
+                                    }}
+                                >
+                                    {selectedPolygon.lot.status.name}
+                                </span>
+                            ) : null}
                             {selectedPolygon.description ? (
                                 <p className="mt-1 text-sm text-slate-300">
                                     {selectedPolygon.description}
@@ -743,7 +810,7 @@ const Project360ViewerBase = forwardRef<
                     <button
                         key={panorama.id}
                         type="button"
-                        disabled={placementMode}
+                        disabled={placementMode || interactionLocked}
                         onClick={() => selectPanorama(panorama.id)}
                         className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition disabled:opacity-60 ${
                             panorama.id === resolvedActivePanoramaId

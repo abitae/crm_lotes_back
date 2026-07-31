@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Inmopro;
 
+use App\Models\Inmopro\Lot;
+use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\Project360ShareLink;
 use App\Models\Inmopro\Project360Tour;
@@ -166,6 +168,125 @@ class Project360EnhancementsTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertModelMissing($polygon);
+    }
+
+    public function test_polygon_can_link_one_project_lot_and_uses_its_current_status(): void
+    {
+        $project = $this->createProject();
+        $manager = $this->manager();
+        $panorama = $this->createAsset($project, ProjectAsset::KIND_PANORAMA, 'Entrada');
+        $status = LotStatus::query()->create([
+            'name' => 'Libre',
+            'code' => LotStatus::CODE_LIBRE,
+            'color' => '#10b981',
+            'sort_order' => 1,
+        ]);
+        $lot = $this->createLot($project, $status, 12);
+        $payload = [
+            'source_panorama_id' => $panorama->id,
+            'lot_id' => $lot->id,
+            'title' => null,
+            'description' => 'Vista del lote.',
+            'vertices' => [
+                ['yaw' => 0, 'pitch' => 0],
+                ['yaw' => 10, 'pitch' => 0],
+                ['yaw' => 5, 'pitch' => 10],
+            ],
+            'color' => '#f97316',
+            'hover_color' => '#fb923c',
+            'opacity' => 0.3,
+        ];
+
+        $this->actingAs($manager)
+            ->post(route('inmopro.project-360.polygons.store', $project), $payload)
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($manager)
+            ->get(route('inmopro.project-360.show', $project))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('lotOptions', 1)
+                ->where('lotOptions.0.number', '12')
+                ->where('lotOptions.0.status.name', 'Libre')
+                ->missing('lotOptions.0.client_name'));
+
+        $polygon = $project->tour360()->firstOrFail()->polygons()->firstOrFail();
+        $this->assertSame($lot->id, $polygon->lot_id);
+        $this->assertSame('Lote 12', $polygon->title);
+        $this->assertSame('#f97316', $polygon->color);
+
+        $tourPayload = app(Project360TourService::class)->payload(
+            $project,
+            fn (ProjectAsset $asset): string => '/'.$asset->file_path,
+        );
+        $this->assertSame('12', $tourPayload['polygons'][0]['lot']['number']);
+        $this->assertSame('Libre', $tourPayload['polygons'][0]['lot']['status']['name']);
+        $this->assertSame('#10b981', $tourPayload['polygons'][0]['color']);
+        $this->assertArrayNotHasKey('client_name', $tourPayload['polygons'][0]['lot']);
+
+        $status->update(['name' => 'Reservado', 'code' => LotStatus::CODE_RESERVADO, 'color' => '#f59e0b']);
+        $refreshedPayload = app(Project360TourService::class)->payload(
+            $project,
+            fn (ProjectAsset $asset): string => '/'.$asset->file_path,
+        );
+        $this->assertSame('Reservado', $refreshedPayload['polygons'][0]['lot']['status']['name']);
+        $this->assertSame('#f59e0b', $refreshedPayload['polygons'][0]['color']);
+        $this->assertSame('#f97316', $polygon->fresh()->color);
+
+        $this->actingAs($manager)
+            ->post(route('inmopro.project-360.polygons.store', $project), $payload)
+            ->assertSessionHasErrors(['lot_id']);
+
+        $this->actingAs($manager)
+            ->put(route('inmopro.project-360.polygons.update', [$project, $polygon]), [
+                ...$payload,
+                'lot_id' => null,
+                'title' => 'Zona futura',
+            ])
+            ->assertSessionHasNoErrors();
+        $this->assertNull($polygon->fresh()->lot_id);
+        $this->assertSame('Zona futura', $polygon->fresh()->title);
+
+        $this->actingAs($manager)
+            ->put(route('inmopro.project-360.polygons.update', [$project, $polygon]), $payload)
+            ->assertSessionHasNoErrors();
+        $this->assertSame($lot->id, $polygon->fresh()->lot_id);
+
+        $lot->delete();
+        $this->assertNull($polygon->fresh()->lot_id);
+        $this->assertSame('Lote 12', $polygon->fresh()->title);
+    }
+
+    public function test_polygon_rejects_a_lot_from_another_project(): void
+    {
+        $project = $this->createProject();
+        $otherProject = $this->createProject('Proyecto ajeno');
+        $manager = $this->manager();
+        $panorama = $this->createAsset($project, ProjectAsset::KIND_PANORAMA, 'Entrada');
+        $status = LotStatus::query()->create([
+            'name' => 'Libre',
+            'code' => LotStatus::CODE_LIBRE,
+            'color' => '#10b981',
+            'sort_order' => 1,
+        ]);
+        $foreignLot = $this->createLot($otherProject, $status, 20);
+
+        $this->actingAs($manager)
+            ->post(route('inmopro.project-360.polygons.store', $project), [
+                'source_panorama_id' => $panorama->id,
+                'lot_id' => $foreignLot->id,
+                'title' => null,
+                'description' => null,
+                'vertices' => [
+                    ['yaw' => 0, 'pitch' => 0],
+                    ['yaw' => 10, 'pitch' => 0],
+                    ['yaw' => 5, 'pitch' => 10],
+                ],
+                'color' => '#f97316',
+                'hover_color' => '#fb923c',
+                'opacity' => 0.3,
+            ])
+            ->assertSessionHasErrors(['lot_id']);
     }
 
     public function test_polygon_rejects_foreign_panorama_and_crossed_sides(): void
@@ -350,6 +471,19 @@ class Project360EnhancementsTest extends TestCase
             'file_size' => 1000,
             'sort_order' => $sortOrder,
             'is_active' => true,
+        ]);
+    }
+
+    private function createLot(Project $project, LotStatus $status, int $number): Lot
+    {
+        return Lot::query()->create([
+            'project_id' => $project->id,
+            'block' => 'A',
+            'number' => $number,
+            'area' => 120,
+            'price' => 50000,
+            'lot_status_id' => $status->id,
+            'client_name' => 'Dato privado',
         ]);
     }
 
