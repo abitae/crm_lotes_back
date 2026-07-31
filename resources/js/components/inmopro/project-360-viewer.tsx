@@ -26,6 +26,10 @@ import {
     type Project360Angles,
     type Project360Point,
 } from '@/lib/project-360-geometry';
+import {
+    project360HotspotLabelLayout,
+    project360RaycastTargets,
+} from '@/lib/project-360-interaction';
 import type {
     Project360Hotspot,
     Project360HotspotStyle,
@@ -107,6 +111,7 @@ function HotspotMarker({
     const pulse = style.pulse_enabled && !draft && !reducedMotion;
     const markerRotation = `${hotspot.pitch} ${-hotspot.yaw} 0`;
     const coreMaterial = `color: ${style.color}; shader: flat; opacity: ${draft ? 0.72 : 1}; transparent: true`;
+    const labelLayout = project360HotspotLabelLayout(hotspot.label, style.size);
 
     const core =
         style.shape === 'ring' ? (
@@ -151,63 +156,128 @@ function HotspotMarker({
             animation__appear={
                 reducedMotion || draft
                     ? undefined
-                    : 'property: scale; from: 0.45 0.45 0.45; to: 1 1 1; dur: 360; easing: easeOutBack'
+                    : 'property: scale; from: 0.2 0.2 0.2; to: 1 1 1; dur: 520; easing: easeOutElastic'
             }
             animation__hoverin={
                 draft || reducedMotion
                     ? undefined
-                    : 'property: scale; to: 1.14 1.14 1.14; dur: 180; easing: easeOutQuad; startEvents: tour-hover-start'
+                    : 'property: scale; to: 1.18 1.18 1.18; dur: 240; easing: easeOutBack; startEvents: tour-hover-start'
             }
             animation__hoverout={
                 draft || reducedMotion
                     ? undefined
-                    : 'property: scale; to: 1 1 1; dur: 180; easing: easeOutQuad; startEvents: tour-hover-end,tour-press-end'
+                    : 'property: scale; to: 1 1 1; dur: 260; easing: easeOutCubic; startEvents: tour-hover-end,tour-press-end'
             }
             animation__press={
                 draft || reducedMotion
                     ? undefined
-                    : 'property: scale; to: 0.9 0.9 0.9; dur: 90; easing: easeOutQuad; startEvents: tour-press-start'
+                    : 'property: scale; to: 0.91 0.91 0.91; dur: 85; easing: easeOutQuad; startEvents: tour-press-start'
             }
             title={hotspot.label}
         >
             <a-sphere
+                className="tour-hotspot-hit-area"
                 radius={style.size * 1.65}
                 material="opacity: 0; transparent: true; depthWrite: false"
             />
-            <a-ring
-                radius-inner={style.size * 1.15}
-                radius-outer={style.size * 1.32}
-                material={`color: ${style.color}; shader: flat; opacity: ${draft ? 0.22 : 0.55}; transparent: true; depthWrite: false`}
-                animation__halo={
-                    pulse
-                        ? 'property: scale; from: 0.8 0.8 0.8; to: 1.42 1.42 1.42; dir: alternate; loop: true; dur: 1050; easing: easeInOutSine'
-                        : undefined
-                }
-                animation__opacity={
-                    pulse
-                        ? 'property: material.opacity; from: 0.65; to: 0.16; dir: alternate; loop: true; dur: 1050; easing: easeInOutSine'
-                        : undefined
-                }
-            />
-            {core}
             <a-entity
-                className="tour-hotspot-label"
-                data-visibility={style.label_visibility}
-                position={`0 ${style.size * 2.35} 0.02`}
-                visible={labelVisible ? 'true' : 'false'}
+                animation__float={
+                    reducedMotion || draft
+                        ? undefined
+                        : `property: position; from: 0 ${-style.size * 0.06} 0; to: 0 ${style.size * 0.09} 0; dir: alternate; loop: true; dur: 1650; easing: easeInOutSine`
+                }
             >
-                <a-plane
-                    width={Math.max(0.75, hotspot.label.length * 0.055)}
-                    height="0.25"
-                    material="color: #0f172a; shader: flat; opacity: 0.88; transparent: true"
+                <a-ring
+                    radius-inner={style.size * 1.15}
+                    radius-outer={style.size * 1.3}
+                    material={`color: ${style.color}; shader: flat; opacity: ${draft ? 0.22 : 0.62}; transparent: true; depthWrite: false`}
+                    animation__halo={
+                        pulse
+                            ? 'property: scale; from: 0.82 0.82 0.82; to: 1.55 1.55 1.55; loop: true; dur: 1250; easing: easeOutQuad'
+                            : undefined
+                    }
+                    animation__opacity={
+                        pulse
+                            ? 'property: material.opacity; from: 0.62; to: 0.04; loop: true; dur: 1250; easing: easeOutQuad'
+                            : undefined
+                    }
                 />
-                <a-text
-                    value={hotspot.label || 'Nuevo hotspot'}
-                    align="center"
-                    color={style.text_color}
-                    position="0 0 0.01"
-                    width={Math.max(2.6, style.size * 19)}
+                <a-ring
+                    radius-inner={style.size * 1.38}
+                    radius-outer={style.size * 1.44}
+                    material={`color: ${style.hover_color}; shader: flat; opacity: ${draft ? 0.1 : 0.3}; transparent: true; depthWrite: false`}
+                    animation__halo={
+                        pulse
+                            ? 'property: scale; from: 0.78 0.78 0.78; to: 1.38 1.38 1.38; loop: true; dur: 1650; delay: 340; easing: easeOutSine'
+                            : undefined
+                    }
+                    animation__opacity={
+                        pulse
+                            ? 'property: material.opacity; from: 0.32; to: 0.02; loop: true; dur: 1650; delay: 340; easing: easeOutSine'
+                            : undefined
+                    }
                 />
+                <a-circle
+                    radius={style.size * 1.16}
+                    position="0 0 -0.018"
+                    material="color: #020617; shader: flat; opacity: 0.82; transparent: true; depthWrite: false"
+                />
+                <a-ring
+                    radius-inner={style.size * 1.06}
+                    radius-outer={style.size * 1.18}
+                    position="0 0 -0.012"
+                    material={`color: ${style.hover_color}; shader: flat; opacity: 0.82; transparent: true; depthWrite: false`}
+                />
+                {core}
+                <a-entity
+                    className="tour-hotspot-label"
+                    data-visibility={style.label_visibility}
+                    position={`0 ${labelLayout.positionY} 0.025`}
+                    visible={labelVisible ? 'true' : 'false'}
+                    animation__labelin={
+                        reducedMotion
+                            ? undefined
+                            : 'property: scale; from: 0.82 0.82 0.82; to: 1 1 1; dur: 220; easing: easeOutBack; startEvents: tour-label-show'
+                    }
+                >
+                    <a-plane
+                        width={labelLayout.width + 0.07}
+                        height={labelLayout.height + 0.07}
+                        position="0 -0.025 -0.012"
+                        material="color: #000000; shader: flat; opacity: 0.42; transparent: true; depthTest: false; depthWrite: false"
+                    />
+                    <a-plane
+                        width={labelLayout.width}
+                        height={labelLayout.height}
+                        material={`color: ${style.color}; shader: flat; opacity: 0.98; transparent: true; depthTest: false; depthWrite: false`}
+                    />
+                    <a-plane
+                        width={labelLayout.width - 0.045}
+                        height={labelLayout.height - 0.045}
+                        position="0 0 0.006"
+                        material="color: #020617; shader: flat; opacity: 0.96; transparent: true; depthTest: false; depthWrite: false"
+                    />
+                    <a-plane
+                        width="0.035"
+                        height={labelLayout.height - 0.11}
+                        position={`${-labelLayout.width / 2 + 0.045} 0 0.012`}
+                        material={`color: ${style.color}; shader: flat; opacity: 1; depthTest: false; depthWrite: false`}
+                    />
+                    <a-circle
+                        radius="0.06"
+                        segments="3"
+                        position={`0 ${-(labelLayout.height / 2 + 0.045)} 0.004`}
+                        rotation="0 0 180"
+                        material={`color: ${style.color}; shader: flat; opacity: 0.98; depthTest: false; depthWrite: false`}
+                    />
+                    <a-text
+                        value={labelLayout.displayLabel}
+                        align="center"
+                        color={style.text_color}
+                        position="0.015 0 0.018"
+                        width={labelLayout.textWidth}
+                    />
+                </a-entity>
             </a-entity>
         </a-entity>
     );
@@ -571,13 +641,11 @@ const Project360ViewerBase = forwardRef<
         pulse_enabled: settings.hotspot_pulse_enabled,
     };
     const canClosePolygon = polygonDrawing && polygonDraft.length >= 3;
-    const raycastObjects = placementMode
-        ? canClosePolygon
-            ? '.hotspot-placement-surface, .polygon-close-target'
-            : '.hotspot-placement-surface'
-        : interactionLocked
-          ? '.tour-noninteractive'
-          : '.tour-hotspot, .tour-polygon';
+    const raycastTargets = project360RaycastTargets(
+        placementMode,
+        canClosePolygon,
+        interactionLocked,
+    );
     return (
         <div
             ref={containerRef}
@@ -593,7 +661,7 @@ const Project360ViewerBase = forwardRef<
                     ref={sceneRef}
                     embedded
                     cursor="rayOrigin: mouse"
-                    raycaster={`objects: ${raycastObjects}`}
+                    raycaster={`objects: ${raycastTargets.pointer}`}
                     renderer="colorManagement: true; antialias: true"
                     xr-mode-ui="enabled: true"
                     loading-screen="enabled: false"
@@ -716,17 +784,18 @@ const Project360ViewerBase = forwardRef<
                         position="0 1.6 0"
                         rotation={`${activePanorama.initial_pitch} ${activePanorama.initial_yaw} 0`}
                         look-controls="pointerLockEnabled: false; magicWindowTrackingEnabled: true"
+                        tour-initial-orientation={`yaw: ${activePanorama.initial_yaw}; pitch: ${activePanorama.initial_pitch}`}
                         wasd-controls="enabled: false"
                     >
                         <a-cursor
                             fuse="false"
-                            raycaster={`objects: ${raycastObjects}`}
+                            raycaster={`objects: ${raycastTargets.cameraCursor}`}
                             color={settings.accent_color}
                         />
                     </a-camera>
                     <a-entity
                         laser-controls="hand: right"
-                        raycaster={`objects: ${raycastObjects}`}
+                        raycaster={`objects: ${raycastTargets.pointer}`}
                     />
                 </a-scene>
             )}

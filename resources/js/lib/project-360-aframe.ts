@@ -4,6 +4,10 @@ import {
     type Project360Angles,
     type Project360Point,
 } from '@/lib/project-360-geometry';
+import {
+    applyProject360InitialOrientation,
+    type Project360OrientationTarget,
+} from '@/lib/project-360-orientation';
 
 type Disposable = { dispose: () => void };
 type ColorValue = { set: (value: string) => void };
@@ -104,12 +108,48 @@ type PolygonComponent = {
     onMouseLeave: () => void;
 };
 
+type InitialOrientationComponent = {
+    el: HTMLElement & Project360OrientationTarget;
+    data: Project360Angles;
+};
+
 export function registerProject360Components(
     aframe: AFrameComponentRegistry,
 ): void {
     registerPlacementComponent(aframe);
     registerHotspotInteractionComponent(aframe);
     registerPolygonComponent(aframe);
+    registerInitialOrientationComponent(aframe);
+}
+
+function registerInitialOrientationComponent(
+    aframe: AFrameComponentRegistry,
+): void {
+    if (aframe.components['tour-initial-orientation']) {
+        return;
+    }
+
+    aframe.registerComponent('tour-initial-orientation', {
+        dependencies: ['look-controls'],
+        schema: {
+            yaw: { default: 0, type: 'number' },
+            pitch: { default: 0, type: 'number' },
+        },
+        init(this: InitialOrientationComponent) {
+            applyProject360InitialOrientation(
+                this.el,
+                this.data.yaw,
+                this.data.pitch,
+            );
+        },
+        update(this: InitialOrientationComponent) {
+            applyProject360InitialOrientation(
+                this.el,
+                this.data.yaw,
+                this.data.pitch,
+            );
+        },
+    });
 }
 
 function registerPlacementComponent(aframe: AFrameComponentRegistry): void {
@@ -196,6 +236,9 @@ function registerHotspotInteractionComponent(
                 );
                 if (label?.dataset.visibility === 'hover') {
                     label.setAttribute('visible', 'true');
+                    label.dispatchEvent(
+                        new CustomEvent('tour-label-show', { bubbles: false }),
+                    );
                 }
             };
             this.onMouseLeave = () => {
