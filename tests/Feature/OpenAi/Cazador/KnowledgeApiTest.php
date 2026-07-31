@@ -78,7 +78,7 @@ class KnowledgeApiTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_knowledge_project_detail_excludes_panorama_assets(): void
+    public function test_knowledge_project_detail_excludes_tour_assets(): void
     {
         $advisor = Advisor::firstOrFail();
         $project = Project::query()->where('is_active', true)->firstOrFail();
@@ -93,6 +93,17 @@ class KnowledgeApiTest extends TestCase
             'sort_order' => 1,
             'is_active' => true,
         ]);
+        $floorPlan = ProjectAsset::query()->create([
+            'project_id' => $project->id,
+            'kind' => ProjectAsset::KIND_FLOOR_PLAN,
+            'title' => 'Plano 360',
+            'file_name' => 'plano.jpg',
+            'file_path' => "projects/{$project->id}/floor-plans/plano.jpg",
+            'mime_type' => 'image/jpeg',
+            'file_size' => 1000,
+            'sort_order' => 2,
+            'is_active' => true,
+        ]);
 
         $response = $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
             ->getJson(route('api.v1.cazador.openai.knowledge.projects.show', $project))
@@ -100,6 +111,8 @@ class KnowledgeApiTest extends TestCase
 
         $this->assertNotContains($panorama->id, collect($response->json('data.assets'))->pluck('id')->all());
         $this->assertNotContains($panorama->id, collect($response->json('data.images'))->pluck('id')->all());
+        $this->assertNotContains($floorPlan->id, collect($response->json('data.assets'))->pluck('id')->all());
+        $this->assertNotContains($floorPlan->id, collect($response->json('data.images'))->pluck('id')->all());
     }
 
     public function test_knowledge_lots_do_not_expose_client_or_advisor(): void

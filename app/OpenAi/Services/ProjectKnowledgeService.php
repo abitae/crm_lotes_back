@@ -41,7 +41,7 @@ class ProjectKnowledgeService
             ])
             ->with(['assets' => fn ($query) => $query
                 ->where('is_active', true)
-                ->where('kind', '!=', ProjectAsset::KIND_PANORAMA)
+                ->whereNotIn('kind', ProjectAsset::TOUR_KINDS)
                 ->orderBy('sort_order')
                 ->orderBy('id')])
             ->find($projectId);

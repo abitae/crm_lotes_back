@@ -17,6 +17,13 @@ class Project360Hotspot extends Model
         'label',
         'yaw',
         'pitch',
+        'color',
+        'hover_color',
+        'text_color',
+        'size',
+        'shape',
+        'label_visibility',
+        'pulse_enabled',
     ];
 
     protected function casts(): array
@@ -24,6 +31,8 @@ class Project360Hotspot extends Model
         return [
             'yaw' => 'float',
             'pitch' => 'float',
+            'size' => 'float',
+            'pulse_enabled' => 'boolean',
         ];
     }
 

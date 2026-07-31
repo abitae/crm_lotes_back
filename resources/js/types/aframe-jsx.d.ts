@@ -7,8 +7,12 @@ declare module 'react' {
         interface IntrinsicElements {
             'a-assets': AFrameElementProps;
             'a-camera': AFrameElementProps;
+            'a-circle': AFrameElementProps;
+            'a-cone': AFrameElementProps;
             'a-cursor': AFrameElementProps;
             'a-entity': AFrameElementProps;
+            'a-image': AFrameElementProps;
+            'a-ring': AFrameElementProps;
             'a-scene': AFrameElementProps;
             'a-sky': AFrameElementProps;
             'a-sphere': AFrameElementProps;

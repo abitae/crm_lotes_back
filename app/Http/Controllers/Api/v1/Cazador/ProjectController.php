@@ -40,7 +40,7 @@ class ProjectController extends Controller
         ]);
         $project->load(['assets' => fn ($query) => $query
             ->where('is_active', true)
-            ->where('kind', '!=', ProjectAsset::KIND_PANORAMA)
+            ->whereNotIn('kind', ProjectAsset::TOUR_KINDS)
             ->orderBy('sort_order')
             ->orderBy('id')]);
 
@@ -54,7 +54,7 @@ class ProjectController extends Controller
         abort_unless(
             $asset->project_id === $project->id
             && $asset->is_active
-            && $asset->kind !== ProjectAsset::KIND_PANORAMA,
+            && ! in_array($asset->kind, ProjectAsset::TOUR_KINDS, true),
             404,
         );
 

@@ -27,6 +27,13 @@ class StoreProject360HotspotRequest extends FormRequest
             'label' => ['required', 'string', 'max:100'],
             'yaw' => ['required', 'numeric', 'between:-180,180'],
             'pitch' => ['required', 'numeric', 'between:-85,85'],
+            'color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'hover_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'text_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'size' => ['nullable', 'numeric', 'between:0.08,0.50'],
+            'shape' => ['nullable', 'in:sphere,ring,pin'],
+            'label_visibility' => ['nullable', 'in:always,hover,hidden'],
+            'pulse_enabled' => ['nullable', 'boolean'],
         ];
     }
 
@@ -39,6 +46,8 @@ class StoreProject360HotspotRequest extends FormRequest
             'label.max' => 'La etiqueta no puede superar 100 caracteres.',
             'yaw.between' => 'El giro horizontal debe estar entre -180 y 180 grados.',
             'pitch.between' => 'El giro vertical debe estar entre -85 y 85 grados.',
+            '*.regex' => 'Los colores deben usar el formato hexadecimal #RRGGBB.',
+            'size.between' => 'El tamaño debe estar entre 0.08 y 0.50.',
         ];
     }
 }

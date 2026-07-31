@@ -83,7 +83,7 @@ class WebController extends Controller
         abort_unless(
             $asset->project_id === $project->id
             && $asset->is_active
-            && $asset->kind !== ProjectAsset::KIND_PANORAMA,
+            && ! in_array($asset->kind, ProjectAsset::TOUR_KINDS, true),
             404,
         );
 
@@ -118,7 +118,7 @@ class WebController extends Controller
             ->with(['projectType', 'city'])
             ->with(['assets' => fn ($q) => $q
                 ->where('is_active', true)
-                ->where('kind', '!=', ProjectAsset::KIND_PANORAMA)
+                ->whereNotIn('kind', ProjectAsset::TOUR_KINDS)
                 ->orderBy('sort_order')
                 ->orderBy('id')])
             ->withCount('lots')
@@ -190,7 +190,7 @@ class WebController extends Controller
         $project->load(['projectType', 'city']);
         $project->load(['assets' => fn ($q) => $q
             ->where('is_active', true)
-            ->where('kind', '!=', ProjectAsset::KIND_PANORAMA)
+            ->whereNotIn('kind', ProjectAsset::TOUR_KINDS)
             ->orderBy('sort_order')
             ->orderBy('id')]);
         $project->loadCount('lots');
@@ -207,7 +207,7 @@ class WebController extends Controller
      */
     private function applyImageAssetScope(Builder $query): void
     {
-        $query->where('kind', '!=', ProjectAsset::KIND_PANORAMA)
+        $query->whereNotIn('kind', ProjectAsset::TOUR_KINDS)
             ->where(function (Builder $inner): void {
                 $inner->where('kind', 'image')
                     ->orWhere('mime_type', 'like', 'image/%');
@@ -270,7 +270,7 @@ class WebController extends Controller
         $assetsQuery = ProjectAsset::query()
             ->whereIn('project_id', $visibleProjectIds)
             ->where('is_active', true)
-            ->where('kind', '!=', ProjectAsset::KIND_PANORAMA);
+            ->whereNotIn('kind', ProjectAsset::TOUR_KINDS);
 
         $imagesTotal = (clone $assetsQuery)
             ->where(function (Builder $q): void {
@@ -356,7 +356,7 @@ class WebController extends Controller
 
     private function assetIsImage(ProjectAsset $asset): bool
     {
-        if ($asset->kind === ProjectAsset::KIND_PANORAMA) {
+        if (in_array($asset->kind, ProjectAsset::TOUR_KINDS, true)) {
             return false;
         }
 

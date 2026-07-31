@@ -31,6 +31,14 @@ class Project360ShareService
         ]);
     }
 
+    public function floorPlanUrl(Project360ShareLink $shareLink, ProjectAsset $floorPlan): string
+    {
+        return URL::signedRoute('public.project-360.floor-plans.show', [
+            'shareLink' => $shareLink,
+            'floorPlan' => $floorPlan,
+        ]);
+    }
+
     public function ensureAccessible(Project360ShareLink $shareLink): void
     {
         $shareLink->loadMissing('tour.project');

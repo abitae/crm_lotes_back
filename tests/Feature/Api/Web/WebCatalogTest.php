@@ -109,7 +109,7 @@ class WebCatalogTest extends TestCase
         );
     }
 
-    public function test_panorama_assets_are_not_counted_as_regular_catalog_images(): void
+    public function test_tour_assets_are_not_counted_as_regular_catalog_images(): void
     {
         $project = Project::query()
             ->visibleOnWeb()
@@ -126,12 +126,26 @@ class WebCatalogTest extends TestCase
             'sort_order' => 1,
             'is_active' => true,
         ]);
+        $floorPlan = ProjectAsset::query()->create([
+            'project_id' => $project->id,
+            'kind' => ProjectAsset::KIND_FLOOR_PLAN,
+            'title' => 'Plano 360',
+            'file_name' => 'plano.jpg',
+            'file_path' => "projects/{$project->id}/floor-plans/plano.jpg",
+            'mime_type' => 'image/jpeg',
+            'file_size' => 1000,
+            'sort_order' => 2,
+            'is_active' => true,
+        ]);
 
         $response = $this->getJson(route('api.v1.web.projects.show', $project))
             ->assertOk();
 
         $this->assertNotContains($panorama->id, collect($response->json('data.images'))->pluck('id')->all());
+        $this->assertNotContains($floorPlan->id, collect($response->json('data.images'))->pluck('id')->all());
         $this->get(route('api.v1.web.projects.assets.show', [$project, $panorama]))
+            ->assertNotFound();
+        $this->get(route('api.v1.web.projects.assets.show', [$project, $floorPlan]))
             ->assertNotFound();
     }
 

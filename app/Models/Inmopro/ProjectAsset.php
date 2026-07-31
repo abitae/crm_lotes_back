@@ -11,6 +11,13 @@ class ProjectAsset extends Model
 {
     public const KIND_PANORAMA = 'panorama';
 
+    public const KIND_FLOOR_PLAN = 'floor_plan';
+
+    public const TOUR_KINDS = [
+        self::KIND_PANORAMA,
+        self::KIND_FLOOR_PLAN,
+    ];
+
     public static function storageDisk(): string
     {
         return FileStorage::disk();

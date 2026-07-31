@@ -115,7 +115,7 @@ class CazadorCatalogTest extends TestCase
         $this->assertStringContainsString('attachment', (string) $response->headers->get('Content-Disposition'));
     }
 
-    public function test_panorama_assets_are_not_exposed_in_legacy_catalog_payloads(): void
+    public function test_tour_assets_are_not_exposed_in_legacy_catalog_payloads(): void
     {
         $advisor = Advisor::firstOrFail();
         $project = Project::query()->firstOrFail();
@@ -130,6 +130,17 @@ class CazadorCatalogTest extends TestCase
             'sort_order' => 1,
             'is_active' => true,
         ]);
+        $floorPlan = ProjectAsset::query()->create([
+            'project_id' => $project->id,
+            'kind' => ProjectAsset::KIND_FLOOR_PLAN,
+            'title' => 'Plano 360',
+            'file_name' => 'plano.jpg',
+            'file_path' => "projects/{$project->id}/floor-plans/plano.jpg",
+            'mime_type' => 'image/jpeg',
+            'file_size' => 1000,
+            'sort_order' => 2,
+            'is_active' => true,
+        ]);
 
         $response = $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
             ->getJson(route('api.v1.cazador.projects.show', $project))
@@ -137,9 +148,14 @@ class CazadorCatalogTest extends TestCase
 
         $this->assertNotContains($panorama->id, collect($response->json('data.assets'))->pluck('id')->all());
         $this->assertNotContains($panorama->id, collect($response->json('data.images'))->pluck('id')->all());
+        $this->assertNotContains($floorPlan->id, collect($response->json('data.assets'))->pluck('id')->all());
+        $this->assertNotContains($floorPlan->id, collect($response->json('data.images'))->pluck('id')->all());
 
         $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
             ->get(route('api.v1.cazador.projects.assets.download', [$project, $panorama]))
+            ->assertNotFound();
+        $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
+            ->get(route('api.v1.cazador.projects.assets.download', [$project, $floorPlan]))
             ->assertNotFound();
     }
 

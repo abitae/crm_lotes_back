@@ -37,6 +37,7 @@ class ProjectAssetStorageService
             'document' => 'document',
             'video' => 'video',
             ProjectAsset::KIND_PANORAMA => 'panorama',
+            ProjectAsset::KIND_FLOOR_PLAN => 'floor_plan',
             default => 'image',
         };
         $digits = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
@@ -46,6 +47,10 @@ class ProjectAssetStorageService
 
     public function directoryFor(int $projectId, string $kind): string
     {
+        if ($kind === ProjectAsset::KIND_FLOOR_PLAN) {
+            return "projects/{$projectId}/floor-plans";
+        }
+
         return sprintf('projects/%d/%ss', $projectId, $kind);
     }
 

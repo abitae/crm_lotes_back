@@ -97,6 +97,11 @@ class Project extends Model
         return $this->assets()->where('kind', ProjectAsset::KIND_PANORAMA);
     }
 
+    public function floorPlans(): HasMany
+    {
+        return $this->assets()->where('kind', ProjectAsset::KIND_FLOOR_PLAN);
+    }
+
     public function tour360(): HasOne
     {
         return $this->hasOne(Project360Tour::class);

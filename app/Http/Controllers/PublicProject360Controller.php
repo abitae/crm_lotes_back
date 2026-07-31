@@ -26,6 +26,7 @@ class PublicProject360Controller extends Controller
         $payload = $this->tourService->payload(
             $project,
             fn (ProjectAsset $panorama): string => $this->shareService->panoramaUrl($shareLink, $panorama),
+            fn (ProjectAsset $floorPlan): string => $this->shareService->floorPlanUrl($shareLink, $floorPlan),
         );
 
         abort_if($payload['panoramas'] === [], 404, 'El tour no tiene panoramas disponibles.');
@@ -38,6 +39,30 @@ class PublicProject360Controller extends Controller
             ],
             'tour' => $payload,
         ]);
+    }
+
+    public function floorPlan(Project360ShareLink $shareLink, ProjectAsset $floorPlan): StreamedResponse
+    {
+        $this->shareService->ensureAccessible($shareLink);
+        $project = $shareLink->tour->project;
+
+        abort_unless(
+            $floorPlan->project_id === $project->id
+            && $floorPlan->kind === ProjectAsset::KIND_FLOOR_PLAN
+            && $floorPlan->is_active,
+            404,
+        );
+        abort_unless(Storage::disk($floorPlan->disk)->exists($floorPlan->path), 404);
+
+        return Storage::disk($floorPlan->disk)->response(
+            $floorPlan->path,
+            $floorPlan->file_name,
+            [
+                'Content-Type' => $floorPlan->mime_type,
+                'Content-Disposition' => 'inline; filename="'.addcslashes($floorPlan->file_name, '"\\').'"',
+                'Cache-Control' => 'private, max-age=300, must-revalidate',
+            ],
+        );
     }
 
     public function panorama(Project360ShareLink $shareLink, ProjectAsset $panorama): StreamedResponse

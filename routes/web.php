@@ -27,6 +27,7 @@ Route::prefix('tours/360')
     ->group(function (): void {
         Route::get('{shareLink}', [PublicProject360Controller::class, 'show'])->name('show');
         Route::get('{shareLink}/panoramas/{panorama}', [PublicProject360Controller::class, 'panorama'])->name('panoramas.show');
+        Route::get('{shareLink}/floor-plans/{floorPlan}', [PublicProject360Controller::class, 'floorPlan'])->name('floor-plans.show');
     });
 
 Route::get('dashboard', DashboardController::class)->middleware(['auth', 'verified'])->name('dashboard');
