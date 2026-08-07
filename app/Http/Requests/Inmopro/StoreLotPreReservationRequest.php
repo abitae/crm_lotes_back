@@ -26,7 +26,7 @@ class StoreLotPreReservationRequest extends FormRequest
             'client_id' => ['nullable', 'required_without:new_client.name', 'exists:clients,id'],
             'new_client' => ['nullable', 'array'],
             'new_client.name' => ['nullable', 'required_without:client_id', 'string', 'max:255'],
-            'new_client.dni' => ['nullable', 'required_without:client_id', 'string', 'max:20'],
+            'new_client.dni' => ['nullable', 'string', 'max:20'],
             'new_client.phone' => ['nullable', 'required_without:client_id', 'string', 'max:50'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'voucher_image' => ['required', 'image', 'max:5120'],
@@ -64,7 +64,6 @@ class StoreLotPreReservationRequest extends FormRequest
             'lot_ids.min' => 'Debe seleccionar al menos un lote libre.',
             'client_id.required_without' => 'Debe seleccionar un cliente o registrar uno nuevo.',
             'new_client.name.required_without' => 'Debe ingresar el nombre del cliente.',
-            'new_client.dni.required_without' => 'Debe ingresar el DNI del cliente.',
             'new_client.phone.required_without' => 'Debe ingresar el telefono del cliente.',
         ];
     }

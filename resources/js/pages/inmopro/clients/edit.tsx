@@ -103,7 +103,7 @@ export default function ClientsEdit({
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
                         <div>
-                            <Label htmlFor="dni">DNI</Label>
+                            <Label htmlFor="dni">DNI (opcional)</Label>
                             <Input id="dni" value={data.dni} onChange={(e) => setData('dni', e.target.value)} className="mt-1" />
                             <InputError message={errors.dni} />
                         </div>

@@ -3,9 +3,14 @@
 namespace App\Exports\Inmopro;
 
 use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class ClientsTemplateExport implements FromArray, WithHeadings
+class ClientsTemplateExport implements FromArray, WithColumnWidths, WithHeadings, WithStyles
 {
     /**
      * @return array<int, string>
@@ -13,14 +18,15 @@ class ClientsTemplateExport implements FromArray, WithHeadings
     public function headings(): array
     {
         return [
-            'Nombre',
+            'Nombre (*)',
             'DNI',
-            'Telefono',
+            'Telefono (*)',
             'Email',
             'Referido por',
-            'Tipo cliente',
+            'Tipo cliente (*)',
             'Ciudad',
-            'Asesor',
+            'Asesor (*)',
+            'Fecha registro (DD/MM/AAAA)',
         ];
     }
 
@@ -30,7 +36,71 @@ class ClientsTemplateExport implements FromArray, WithHeadings
     public function array(): array
     {
         return [
-            ['Cliente Ejemplo', '12345678', '987654321', 'cliente@demo.com', 'Campana digital', 'CONTADO', 'LIMA', 'Asesor Demo'],
+            [
+                'Cliente Ejemplo',
+                '12345678',
+                '987654321',
+                'cliente@demo.com',
+                'Campana digital',
+                'CONTADO',
+                'LIMA',
+                'Asesor Demo',
+                '15/01/2024',
+            ],
+            [
+                'Leyenda: (*) = obligatorio. DNI es opcional. Tipo cliente y Ciudad deben coincidir con el catalogo. Fecha vacia = fecha actual al importar.',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+            ],
         ];
+    }
+
+    public function columnWidths(): array
+    {
+        return [
+            'A' => 22,
+            'B' => 14,
+            'C' => 16,
+            'D' => 24,
+            'E' => 18,
+            'F' => 18,
+            'G' => 16,
+            'H' => 18,
+            'I' => 28,
+        ];
+    }
+
+    public function styles(Worksheet $sheet): array
+    {
+        $sheet->getStyle('A1:I1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:I1')->getAlignment()->setWrapText(true);
+        $sheet->getStyle('A1:I1')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getRowDimension(1)->setRowHeight(30);
+
+        foreach (['A1', 'C1', 'F1', 'H1'] as $cell) {
+            $sheet->getStyle($cell)->getFill()
+                ->setFillType(Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('DCFCE7');
+            $sheet->getStyle($cell)->getFont()->getColor()->setRGB('166534');
+        }
+
+        foreach (['B1', 'D1', 'E1', 'G1', 'I1'] as $cell) {
+            $sheet->getStyle($cell)->getFill()
+                ->setFillType(Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('F1F5F9');
+            $sheet->getStyle($cell)->getFont()->getColor()->setRGB('475569');
+        }
+
+        $sheet->getStyle('A3')->getFont()->setItalic(true)->setSize(9);
+        $sheet->getStyle('A3')->getFont()->getColor()->setRGB('64748B');
+        $sheet->mergeCells('A3:I3');
+
+        return [];
     }
 }

@@ -178,12 +178,14 @@ type ClientImportPreviewRow = {
     name: string | null;
     dni: string | null;
     phone: string | null;
-    email: string | null;
+    email?: string | null;
     client_type: string | null;
     city: string | null;
     advisor: string | null;
-    action: 'create' | 'update';
+    registered_at?: string | null;
+    action: 'create' | 'update' | 'skip';
     errors: string[];
+    skip_reason?: string | null;
 };
 
 type ClientImportPreviewResponse = {
@@ -191,6 +193,7 @@ type ClientImportPreviewResponse = {
         rows_read: number;
         valid: number;
         invalid: number;
+        skipped?: number;
     };
     rows: ClientImportPreviewRow[];
     errors: Array<{ excel_row: number; field: string; message: string }>;
@@ -892,8 +895,13 @@ function ClientsImportModal({
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div className="space-y-2 text-sm text-slate-700">
                                 <p className="text-[11px] font-black uppercase tracking-widest text-emerald-700">Plantilla oficial</p>
-                                <p>Use las columnas: Nombre, DNI, Telefono, Email, Referido por, Tipo cliente, Ciudad y Asesor.</p>
-                                <p>La importacion validara referencias, duplicados y filas incompletas antes de confirmar.</p>
+                                <p>
+                                    Columnas obligatorias (*): Nombre, Telefono, Tipo cliente, Asesor.
+                                    Opcionales: DNI, Email, Referido por, Ciudad, Fecha registro (DD/MM/AAAA).
+                                    Tipo cliente y Asesor deben coincidir con el catalogo. Fecha vacia = fecha actual.
+                                </p>
+                                <p>La ciudad se guarda en mayusculas; si no existe, se crea automaticamente.</p>
+                                <p>Si el telefono ya existe en el sistema, esa fila se omite y no se importa.</p>
                             </div>
                             <Button type="button" asChild className="shrink-0 bg-emerald-600 hover:bg-emerald-700">
                                 <a href="/inmopro/clients/excel-template" download>
@@ -945,9 +953,10 @@ function ClientsImportModal({
 
                     {preview ? (
                         <div className="space-y-4">
-                            <div className="grid gap-3 md:grid-cols-3">
+                            <div className="grid gap-3 md:grid-cols-4">
                                 <ImportMetric label="Filas leidas" value={String(preview.summary.rows_read)} />
                                 <ImportMetric label="Validas" value={String(preview.summary.valid)} tone="emerald" />
+                                <ImportMetric label="Omitidas" value={String(preview.summary.skipped ?? 0)} tone="slate" />
                                 <ImportMetric label="Con error" value={String(preview.summary.invalid)} tone={preview.summary.invalid > 0 ? 'rose' : 'slate'} />
                             </div>
 
@@ -974,7 +983,9 @@ function ClientsImportModal({
                                             <th className="px-4 py-3">DNI</th>
                                             <th className="px-4 py-3">Telefono</th>
                                             <th className="px-4 py-3">Tipo</th>
+                                            <th className="px-4 py-3">Ciudad</th>
                                             <th className="px-4 py-3">Asesor</th>
+                                            <th className="px-4 py-3">Registro</th>
                                             <th className="px-4 py-3">Accion</th>
                                             <th className="px-4 py-3">Resultado</th>
                                         </tr>
@@ -987,10 +998,22 @@ function ClientsImportModal({
                                                 <td className="px-4 py-3 text-slate-700">{row.dni ?? '-'}</td>
                                                 <td className="px-4 py-3 text-slate-700">{row.phone ?? '-'}</td>
                                                 <td className="px-4 py-3 text-slate-700">{row.client_type ?? '-'}</td>
+                                                <td className="px-4 py-3 text-slate-700">{row.city ?? '-'}</td>
                                                 <td className="px-4 py-3 text-slate-700">{row.advisor ?? '-'}</td>
-                                                <td className="px-4 py-3 text-slate-700">{row.action === 'update' ? 'Actualizar' : 'Crear'}</td>
+                                                <td className="px-4 py-3 text-slate-700">{row.registered_at ?? '-'}</td>
+                                                <td className="px-4 py-3 text-slate-700">
+                                                    {row.action === 'skip'
+                                                        ? 'Omitir'
+                                                        : row.action === 'update'
+                                                          ? 'Actualizar'
+                                                          : 'Crear'}
+                                                </td>
                                                 <td className="px-4 py-3">
-                                                    {row.errors.length === 0 ? (
+                                                    {row.action === 'skip' ? (
+                                                        <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+                                                            {row.skip_reason ?? 'Telefono ya registrado'}
+                                                        </span>
+                                                    ) : row.errors.length === 0 ? (
                                                         <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">OK</span>
                                                     ) : (
                                                         <div className="space-y-1 text-xs text-rose-700">

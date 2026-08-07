@@ -688,7 +688,7 @@ const Project360ViewerBase = forwardRef<
                     <Rotate3D className="mx-auto mb-3 h-10 w-10 text-orange-400" />
                     <p className="font-semibold">Tour 360 sin panoramas</p>
                     <p className="mt-1 text-sm text-slate-400">
-                        Sube una imagen panorámica 2:1 para comenzar.
+                        Sube una imagen panorámica ~2:1 para comenzar.
                     </p>
                 </div>
             </div>

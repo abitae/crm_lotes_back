@@ -7,11 +7,13 @@ use App\Models\Inmopro\City;
 use App\Models\Inmopro\Client;
 use App\Models\Inmopro\ClientType;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use RuntimeException;
 
 class ClientsExcelImportService
@@ -24,17 +26,23 @@ class ClientsExcelImportService
     private const HEADER_ALIASES = [
         'name' => ['NOMBRE'],
         'dni' => ['DNI'],
-        'phone' => ['TELEFONO', 'TELEFONO ', 'CELULAR', 'PHONE'],
+        'phone' => ['TELEFONO', 'CELULAR', 'PHONE'],
         'email' => ['EMAIL', 'CORREO'],
         'referred_by' => ['REFERIDO POR'],
-        'client_type' => ['TIPO CLIENTE'],
+        'client_type' => ['TIPO CLIENTE', 'TIPO'],
         'city' => ['CIUDAD'],
         'advisor' => ['ASESOR', 'VENDEDOR'],
+        'registered_at' => [
+            'FECHA REGISTRO',
+            'FECHA DE REGISTRO',
+            'CREATED AT',
+            'FECHA CREACION',
+        ],
     ];
 
     /**
      * @return array{
-     *     summary: array{rows_read: int, valid: int, invalid: int},
+     *     summary: array{rows_read: int, valid: int, invalid: int, skipped: int},
      *     rows: list<array<string, mixed>>,
      *     errors: list<array{excel_row: int, field: string, message: string}>,
      *     token: string|null,
@@ -53,6 +61,7 @@ class ClientsExcelImportService
                     'rows_read' => 0,
                     'valid' => 0,
                     'invalid' => 0,
+                    'skipped' => 0,
                 ],
                 'rows' => [],
                 'errors' => array_map(
@@ -72,11 +81,13 @@ class ClientsExcelImportService
         $errors = [];
         $apply = [];
         $rowsRead = 0;
+        $skipped = 0;
         $seenDnis = [];
+        $seenPhones = [];
 
         foreach ($loaded['rows'] as $row) {
             $cells = $row['cells'];
-            if ($this->isRowEmpty($cells)) {
+            if ($this->isRowEmpty($cells) || $this->isLegendRow($cells, $headerMap)) {
                 continue;
             }
 
@@ -85,22 +96,45 @@ class ClientsExcelImportService
             $rowErrors = [];
 
             $name = $this->cellStringByField($cells, $headerMap, 'name');
-            $dni = $this->normalizeDni($this->cellStringByField($cells, $headerMap, 'dni'));
+            $rawDni = $this->cellStringByField($cells, $headerMap, 'dni');
+            $dni = $this->normalizeDni($rawDni);
             $phone = $this->normalizePhone($this->cellStringByField($cells, $headerMap, 'phone'));
             $email = $this->cellStringByField($cells, $headerMap, 'email');
             $referredBy = $this->cellStringByField($cells, $headerMap, 'referred_by');
             $clientTypeName = $this->cellStringByField($cells, $headerMap, 'client_type');
-            $cityName = $this->cellStringByField($cells, $headerMap, 'city');
+            $cityName = $this->normalizeCityName($this->cellStringByField($cells, $headerMap, 'city'));
             $advisorName = $this->cellStringByField($cells, $headerMap, 'advisor');
+            $registeredAtRaw = $this->cellRawByField($cells, $headerMap, 'registered_at');
+            $registeredAt = null;
+            $registeredAtInvalid = false;
+
+            if ($registeredAtRaw !== null && trim((string) $registeredAtRaw) !== '') {
+                $registeredAt = $this->parseDateValue($registeredAtRaw);
+                if ($registeredAt === null) {
+                    $registeredAtInvalid = true;
+                }
+            }
 
             if ($name === null) {
                 $rowErrors[] = ['field' => 'name', 'message' => 'El nombre es obligatorio.'];
             }
-            if ($dni === null) {
-                $rowErrors[] = ['field' => 'dni', 'message' => 'El DNI es obligatorio y debe tener 8 digitos.'];
+            if ($rawDni !== null && $dni === null) {
+                $rowErrors[] = ['field' => 'dni', 'message' => 'El DNI debe tener 8 digitos cuando se informa.'];
             }
             if ($phone === null) {
                 $rowErrors[] = ['field' => 'phone', 'message' => 'El telefono es obligatorio.'];
+            }
+            if ($clientTypeName === null) {
+                $rowErrors[] = ['field' => 'client_type', 'message' => 'El tipo de cliente es obligatorio.'];
+            }
+            if ($advisorName === null) {
+                $rowErrors[] = ['field' => 'advisor', 'message' => 'El asesor es obligatorio.'];
+            }
+            if ($registeredAtInvalid) {
+                $rowErrors[] = [
+                    'field' => 'registered_at',
+                    'message' => 'Fecha de registro no valida (use DD/MM/AAAA, AAAA-MM-DD o celda de fecha Excel).',
+                ];
             }
 
             if ($dni !== null) {
@@ -111,19 +145,23 @@ class ClientsExcelImportService
                 }
             }
 
+            if ($phone !== null) {
+                $phoneKey = $this->phoneDigits($phone);
+                if (isset($seenPhones[$phoneKey])) {
+                    $rowErrors[] = ['field' => 'phone', 'message' => 'El telefono esta duplicado dentro del archivo.'];
+                } else {
+                    $seenPhones[$phoneKey] = true;
+                }
+            }
+
             $clientTypeId = $this->resolveClientTypeId($clientTypeName);
-            if ($clientTypeId === null) {
+            if ($clientTypeName !== null && $clientTypeId === null) {
                 $rowErrors[] = ['field' => 'client_type', 'message' => 'El tipo de cliente no existe.'];
             }
 
             $advisorId = $this->resolveAdvisorId($advisorName);
-            if ($advisorId === null) {
+            if ($advisorName !== null && $advisorId === null) {
                 $rowErrors[] = ['field' => 'advisor', 'message' => 'El asesor no existe.'];
-            }
-
-            $cityId = $this->resolveCityId($cityName);
-            if ($cityName !== null && $cityId === null) {
-                $rowErrors[] = ['field' => 'city', 'message' => 'La ciudad no existe.'];
             }
 
             if ($email !== null && ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -131,14 +169,28 @@ class ClientsExcelImportService
             }
 
             $existingByDni = $dni !== null ? Client::query()->where('dni', $dni)->first() : null;
-            $existingByPhone = $phone !== null ? Client::query()->where('phone', $phone)->first() : null;
+            $existingByPhone = $phone !== null ? $this->findClientByPhone($phone) : null;
+            $phoneBelongsToOtherClient = $existingByPhone !== null
+                && ($existingByDni === null || $existingByPhone->id !== $existingByDni->id);
 
-            if ($existingByPhone !== null && $existingByDni !== null && $existingByPhone->id !== $existingByDni->id) {
-                $rowErrors[] = ['field' => 'phone', 'message' => 'El telefono pertenece a otro cliente.'];
-            }
+            if ($rowErrors === [] && $phoneBelongsToOtherClient) {
+                $skipped++;
+                $rows[] = [
+                    'excel_row' => $excelRow,
+                    'name' => $name,
+                    'dni' => $dni,
+                    'phone' => $phone,
+                    'email' => $email,
+                    'client_type' => $clientTypeName,
+                    'city' => $cityName,
+                    'advisor' => $advisorName,
+                    'registered_at' => $registeredAt,
+                    'action' => 'skip',
+                    'errors' => [],
+                    'skip_reason' => 'Telefono ya registrado; se omite el registro.',
+                ];
 
-            if ($existingByPhone !== null && $existingByDni === null) {
-                $rowErrors[] = ['field' => 'phone', 'message' => 'El telefono ya esta registrado en otro cliente.'];
+                continue;
             }
 
             foreach ($rowErrors as $rowError) {
@@ -158,8 +210,10 @@ class ClientsExcelImportService
                 'client_type' => $clientTypeName,
                 'city' => $cityName,
                 'advisor' => $advisorName,
+                'registered_at' => $registeredAt,
                 'action' => $existingByDni ? 'update' : 'create',
                 'errors' => array_map(fn (array $error): string => $error['message'], $rowErrors),
+                'skip_reason' => null,
             ];
 
             if ($rowErrors === []) {
@@ -172,15 +226,19 @@ class ClientsExcelImportService
                         'email' => $email,
                         'referred_by' => $referredBy,
                         'client_type_id' => $clientTypeId,
-                        'city_id' => $cityId,
                         'advisor_id' => $advisorId,
                     ],
+                    'city_name' => $cityName,
+                    'registered_at' => $registeredAt,
                 ];
             }
         }
 
         $valid = count($apply);
-        $invalid = count($rows) - $valid;
+        $invalid = count(array_filter(
+            $rows,
+            fn (array $row): bool => ($row['action'] ?? null) !== 'skip' && ($row['errors'] ?? []) !== []
+        ));
         $canImport = $errors === [] && $valid > 0;
         $token = null;
 
@@ -203,6 +261,7 @@ class ClientsExcelImportService
                 'rows_read' => $rowsRead,
                 'valid' => $valid,
                 'invalid' => $invalid,
+                'skipped' => $skipped,
             ],
             'rows' => $rows,
             'errors' => $errors,
@@ -221,12 +280,61 @@ class ClientsExcelImportService
 
         DB::transaction(function () use ($cached): void {
             foreach ($cached['apply'] as $row) {
-                Client::query()->updateOrCreate(
-                    ['dni' => $row['match_dni']],
-                    $row['payload']
-                );
+                $client = $this->resolveClientForImport($row['match_dni'] ?? null);
+                $payload = $row['payload'];
+                $cityName = $row['city_name'] ?? null;
+
+                if (is_string($cityName) && $cityName !== '') {
+                    $payload['city_id'] = $this->findOrCreateCityId($cityName);
+                } else {
+                    $payload['city_id'] = null;
+                }
+
+                $client->fill($payload);
+
+                if (! empty($row['registered_at'])) {
+                    $client->created_at = Carbon::parse($row['registered_at'])->startOfDay();
+                    if (! $client->exists) {
+                        $client->updated_at = $client->created_at;
+                    }
+                }
+
+                $client->save();
             }
         });
+    }
+
+    private function resolveClientForImport(?string $matchDni): Client
+    {
+        if ($matchDni !== null && $matchDni !== '') {
+            return Client::query()->firstOrNew(['dni' => $matchDni]);
+        }
+
+        return new Client;
+    }
+
+    private function findClientByPhone(string $phone): ?Client
+    {
+        $digits = $this->phoneDigits($phone);
+        if ($digits === '') {
+            return null;
+        }
+
+        return Client::query()
+            ->where(function ($query) use ($phone, $digits): void {
+                $query->where('phone', $phone)
+                    ->orWhereRaw(
+                        "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') = ?",
+                        [$digits]
+                    );
+            })
+            ->orderBy('id')
+            ->first();
+    }
+
+    private function phoneDigits(string $phone): string
+    {
+        return preg_replace('/\D+/', '', $phone) ?? '';
     }
 
     /**
@@ -291,7 +399,6 @@ class ClientsExcelImportService
     {
         $required = [
             'name' => 'Nombre',
-            'dni' => 'DNI',
             'phone' => 'Telefono',
             'client_type' => 'Tipo cliente',
             'advisor' => 'Asesor',
@@ -313,11 +420,7 @@ class ClientsExcelImportService
      */
     private function cellStringByField(array $cells, array $headerMap, string $field): ?string
     {
-        if (! isset($headerMap[$field])) {
-            return null;
-        }
-
-        $value = $cells[$headerMap[$field]] ?? null;
+        $value = $this->cellRawByField($cells, $headerMap, $field);
         if ($value === null) {
             return null;
         }
@@ -325,6 +428,37 @@ class ClientsExcelImportService
         $text = trim((string) $value);
 
         return $text === '' ? null : $text;
+    }
+
+    /**
+     * @param  array<int, mixed>  $cells
+     * @param  array<string, int>  $headerMap
+     */
+    private function cellRawByField(array $cells, array $headerMap, string $field): mixed
+    {
+        if (! isset($headerMap[$field])) {
+            return null;
+        }
+
+        return $cells[$headerMap[$field]] ?? null;
+    }
+
+    /**
+     * @param  array<int, mixed>  $cells
+     * @param  array<string, int>  $headerMap
+     */
+    private function isLegendRow(array $cells, array $headerMap): bool
+    {
+        $name = $this->cellStringByField($cells, $headerMap, 'name');
+
+        if ($name === null) {
+            return false;
+        }
+
+        $normalized = mb_strtolower($name);
+
+        return str_contains($normalized, 'leyenda')
+            || str_contains($normalized, '(*) = obligatorio');
     }
 
     /**
@@ -343,6 +477,9 @@ class ClientsExcelImportService
 
     private function normalizeHeader(string $value): string
     {
+        $value = preg_replace('/\([^)]*\)/', ' ', $value) ?? $value;
+        $value = str_replace('*', ' ', $value);
+
         $value = Str::of($value)
             ->ascii()
             ->upper()
@@ -375,6 +512,62 @@ class ClientsExcelImportService
         return $text === '' ? null : $text;
     }
 
+    private function parseDateValue(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_numeric($value) && (float) $value > 0) {
+            try {
+                return ExcelDate::excelToDateTimeObject((float) $value)->format('Y-m-d');
+            } catch (\Throwable) {
+                // continue
+            }
+        }
+
+        $text = trim((string) $value);
+        if ($text === '') {
+            return null;
+        }
+
+        if (is_numeric($text) && (float) $text > 0) {
+            try {
+                return ExcelDate::excelToDateTimeObject((float) $text)->format('Y-m-d');
+            } catch (\Throwable) {
+                // continue
+            }
+        }
+
+        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/', $text, $m)) {
+            $day = (int) $m[1];
+            $month = (int) $m[2];
+            $year = (int) $m[3];
+            if (! checkdate($month, $day, $year)) {
+                return null;
+            }
+
+            return sprintf('%04d-%02d-%02d', $year, $month, $day);
+        }
+
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $text, $m)) {
+            $year = (int) $m[1];
+            $month = (int) $m[2];
+            $day = (int) $m[3];
+            if (! checkdate($month, $day, $year)) {
+                return null;
+            }
+
+            return sprintf('%04d-%02d-%02d', $year, $month, $day);
+        }
+
+        try {
+            return Carbon::parse($text)->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     private function resolveClientTypeId(?string $name): ?int
     {
         if ($name === null) {
@@ -388,17 +581,62 @@ class ClientsExcelImportService
         return $id !== null ? (int) $id : null;
     }
 
-    private function resolveCityId(?string $name): ?int
+    private function normalizeCityName(?string $name): ?string
     {
         if ($name === null) {
             return null;
         }
 
-        $id = City::query()
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
-            ->value('id');
+        $normalized = mb_strtoupper(trim($name));
 
-        return $id !== null ? (int) $id : null;
+        return $normalized === '' ? null : $normalized;
+    }
+
+    private function findOrCreateCityId(string $name): int
+    {
+        $normalized = $this->normalizeCityName($name);
+        if ($normalized === null) {
+            throw new RuntimeException('La ciudad no es valida.');
+        }
+
+        $existing = City::query()
+            ->whereRaw('UPPER(name) = ?', [$normalized])
+            ->orderBy('id')
+            ->first();
+
+        if ($existing !== null) {
+            if ($existing->name !== $normalized) {
+                $existing->update(['name' => $normalized]);
+            }
+
+            return (int) $existing->id;
+        }
+
+        $city = City::query()->create([
+            'name' => $normalized,
+            'code' => $this->uniqueCityCode($normalized),
+            'department' => null,
+            'sort_order' => 0,
+            'is_active' => true,
+        ]);
+
+        return (int) $city->id;
+    }
+
+    private function uniqueCityCode(string $name): string
+    {
+        $ascii = Str::of($name)->ascii()->upper()->replaceMatches('/[^A-Z0-9]+/', '')->value();
+        $base = $ascii !== '' ? Str::substr($ascii, 0, 8) : 'CITY';
+        $code = $base;
+        $suffix = 1;
+
+        while (City::query()->where('code', $code)->exists()) {
+            $suffixText = (string) $suffix;
+            $code = Str::substr($base, 0, max(1, 50 - strlen($suffixText))).$suffixText;
+            $suffix++;
+        }
+
+        return $code;
     }
 
     private function resolveAdvisorId(?string $name): ?int

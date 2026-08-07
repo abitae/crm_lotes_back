@@ -144,6 +144,31 @@ class InmoproClientsTest extends TestCase
         ]);
     }
 
+    public function test_authenticated_users_can_create_client_without_dni(): void
+    {
+        $user = User::factory()->create();
+        $type = ClientType::first();
+        $advisor = Advisor::first();
+        $city = City::first();
+        $this->actingAs($user);
+
+        $this->post(route('inmopro.clients.store'), [
+            'name' => 'Cliente Sin DNI',
+            'dni' => '',
+            'phone' => '900111222',
+            'email' => null,
+            'client_type_id' => $type->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city?->id,
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('clients', [
+            'name' => 'Cliente Sin DNI',
+            'dni' => null,
+            'phone' => '900111222',
+        ]);
+    }
+
     public function test_store_client_redirect_preserves_listing_query_string(): void
     {
         $user = User::factory()->create();
@@ -571,6 +596,16 @@ class InmoproClientsTest extends TestCase
             ->assertDownload('clientes_vista.xlsx');
     }
 
+    public function test_authenticated_users_can_download_clients_excel_template(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $this->get(route('inmopro.clients.excel-template'))
+            ->assertOk()
+            ->assertDownload('plantilla_clientes.xlsx');
+    }
+
     public function test_authenticated_users_can_preview_and_confirm_clients_import_from_excel(): void
     {
         $user = User::factory()->create();
@@ -580,8 +615,8 @@ class InmoproClientsTest extends TestCase
         $this->actingAs($user);
 
         $file = $this->makeClientsExcelFile([
-            ['Nombre', 'DNI', 'Telefono', 'Email', 'Referido por', 'Tipo cliente', 'Ciudad', 'Asesor'],
-            ['Cliente Excel', '44556677', '987654321', 'excel@test.com', 'Campana digital', $type->name, $city->name, $advisor->name],
+            ['Nombre (*)', 'DNI', 'Telefono (*)', 'Email', 'Referido por', 'Tipo cliente (*)', 'Ciudad', 'Asesor (*)', 'Fecha registro (DD/MM/AAAA)'],
+            ['Cliente Excel', '44556677', '987654321', 'excel@test.com', 'Campana digital', $type->name, $city->name, $advisor->name, '15/01/2024'],
         ]);
 
         $previewResponse = $this->post(route('inmopro.clients.import-preview'), [
@@ -592,7 +627,70 @@ class InmoproClientsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('summary.valid', 1)
             ->assertJsonPath('summary.invalid', 0)
-            ->assertJsonPath('can_import', true);
+            ->assertJsonPath('can_import', true)
+            ->assertJsonPath('rows.0.registered_at', '2024-01-15')
+            ->assertJsonPath('rows.0.city', mb_strtoupper($city->name))
+            ->assertJsonPath('rows.0.client_type', $type->name);
+
+        $token = $previewResponse->json('token');
+        $this->assertIsString($token);
+
+        $this->post(route('inmopro.clients.import-confirm'), [
+            'token' => $token,
+        ])->assertRedirect(route('inmopro.clients.index'));
+
+        $client = Client::query()->where('dni', '44556677')->firstOrFail();
+        $this->assertSame('Cliente Excel', $client->name);
+        $this->assertSame('987654321', $client->phone);
+        $this->assertSame($advisor->id, $client->advisor_id);
+        $this->assertSame($type->id, $client->client_type_id);
+        $this->assertSame($city->id, $client->city_id);
+        $this->assertSame('2024-01-15', $client->created_at?->toDateString());
+    }
+
+    public function test_clients_import_accepts_legacy_headers_without_fecha_registro(): void
+    {
+        $user = User::factory()->create();
+        $type = ClientType::query()->firstOrFail();
+        $advisor = Advisor::query()->firstOrFail();
+        $city = City::query()->firstOrFail();
+        $this->actingAs($user);
+
+        $file = $this->makeClientsExcelFile([
+            ['Nombre', 'DNI', 'Telefono', 'Email', 'Referido por', 'Tipo cliente', 'Ciudad', 'Asesor'],
+            ['Cliente Legacy', '55667788', '912345678', 'legacy@test.com', null, $type->name, $city->name, $advisor->name],
+        ]);
+
+        $this->post(route('inmopro.clients.import-preview'), [
+            'file' => $file,
+        ])
+            ->assertOk()
+            ->assertJsonPath('can_import', true)
+            ->assertJsonPath('rows.0.registered_at', null);
+    }
+
+    public function test_clients_import_allows_rows_without_dni(): void
+    {
+        $user = User::factory()->create();
+        $type = ClientType::query()->firstOrFail();
+        $advisor = Advisor::query()->firstOrFail();
+        $city = City::query()->firstOrFail();
+        $this->actingAs($user);
+
+        $file = $this->makeClientsExcelFile([
+            ['Nombre (*)', 'DNI', 'Telefono (*)', 'Email', 'Referido por', 'Tipo cliente (*)', 'Ciudad', 'Asesor (*)', 'Fecha registro (DD/MM/AAAA)'],
+            ['Cliente Sin Dni', '', '955667788', null, null, $type->name, $city->name, $advisor->name, null],
+        ]);
+
+        $previewResponse = $this->post(route('inmopro.clients.import-preview'), [
+            'file' => $file,
+        ]);
+
+        $previewResponse
+            ->assertOk()
+            ->assertJsonPath('can_import', true)
+            ->assertJsonPath('rows.0.dni', null)
+            ->assertJsonPath('rows.0.action', 'create');
 
         $token = $previewResponse->json('token');
         $this->assertIsString($token);
@@ -602,13 +700,124 @@ class InmoproClientsTest extends TestCase
         ])->assertRedirect(route('inmopro.clients.index'));
 
         $this->assertDatabaseHas('clients', [
-            'dni' => '44556677',
-            'name' => 'Cliente Excel',
-            'phone' => '987654321',
-            'advisor_id' => $advisor->id,
+            'name' => 'Cliente Sin Dni',
+            'dni' => null,
+            'phone' => '955667788',
+        ]);
+    }
+
+    public function test_clients_import_preview_reports_missing_required_fields(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $file = $this->makeClientsExcelFile([
+            ['Nombre (*)', 'DNI', 'Telefono (*)', 'Email', 'Referido por', 'Tipo cliente (*)', 'Ciudad', 'Asesor (*)', 'Fecha registro (DD/MM/AAAA)'],
+            ['Cliente Invalido', '', '', 'correo-invalido', '', '', '', '', '32/13/2024'],
+        ]);
+
+        $this->post(route('inmopro.clients.import-preview'), [
+            'file' => $file,
+        ])
+            ->assertOk()
+            ->assertJsonPath('summary.valid', 0)
+            ->assertJsonPath('summary.invalid', 1)
+            ->assertJsonPath('can_import', false);
+    }
+
+    public function test_clients_import_uppercases_and_creates_missing_city(): void
+    {
+        $user = User::factory()->create();
+        $type = ClientType::query()->firstOrFail();
+        $advisor = Advisor::query()->firstOrFail();
+        $this->actingAs($user);
+
+        $this->assertDatabaseMissing('cities', ['name' => 'TARAPOTO']);
+
+        $file = $this->makeClientsExcelFile([
+            ['Nombre (*)', 'DNI', 'Telefono (*)', 'Email', 'Referido por', 'Tipo cliente (*)', 'Ciudad', 'Asesor (*)', 'Fecha registro (DD/MM/AAAA)'],
+            ['Cliente Ciudad Nueva', '66778899', '944332211', null, null, $type->name, 'tarapoto', $advisor->name, null],
+        ]);
+
+        $previewResponse = $this->post(route('inmopro.clients.import-preview'), [
+            'file' => $file,
+        ]);
+
+        $previewResponse
+            ->assertOk()
+            ->assertJsonPath('can_import', true)
+            ->assertJsonPath('rows.0.city', 'TARAPOTO')
+            ->assertJsonPath('rows.0.action', 'create');
+
+        $token = $previewResponse->json('token');
+        $this->assertIsString($token);
+
+        $this->post(route('inmopro.clients.import-confirm'), [
+            'token' => $token,
+        ])->assertRedirect(route('inmopro.clients.index'));
+
+        $city = City::query()->where('name', 'TARAPOTO')->firstOrFail();
+        $this->assertTrue($city->is_active);
+        $this->assertDatabaseHas('clients', [
+            'dni' => '66778899',
+            'city_id' => $city->id,
+            'name' => 'Cliente Ciudad Nueva',
+        ]);
+    }
+
+    public function test_clients_import_skips_rows_with_existing_phone(): void
+    {
+        $user = User::factory()->create();
+        $type = ClientType::query()->firstOrFail();
+        $advisor = Advisor::query()->firstOrFail();
+        $city = City::query()->firstOrFail();
+        $this->actingAs($user);
+
+        Client::query()->create([
+            'name' => 'Cliente Existente',
+            'dni' => '33445566',
+            'phone' => '977111222',
             'client_type_id' => $type->id,
+            'advisor_id' => $advisor->id,
             'city_id' => $city->id,
         ]);
+
+        $file = $this->makeClientsExcelFile([
+            ['Nombre (*)', 'DNI', 'Telefono (*)', 'Email', 'Referido por', 'Tipo cliente (*)', 'Ciudad', 'Asesor (*)', 'Fecha registro (DD/MM/AAAA)'],
+            ['Cliente Duplicado Telefono', '77889900', '977111222', null, null, $type->name, $city->name, $advisor->name, null],
+            ['Cliente Nuevo', '88990011', '966555444', null, null, $type->name, $city->name, $advisor->name, null],
+        ]);
+
+        $previewResponse = $this->post(route('inmopro.clients.import-preview'), [
+            'file' => $file,
+        ]);
+
+        $previewResponse
+            ->assertOk()
+            ->assertJsonPath('can_import', true)
+            ->assertJsonPath('summary.valid', 1)
+            ->assertJsonPath('summary.skipped', 1)
+            ->assertJsonPath('summary.invalid', 0)
+            ->assertJsonPath('rows.0.action', 'skip')
+            ->assertJsonPath('rows.1.action', 'create');
+
+        $token = $previewResponse->json('token');
+        $this->assertIsString($token);
+
+        $this->post(route('inmopro.clients.import-confirm'), [
+            'token' => $token,
+        ])->assertRedirect(route('inmopro.clients.index'));
+
+        $this->assertDatabaseMissing('clients', [
+            'dni' => '77889900',
+        ]);
+        $this->assertDatabaseHas('clients', [
+            'dni' => '88990011',
+            'phone' => '966555444',
+            'name' => 'Cliente Nuevo',
+        ]);
+        $this->assertSame(1, Client::query()->where('phone', '977111222')->count());
+        $this->assertSame('Cliente Existente', Client::query()->where('phone', '977111222')->value('name'));
     }
 
     public function test_authenticated_users_can_delete_client(): void
@@ -640,25 +849,6 @@ class InmoproClientsTest extends TestCase
             ]));
 
         $this->assertDatabaseMissing('clients', ['id' => $client->id]);
-    }
-
-    public function test_clients_import_preview_reports_missing_required_fields(): void
-    {
-        $user = User::factory()->create();
-        $this->actingAs($user);
-
-        $file = $this->makeClientsExcelFile([
-            ['Nombre', 'DNI', 'Telefono', 'Email', 'Referido por', 'Tipo cliente', 'Ciudad', 'Asesor'],
-            ['Cliente Invalido', '', '', 'correo-invalido', '', '', '', ''],
-        ]);
-
-        $this->post(route('inmopro.clients.import-preview'), [
-            'file' => $file,
-        ])
-            ->assertOk()
-            ->assertJsonPath('summary.valid', 0)
-            ->assertJsonPath('summary.invalid', 1)
-            ->assertJsonPath('can_import', false);
     }
 
     private function makeClientsExcelFile(array $rows): UploadedFile

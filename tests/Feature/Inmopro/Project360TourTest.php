@@ -76,9 +76,19 @@ class Project360TourTest extends TestCase
             ])
             ->assertSessionHasNoErrors();
 
+        $this->actingAs($manager)
+            ->post(route('inmopro.project-360.panoramas.store', $project), [
+                'panorama_files' => [
+                    $this->fakePng('casi-2-1.png', 4096, 2050),
+                ],
+                'panorama_titles' => ['Casi 2:1'],
+            ])
+            ->assertSessionHasNoErrors();
+
         $panorama = ProjectAsset::query()
             ->where('project_id', $project->id)
             ->where('kind', ProjectAsset::KIND_PANORAMA)
+            ->where('title', 'Entrada principal')
             ->firstOrFail();
         $tour = Project360Tour::query()->where('project_id', $project->id)->firstOrFail();
 
@@ -93,7 +103,7 @@ class Project360TourTest extends TestCase
                 ],
                 'panorama_titles' => ['Formato incorrecto'],
             ])
-            ->assertSessionHasErrors(['panorama_files.0']);
+            ->assertSessionHasErrors(['panorama_files.0', 'panorama_files']);
 
         $this->actingAs($manager)
             ->post(route('inmopro.project-360.panoramas.store', $project), [
@@ -102,7 +112,7 @@ class Project360TourTest extends TestCase
                 ],
                 'panorama_titles' => ['Resolución insuficiente'],
             ])
-            ->assertSessionHasErrors(['panorama_files.0']);
+            ->assertSessionHasErrors(['panorama_files.0', 'panorama_files']);
 
         $this->actingAs($manager)
             ->post(route('inmopro.project-360.panoramas.store', $project), [
@@ -111,7 +121,7 @@ class Project360TourTest extends TestCase
                 ],
                 'panorama_titles' => ['Formato incorrecto'],
             ])
-            ->assertSessionHasErrors(['panorama_files.0']);
+            ->assertSessionHasErrors(['panorama_files.0', 'panorama_files']);
 
         $this->actingAs($manager)
             ->post(route('inmopro.project-360.panoramas.store', $project), [
@@ -120,7 +130,7 @@ class Project360TourTest extends TestCase
                 ],
                 'panorama_titles' => ['Archivo demasiado grande'],
             ])
-            ->assertSessionHasErrors(['panorama_files.0']);
+            ->assertSessionHasErrors(['panorama_files.0', 'panorama_files']);
     }
 
     public function test_hotspots_require_panoramas_from_same_project(): void

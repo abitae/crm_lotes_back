@@ -138,6 +138,22 @@ const project360DateFormatter = new Intl.DateTimeFormat('es-PE', {
     timeZone: 'America/Lima',
 });
 
+function collectFieldErrors(
+    errors: Record<string, string>,
+    fields: string[],
+): string[] {
+    const messages = Object.entries(errors)
+        .filter(([key]) =>
+            fields.some(
+                (field) => key === field || key.startsWith(`${field}.`),
+            ),
+        )
+        .map(([, message]) => message)
+        .filter(Boolean);
+
+    return [...new Set(messages)];
+}
+
 function hotspotDraft(hotspot: Project360Hotspot): HotspotDraft {
     return {
         label: hotspot.label,
@@ -628,7 +644,10 @@ export default function Project360Show({
         uploadForm.post(panoramaRoutes.store(project.id).url, {
             forceFormData: true,
             preserveScroll: true,
-            onSuccess: () => uploadForm.reset(),
+            onSuccess: () => {
+                uploadForm.reset();
+                uploadForm.clearErrors();
+            },
         });
     };
 
@@ -1182,18 +1201,23 @@ function PanoramasPanel({
     return (
         <PanelSection
             title="Panoramas"
-            description="Carga imágenes 2:1 y define la vista inicial de cada escena."
+            description="Carga imágenes equirectangulares (~2:1) y define la vista inicial de cada escena."
         >
             <form
                 onSubmit={submitPanoramas}
                 className="space-y-3 rounded-lg border bg-slate-50 p-3"
             >
+                <p className="text-xs text-slate-500">
+                    JPG, PNG o WebP · máx. 20&nbsp;MB · proporción ~2:1 (±5&nbsp;%) ·
+                    entre 1920×960 y 8192×4200 · hasta 5 por carga.
+                </p>
                 <Input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     multiple
                     onChange={(event) => {
                         const files = Array.from(event.target.files ?? []);
+                        uploadForm.clearErrors();
                         uploadForm.setData({
                             panorama_files: files,
                             panorama_titles: files.map((file) =>
@@ -1203,18 +1227,33 @@ function PanoramasPanel({
                     }}
                 />
                 {uploadForm.data.panorama_titles.map((title, index) => (
-                    <Input
+                    <div
                         key={`${uploadForm.data.panorama_files[index]?.name}-${index}`}
-                        value={title}
-                        onChange={(event) => {
-                            const titles = [...uploadForm.data.panorama_titles];
-                            titles[index] = event.target.value;
-                            uploadForm.setData('panorama_titles', titles);
-                        }}
-                        placeholder={`Título ${index + 1}`}
-                    />
+                    >
+                        <Input
+                            value={title}
+                            onChange={(event) => {
+                                const titles = [
+                                    ...uploadForm.data.panorama_titles,
+                                ];
+                                titles[index] = event.target.value;
+                                uploadForm.setData('panorama_titles', titles);
+                            }}
+                            placeholder={`Título ${index + 1}`}
+                        />
+                        <InputError
+                            message={
+                                uploadForm.errors[`panorama_titles.${index}`]
+                            }
+                        />
+                    </div>
                 ))}
-                <InputError message={uploadForm.errors.panorama_files} />
+                {collectFieldErrors(uploadForm.errors, [
+                    'panorama_files',
+                ]).map((message) => (
+                    <InputError key={message} message={message} />
+                ))}
+                <InputError message={uploadForm.errors.panorama_titles} />
                 <Button
                     type="submit"
                     size="sm"
