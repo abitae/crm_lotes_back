@@ -615,8 +615,8 @@ class InmoproClientsTest extends TestCase
         $this->actingAs($user);
 
         $file = $this->makeClientsExcelFile([
-            ['Nombre (*)', 'DNI', 'Telefono (*)', 'Email', 'Referido por', 'Tipo cliente (*)', 'Ciudad', 'Asesor (*)', 'Fecha registro (DD/MM/AAAA)'],
-            ['Cliente Excel', '44556677', '987654321', 'excel@test.com', 'Campana digital', $type->name, $city->name, $advisor->name, '15/01/2024'],
+            ['Nombre (*)', 'DNI', 'Telefono (*)', 'Email', 'Referido por', 'Tipo cliente (*)', 'Ciudad', 'Asesor (*)', 'Fecha registro (DD/MM/AAAA HH:MM)'],
+            ['Cliente Excel', '44556677', '987654321', 'excel@test.com', 'Campana digital', $type->name, $city->name, $advisor->name, '28/01/2026 15:23'],
         ]);
 
         $previewResponse = $this->post(route('inmopro.clients.import-preview'), [
@@ -628,7 +628,7 @@ class InmoproClientsTest extends TestCase
             ->assertJsonPath('summary.valid', 1)
             ->assertJsonPath('summary.invalid', 0)
             ->assertJsonPath('can_import', true)
-            ->assertJsonPath('rows.0.registered_at', '2024-01-15')
+            ->assertJsonPath('rows.0.registered_at', '2026-01-28 15:23:00')
             ->assertJsonPath('rows.0.city', mb_strtoupper($city->name))
             ->assertJsonPath('rows.0.client_type', $type->name);
 
@@ -645,7 +645,7 @@ class InmoproClientsTest extends TestCase
         $this->assertSame($advisor->id, $client->advisor_id);
         $this->assertSame($type->id, $client->client_type_id);
         $this->assertSame($city->id, $client->city_id);
-        $this->assertSame('2024-01-15', $client->created_at?->toDateString());
+        $this->assertSame('2026-01-28 15:23:00', $client->created_at?->format('Y-m-d H:i:s'));
     }
 
     public function test_clients_import_accepts_legacy_headers_without_fecha_registro(): void

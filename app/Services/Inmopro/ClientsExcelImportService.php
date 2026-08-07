@@ -133,7 +133,7 @@ class ClientsExcelImportService
             if ($registeredAtInvalid) {
                 $rowErrors[] = [
                     'field' => 'registered_at',
-                    'message' => 'Fecha de registro no valida (use DD/MM/AAAA, AAAA-MM-DD o celda de fecha Excel).',
+                    'message' => 'Fecha de registro no valida (use DD/MM/AAAA HH:MM, AAAA-MM-DD HH:MM o celda de fecha Excel).',
                 ];
             }
 
@@ -293,7 +293,7 @@ class ClientsExcelImportService
                 $client->fill($payload);
 
                 if (! empty($row['registered_at'])) {
-                    $client->created_at = Carbon::parse($row['registered_at'])->startOfDay();
+                    $client->created_at = Carbon::parse($row['registered_at']);
                     if (! $client->exists) {
                         $client->updated_at = $client->created_at;
                     }
@@ -520,7 +520,7 @@ class ClientsExcelImportService
 
         if (is_numeric($value) && (float) $value > 0) {
             try {
-                return ExcelDate::excelToDateTimeObject((float) $value)->format('Y-m-d');
+                return ExcelDate::excelToDateTimeObject((float) $value)->format('Y-m-d H:i:s');
             } catch (\Throwable) {
                 // continue
             }
@@ -533,36 +533,50 @@ class ClientsExcelImportService
 
         if (is_numeric($text) && (float) $text > 0) {
             try {
-                return ExcelDate::excelToDateTimeObject((float) $text)->format('Y-m-d');
+                return ExcelDate::excelToDateTimeObject((float) $text)->format('Y-m-d H:i:s');
             } catch (\Throwable) {
                 // continue
             }
         }
 
-        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/', $text, $m)) {
+        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/', $text, $m)) {
             $day = (int) $m[1];
             $month = (int) $m[2];
             $year = (int) $m[3];
-            if (! checkdate($month, $day, $year)) {
+            $hour = isset($m[4]) ? (int) $m[4] : 0;
+            $minute = isset($m[5]) ? (int) $m[5] : 0;
+            $second = isset($m[6]) ? (int) $m[6] : 0;
+
+            if (! checkdate($month, $day, $year) || $hour > 23 || $minute > 59 || $second > 59) {
                 return null;
             }
 
-            return sprintf('%04d-%02d-%02d', $year, $month, $day);
+            return sprintf('%04d-%02d-%02d %02d:%02d:%02d', $year, $month, $day, $hour, $minute, $second);
         }
 
-        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $text, $m)) {
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/', $text, $m)) {
             $year = (int) $m[1];
             $month = (int) $m[2];
             $day = (int) $m[3];
-            if (! checkdate($month, $day, $year)) {
+            $hour = isset($m[4]) ? (int) $m[4] : 0;
+            $minute = isset($m[5]) ? (int) $m[5] : 0;
+            $second = isset($m[6]) ? (int) $m[6] : 0;
+
+            if (! checkdate($month, $day, $year) || $hour > 23 || $minute > 59 || $second > 59) {
                 return null;
             }
 
-            return sprintf('%04d-%02d-%02d', $year, $month, $day);
+            return sprintf('%04d-%02d-%02d %02d:%02d:%02d', $year, $month, $day, $hour, $minute, $second);
         }
 
         try {
-            return Carbon::parse($text)->format('Y-m-d');
+            return Carbon::createFromFormat('d/m/Y H:i', $text)->format('Y-m-d H:i:s');
+        } catch (\Throwable) {
+            // continue
+        }
+
+        try {
+            return Carbon::parse($text)->format('Y-m-d H:i:s');
         } catch (\Throwable) {
             return null;
         }

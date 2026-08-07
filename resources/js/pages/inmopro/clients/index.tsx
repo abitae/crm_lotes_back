@@ -897,7 +897,7 @@ function ClientsImportModal({
                                 <p className="text-[11px] font-black uppercase tracking-widest text-emerald-700">Plantilla oficial</p>
                                 <p>
                                     Columnas obligatorias (*): Nombre, Telefono, Tipo cliente, Asesor.
-                                    Opcionales: DNI, Email, Referido por, Ciudad, Fecha registro (DD/MM/AAAA).
+                                    Opcionales: DNI, Email, Referido por, Ciudad, Fecha registro (DD/MM/AAAA HH:MM).
                                     Tipo cliente y Asesor deben coincidir con el catalogo. Fecha vacia = fecha actual.
                                 </p>
                                 <p>La ciudad se guarda en mayusculas; si no existe, se crea automaticamente.</p>
