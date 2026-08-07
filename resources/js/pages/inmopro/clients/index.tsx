@@ -837,10 +837,26 @@ function ClientsImportModal({
                 credentials: 'same-origin',
             });
 
-            const body = (await res.json()) as ClientImportPreviewResponse & {
+            const raw = await res.text();
+            let body: ClientImportPreviewResponse & {
                 message?: string;
                 errors?: Record<string, string[]>;
             };
+
+            try {
+                body = JSON.parse(raw) as ClientImportPreviewResponse & {
+                    message?: string;
+                    errors?: Record<string, string[]>;
+                };
+            } catch {
+                setFetchError(
+                    res.status >= 500
+                        ? 'El servidor no pudo validar el archivo (posible tiempo de espera). Intente de nuevo.'
+                        : 'Respuesta invalida al validar el archivo. Intente de nuevo.',
+                );
+
+                return;
+            }
 
             if (!res.ok) {
                 const firstFieldError = Object.values(body.errors ?? {}).flat()[0];
@@ -901,7 +917,7 @@ function ClientsImportModal({
                                     Tipo cliente y Asesor deben coincidir con el catalogo. Fecha vacia = fecha actual.
                                 </p>
                                 <p>La ciudad se guarda en mayusculas; si no existe, se crea automaticamente.</p>
-                                <p>Si el telefono ya existe en el sistema, esa fila se omite y no se importa.</p>
+                                <p>Si el telefono ya existe en el sistema o esta duplicado en el archivo, esa fila se omite y no se importa.</p>
                             </div>
                             <Button type="button" asChild className="shrink-0 bg-emerald-600 hover:bg-emerald-700">
                                 <a href="/inmopro/clients/excel-template" download>

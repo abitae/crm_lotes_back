@@ -105,9 +105,25 @@ class ClientController extends Controller
 
     public function importPreview(ImportClientsPreviewRequest $request, ClientsExcelImportService $importService): JsonResponse
     {
-        return response()->json(
-            $importService->preview($request->file('file'))
-        );
+        try {
+            if (function_exists('set_time_limit')) {
+                set_time_limit(180);
+            }
+
+            return response()->json(
+                $importService->preview($request->file('file'))
+            );
+        } catch (RuntimeException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'No se pudo validar el archivo. Si es muy grande, intente de nuevo.',
+            ], 500);
+        }
     }
 
     public function importConfirm(

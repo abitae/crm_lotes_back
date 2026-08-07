@@ -51,6 +51,10 @@ class ClientsExcelImportService
      */
     public function preview(UploadedFile $file): array
     {
+        if (function_exists('set_time_limit')) {
+            set_time_limit(180);
+        }
+
         $loaded = $this->loadSheet($file);
         $headerMap = $this->buildHeaderMap($loaded['header']);
         $missingHeaders = $this->missingRequiredHeaders($headerMap);
@@ -76,6 +80,8 @@ class ClientsExcelImportService
                 'can_import' => false,
             ];
         }
+
+        $lookups = $this->buildImportLookups();
 
         $rows = [];
         $errors = [];
@@ -148,18 +154,21 @@ class ClientsExcelImportService
             if ($phone !== null) {
                 $phoneKey = $this->phoneDigits($phone);
                 if (isset($seenPhones[$phoneKey])) {
-                    $rowErrors[] = ['field' => 'phone', 'message' => 'El telefono esta duplicado dentro del archivo.'];
+                    $duplicatePhoneInFile = true;
                 } else {
                     $seenPhones[$phoneKey] = true;
+                    $duplicatePhoneInFile = false;
                 }
+            } else {
+                $duplicatePhoneInFile = false;
             }
 
-            $clientTypeId = $this->resolveClientTypeId($clientTypeName);
+            $clientTypeId = $this->lookupIdByName($lookups['client_types'], $clientTypeName);
             if ($clientTypeName !== null && $clientTypeId === null) {
                 $rowErrors[] = ['field' => 'client_type', 'message' => 'El tipo de cliente no existe.'];
             }
 
-            $advisorId = $this->resolveAdvisorId($advisorName);
+            $advisorId = $this->lookupIdByName($lookups['advisors'], $advisorName);
             if ($advisorName !== null && $advisorId === null) {
                 $rowErrors[] = ['field' => 'advisor', 'message' => 'El asesor no existe.'];
             }
@@ -168,12 +177,21 @@ class ClientsExcelImportService
                 $rowErrors[] = ['field' => 'email', 'message' => 'El email no tiene un formato valido.'];
             }
 
-            $existingByDni = $dni !== null ? Client::query()->where('dni', $dni)->first() : null;
-            $existingByPhone = $phone !== null ? $this->findClientByPhone($phone) : null;
+            $existingByDni = $dni !== null ? ($lookups['clients_by_dni'][$dni] ?? null) : null;
+            $existingByPhone = $phone !== null
+                ? ($lookups['clients_by_phone'][$this->phoneDigits($phone)] ?? null)
+                : null;
             $phoneBelongsToOtherClient = $existingByPhone !== null
-                && ($existingByDni === null || $existingByPhone->id !== $existingByDni->id);
+                && ($existingByDni === null || $existingByPhone['id'] !== $existingByDni['id']);
 
-            if ($rowErrors === [] && $phoneBelongsToOtherClient) {
+            $skipReason = null;
+            if ($duplicatePhoneInFile) {
+                $skipReason = 'Telefono duplicado en el archivo; se omite el registro.';
+            } elseif ($rowErrors === [] && $phoneBelongsToOtherClient) {
+                $skipReason = 'Telefono ya registrado; se omite el registro.';
+            }
+
+            if ($skipReason !== null) {
                 $skipped++;
                 $rows[] = [
                     'excel_row' => $excelRow,
@@ -187,7 +205,7 @@ class ClientsExcelImportService
                     'registered_at' => $registeredAt,
                     'action' => 'skip',
                     'errors' => [],
-                    'skip_reason' => 'Telefono ya registrado; se omite el registro.',
+                    'skip_reason' => $skipReason,
                 ];
 
                 continue;
@@ -313,23 +331,64 @@ class ClientsExcelImportService
         return new Client;
     }
 
-    private function findClientByPhone(string $phone): ?Client
+    /**
+     * @return array{
+     *     client_types: array<string, int>,
+     *     advisors: array<string, int>,
+     *     clients_by_dni: array<string, array{id: int, phone: string|null}>,
+     *     clients_by_phone: array<string, array{id: int, dni: string|null}>
+     * }
+     */
+    private function buildImportLookups(): array
     {
-        $digits = $this->phoneDigits($phone);
-        if ($digits === '') {
+        $clientTypes = [];
+        foreach (ClientType::query()->get(['id', 'name']) as $type) {
+            $clientTypes[mb_strtolower((string) $type->name)] = (int) $type->id;
+        }
+
+        $advisors = [];
+        foreach (Advisor::query()->get(['id', 'name']) as $advisor) {
+            $advisors[mb_strtolower((string) $advisor->name)] = (int) $advisor->id;
+        }
+
+        $clientsByDni = [];
+        $clientsByPhone = [];
+
+        foreach (Client::query()->get(['id', 'dni', 'phone']) as $client) {
+            $id = (int) $client->id;
+            $dni = $client->dni !== null && $client->dni !== '' ? (string) $client->dni : null;
+            $phone = $client->phone !== null ? (string) $client->phone : null;
+
+            if ($dni !== null && ! isset($clientsByDni[$dni])) {
+                $clientsByDni[$dni] = ['id' => $id, 'phone' => $phone];
+            }
+
+            if ($phone !== null) {
+                $digits = $this->phoneDigits($phone);
+                if ($digits !== '' && ! isset($clientsByPhone[$digits])) {
+                    $clientsByPhone[$digits] = ['id' => $id, 'dni' => $dni];
+                }
+            }
+        }
+
+        return [
+            'client_types' => $clientTypes,
+            'advisors' => $advisors,
+            'clients_by_dni' => $clientsByDni,
+            'clients_by_phone' => $clientsByPhone,
+        ];
+    }
+
+    /**
+     * @param  array<string, int>  $map
+     */
+    private function lookupIdByName(array $map, ?string $name): ?int
+    {
+        if ($name === null) {
             return null;
         }
 
-        return Client::query()
-            ->where(function ($query) use ($phone, $digits): void {
-                $query->where('phone', $phone)
-                    ->orWhereRaw(
-                        "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') = ?",
-                        [$digits]
-                    );
-            })
-            ->orderBy('id')
-            ->first();
+        return $map[mb_strtolower($name)] ?? null;
     }
 
     private function phoneDigits(string $phone): string
@@ -342,9 +401,18 @@ class ClientsExcelImportService
      */
     private function loadSheet(UploadedFile $file): array
     {
-        $spreadsheet = IOFactory::load($file->getRealPath());
+        $path = $file->getRealPath();
+        if ($path === false) {
+            throw new RuntimeException('No se pudo leer el archivo Excel.');
+        }
+
+        $reader = IOFactory::createReaderForFile($path);
+        $reader->setReadDataOnly(true);
+        $spreadsheet = $reader->load($path);
         $sheet = $spreadsheet->getSheet(0);
         $rows = $sheet->toArray(null, true, true, false);
+        $spreadsheet->disconnectWorksheets();
+        unset($spreadsheet);
 
         if ($rows === []) {
             throw new RuntimeException('El archivo Excel no contiene filas.');
@@ -582,19 +650,6 @@ class ClientsExcelImportService
         }
     }
 
-    private function resolveClientTypeId(?string $name): ?int
-    {
-        if ($name === null) {
-            return null;
-        }
-
-        $id = ClientType::query()
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
-            ->value('id');
-
-        return $id !== null ? (int) $id : null;
-    }
-
     private function normalizeCityName(?string $name): ?string
     {
         if ($name === null) {
@@ -651,19 +706,6 @@ class ClientsExcelImportService
         }
 
         return $code;
-    }
-
-    private function resolveAdvisorId(?string $name): ?int
-    {
-        if ($name === null) {
-            return null;
-        }
-
-        $id = Advisor::query()
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
-            ->value('id');
-
-        return $id !== null ? (int) $id : null;
     }
 
     private function cacheKey(int $userId, string $token): string

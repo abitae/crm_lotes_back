@@ -820,6 +820,52 @@ class InmoproClientsTest extends TestCase
         $this->assertSame('Cliente Existente', Client::query()->where('phone', '977111222')->value('name'));
     }
 
+    public function test_clients_import_skips_duplicate_phone_within_file(): void
+    {
+        $user = User::factory()->create();
+        $type = ClientType::query()->firstOrFail();
+        $advisor = Advisor::query()->firstOrFail();
+        $city = City::query()->firstOrFail();
+        $this->actingAs($user);
+
+        $file = $this->makeClientsExcelFile([
+            ['Nombre (*)', 'DNI', 'Telefono (*)', 'Email', 'Referido por', 'Tipo cliente (*)', 'Ciudad', 'Asesor (*)', 'Fecha registro (DD/MM/AAAA HH:MM)'],
+            ['Cliente Primero', '11223344', '933221100', null, null, $type->name, $city->name, $advisor->name, null],
+            ['Cliente Duplicado Archivo', '22334455', '933221100', null, null, $type->name, $city->name, $advisor->name, null],
+        ]);
+
+        $previewResponse = $this->post(route('inmopro.clients.import-preview'), [
+            'file' => $file,
+        ]);
+
+        $previewResponse
+            ->assertOk()
+            ->assertJsonPath('can_import', true)
+            ->assertJsonPath('summary.valid', 1)
+            ->assertJsonPath('summary.skipped', 1)
+            ->assertJsonPath('summary.invalid', 0)
+            ->assertJsonPath('rows.0.action', 'create')
+            ->assertJsonPath('rows.1.action', 'skip')
+            ->assertJsonPath('rows.1.skip_reason', 'Telefono duplicado en el archivo; se omite el registro.');
+
+        $token = $previewResponse->json('token');
+        $this->assertIsString($token);
+
+        $this->post(route('inmopro.clients.import-confirm'), [
+            'token' => $token,
+        ])->assertRedirect(route('inmopro.clients.index'));
+
+        $this->assertDatabaseHas('clients', [
+            'dni' => '11223344',
+            'phone' => '933221100',
+            'name' => 'Cliente Primero',
+        ]);
+        $this->assertDatabaseMissing('clients', [
+            'dni' => '22334455',
+        ]);
+        $this->assertSame(1, Client::query()->where('phone', '933221100')->count());
+    }
+
     public function test_authenticated_users_can_delete_client(): void
     {
         $user = User::factory()->create();
