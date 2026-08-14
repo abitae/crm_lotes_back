@@ -17,7 +17,16 @@ class Project360Label extends Model
         'yaw',
         'pitch',
         'color',
+        'background_color',
+        'border_color',
+        'border_width',
+        'font',
         'size',
+        'width',
+        'height',
+        'rotation',
+        'shape',
+        'visibility',
     ];
 
     protected function casts(): array
@@ -26,6 +35,10 @@ class Project360Label extends Model
             'yaw' => 'float',
             'pitch' => 'float',
             'size' => 'float',
+            'width' => 'float',
+            'height' => 'float',
+            'rotation' => 'float',
+            'border_width' => 'float',
         ];
     }
 

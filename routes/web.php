@@ -23,6 +23,14 @@ Route::get('/legal/privacidad', [LegalDocumentController::class, 'privacy'])->na
 
 Route::prefix('tours/360')
     ->name('public.project-360.')
+    ->middleware('throttle:project-360-public')
+    ->group(function (): void {
+        Route::get('projects/{project}', [PublicProject360Controller::class, 'showByProject'])->name('projects.show');
+        Route::get('projects/{project}/panoramas/{panorama}', [PublicProject360Controller::class, 'panoramaByProject'])->name('projects.panoramas.show');
+    });
+
+Route::prefix('tours/360')
+    ->name('public.project-360.')
     ->middleware(['signed', 'throttle:project-360-public'])
     ->group(function (): void {
         Route::get('{shareLink}', [PublicProject360Controller::class, 'show'])->name('show');

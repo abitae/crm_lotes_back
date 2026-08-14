@@ -9,7 +9,6 @@ use App\Models\Inmopro\Project360ShareLink;
 use App\Models\Inmopro\ProjectAsset;
 use App\Services\Inmopro\Project360ShareService;
 use App\Services\Inmopro\Project360TourService;
-use App\Support\FileStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -63,7 +62,10 @@ class Project360Controller extends Controller
     {
         $tourPayload = $this->tourService->payload(
             $project,
-            fn (ProjectAsset $panorama): ?string => FileStorage::url($panorama->file_path),
+            fn (ProjectAsset $panorama): string => route('inmopro.project-360.panoramas.file', [
+                'project' => $project,
+                'panorama' => $panorama,
+            ], false),
         );
         $tour = $project->tour360()->first();
         $canManage = $request->user()?->can('inmopro.project-360.manage') ?? false;
@@ -101,6 +103,7 @@ class Project360Controller extends Controller
                 'id' => $project->id,
                 'name' => $project->name,
                 'is_active' => (bool) $project->is_active,
+                'tour_360_url' => $project->tour_360_url,
             ],
             'tour' => [
                 ...$tourPayload,

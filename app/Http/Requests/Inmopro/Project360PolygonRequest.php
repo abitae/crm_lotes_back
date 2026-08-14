@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Inmopro;
 
+use App\Support\Project360LabelStyle;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -12,6 +13,23 @@ abstract class Project360PolygonRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $input = Project360LabelStyle::mergeDefaults($this->all(), 'label_');
+        $labelText = $input['label_text'] ?? null;
+        $input['label_text'] = is_string($labelText) && trim($labelText) !== ''
+            ? trim($labelText)
+            : null;
+
+        foreach (['label_yaw', 'label_pitch'] as $angle) {
+            if (! array_key_exists($angle, $input) || $input[$angle] === '') {
+                $input[$angle] = null;
+            }
+        }
+
+        $this->merge($input);
+    }
+
     /** @return array<string, mixed> */
     public function rules(): array
     {
@@ -20,6 +38,10 @@ abstract class Project360PolygonRequest extends FormRequest
             'lot_id' => ['nullable', 'integer', 'exists:lots,id'],
             'title' => ['nullable', 'required_without:lot_id', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:500'],
+            'label_text' => ['nullable', 'string', 'max:120'],
+            ...Project360LabelStyle::rules('label_'),
+            'label_yaw' => ['nullable', 'numeric', 'between:-180,180', 'required_with:label_pitch'],
+            'label_pitch' => ['nullable', 'numeric', 'between:-85,85', 'required_with:label_yaw'],
             'vertices' => ['required', 'array', 'min:3', 'max:32'],
             'vertices.*.yaw' => ['required', 'numeric', 'between:-180,180'],
             'vertices.*.pitch' => ['required', 'numeric', 'between:-85,85'],
@@ -62,6 +84,20 @@ abstract class Project360PolygonRequest extends FormRequest
             'lot_id.exists' => 'El lote seleccionado no existe.',
             'title.max' => 'El título no puede superar 100 caracteres.',
             'description.max' => 'La descripción no puede superar 500 caracteres.',
+            'label_text.max' => 'La etiqueta del polígono no puede superar 120 caracteres.',
+            'label_color.regex' => 'El color del texto de la etiqueta debe usar el formato hexadecimal #RRGGBB.',
+            'label_background_color.regex' => 'El color de fondo de la etiqueta debe usar el formato hexadecimal #RRGGBB.',
+            'label_border_color.regex' => 'El color del borde de la etiqueta debe usar el formato hexadecimal #RRGGBB.',
+            'label_border_width.between' => 'El grosor del borde de la etiqueta debe estar entre 0 y 0.16.',
+            'label_font.in' => 'El tipo de letra de la etiqueta no es válido.',
+            'label_size.between' => 'El tamaño de la etiqueta debe estar entre 0.50 y 3.00.',
+            'label_width.between' => 'El ancho de la etiqueta debe estar entre 0.50 y 4.00.',
+            'label_height.between' => 'El largo de la etiqueta debe estar entre 0.18 y 1.50.',
+            'label_rotation.between' => 'El ángulo de la etiqueta debe estar entre -180 y 180 grados.',
+            'label_shape.in' => 'La forma de la etiqueta no es válida.',
+            'label_visibility.in' => 'La visibilidad de la etiqueta no es válida.',
+            'label_yaw.between' => 'El giro horizontal de la etiqueta debe estar entre -180 y 180 grados.',
+            'label_pitch.between' => 'El giro vertical de la etiqueta debe estar entre -85 y 85 grados.',
             'vertices.min' => 'Dibuja al menos tres vértices.',
             'vertices.max' => 'El polígono no puede superar 32 vértices.',
             'vertices.*.yaw.between' => 'El giro horizontal debe estar entre -180 y 180 grados.',

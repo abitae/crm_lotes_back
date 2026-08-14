@@ -485,6 +485,7 @@ class ProjectController extends Controller
             'image_portada' => FileStorage::url($project->image_portada),
             'is_web' => (bool) $project->is_web,
             'tipo_web' => $project->tipo_web,
+            'tour_360_url' => $project->tour_360_url,
             'assets' => $project->assets
                 ->map(fn (ProjectAsset $asset) => $this->assetPayload($project, $asset))
                 ->values()

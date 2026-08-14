@@ -99,6 +99,14 @@ class Lot extends Model
     }
 
     /**
+     * @return HasMany<ProjectFlatPolygon, $this>
+     */
+    public function projectFlatPolygons(): HasMany
+    {
+        return $this->hasMany(ProjectFlatPolygon::class, 'lot_id');
+    }
+
+    /**
      * @return HasMany<AttentionTicket, $this>
      */
     public function attentionTickets(): HasMany

@@ -80,4 +80,24 @@ class ProjectAssetStorageTest extends TestCase
         $this->assertMatchesRegularExpression('/^document_'.$project->id.'_\d{4}\.pdf$/', $stored['file_name']);
         Storage::disk('public')->assertExists($stored['file_path']);
     }
+
+    public function test_store_falls_back_to_public_disk_when_configured_disk_fails(): void
+    {
+        Storage::fake('public');
+        config()->set('cazador.default_storage_disk', 'missing-gcs-disk');
+
+        $project = Project::query()->create([
+            'name' => 'Proyecto test',
+            'location' => 'Lima',
+            'total_lots' => 10,
+            'blocks' => ['A'],
+            'is_active' => true,
+        ]);
+        $service = app(ProjectAssetStorageService::class);
+        $file = UploadedFile::fake()->image('fachada.png');
+
+        $stored = $service->store($project, $file, 'image');
+
+        Storage::disk('public')->assertExists($stored['file_path']);
+    }
 }

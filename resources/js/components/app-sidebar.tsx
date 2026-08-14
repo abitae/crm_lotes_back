@@ -12,6 +12,7 @@ import {
     Landmark,
     Layers,
     LayoutGrid,
+    Map,
     MapPin,
     Palette,
     Percent,
@@ -50,6 +51,7 @@ import {
 import { useCurrentUrl, type IsCurrentUrlFn } from '@/hooks/use-current-url';
 import { dashboard } from '@/routes';
 import project360 from '@/routes/inmopro/project-360';
+import projectFlat from '@/routes/inmopro/project-flat';
 import legal from '@/routes/legal';
 import type { NavItem } from '@/types';
 import AppLogo from './app-logo';
@@ -288,6 +290,10 @@ export function AppSidebar() {
         isSuperAdmin ||
         (auth.user?.permissions?.includes('inmopro.project-360.index') ??
             false);
+    const canViewProjectFlat =
+        isSuperAdmin ||
+        (auth.user?.permissions?.includes('inmopro.project-flat.index') ??
+            false);
 
     const accessControlSection: NavSection = {
         label: 'Control de acceso',
@@ -366,22 +372,48 @@ export function AppSidebar() {
                     />
                 ) : null}
 
-                {canViewProject360 ? (
+                {canViewProject360 || canViewProjectFlat ? (
                     <SidebarGroup className="mt-auto px-2 py-2">
                         <SidebarGroupLabel>Experiencias</SidebarGroupLabel>
                         <SidebarMenu>
-                            <SidebarMenuItem>
-                                <SidebarMenuButton
-                                    asChild
-                                    isActive={isCurrentUrl(project360.index())}
-                                    tooltip={{ children: 'Vista 360' }}
-                                >
-                                    <Link href={project360.index()} prefetch>
-                                        <ScanLine />
-                                        <span>Vista 360</span>
-                                    </Link>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
+                            {canViewProject360 ? (
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton
+                                        asChild
+                                        isActive={isCurrentUrl(
+                                            project360.index(),
+                                        )}
+                                        tooltip={{ children: 'Vista 360' }}
+                                    >
+                                        <Link
+                                            href={project360.index()}
+                                            prefetch
+                                        >
+                                            <ScanLine />
+                                            <span>Vista 360</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            ) : null}
+                            {canViewProjectFlat ? (
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton
+                                        asChild
+                                        isActive={isCurrentUrl(
+                                            projectFlat.index(),
+                                        )}
+                                        tooltip={{ children: 'Vista plana' }}
+                                    >
+                                        <Link
+                                            href={projectFlat.index()}
+                                            prefetch
+                                        >
+                                            <Map />
+                                            <span>Vista plana</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            ) : null}
                         </SidebarMenu>
                     </SidebarGroup>
                 ) : null}

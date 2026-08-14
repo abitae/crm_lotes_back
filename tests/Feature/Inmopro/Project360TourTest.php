@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Inmopro;
 
+use App\Http\Requests\Inmopro\StoreProject360PanoramasRequest;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\Project360Hotspot;
 use App\Models\Inmopro\Project360Tour;
@@ -60,6 +61,32 @@ class Project360TourTest extends TestCase
             ->get(route('inmopro.project-360.show', $project))
             ->assertOk()
             ->assertInertia(fn ($page) => $page->where('canManage', true));
+    }
+
+    public function test_viewer_receives_same_origin_panorama_url_and_can_download_the_file(): void
+    {
+        $project = $this->createProject();
+        $panorama = $this->createPanorama($project, 'Entrada', 1);
+        $viewer = User::factory()->create();
+        $viewer->syncRoles([]);
+        $viewer->givePermissionTo('inmopro.project-360.index');
+
+        $fileUrl = route('inmopro.project-360.panoramas.file', [$project, $panorama], false);
+
+        $this->actingAs($viewer)
+            ->get(route('inmopro.project-360.show', $project))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('tour.panoramas.0.viewer_url', $fileUrl));
+
+        $this->actingAs($viewer)
+            ->get($fileUrl)
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/jpeg')
+            ->assertHeader('Access-Control-Allow-Origin', '*');
+
+        $this->get($fileUrl)
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/jpeg');
     }
 
     public function test_panorama_upload_validates_format_and_creates_starting_scene(): void
@@ -131,6 +158,84 @@ class Project360TourTest extends TestCase
                 'panorama_titles' => ['Archivo demasiado grande'],
             ])
             ->assertSessionHasErrors(['panorama_files.0', 'panorama_files']);
+    }
+
+    public function test_panorama_validation_lists_actual_resolution_and_ratio(): void
+    {
+        $project = $this->createProject();
+        $manager = $this->manager();
+
+        $this->actingAs($manager)
+            ->from(route('inmopro.project-360.show', $project))
+            ->post(route('inmopro.project-360.panoramas.store', $project), [
+                'panorama_files' => [
+                    $this->fakePng('pequena.png', 1024, 512),
+                ],
+                'panorama_titles' => ['Resolución insuficiente'],
+            ])
+            ->assertSessionHasErrors('panorama_files.0');
+
+        $messages = implode(' ', session('errors')->get('panorama_files.0'));
+        $this->assertStringContainsString('1024×512', $messages);
+        $this->assertStringContainsString('1920×960', $messages);
+
+        $this->actingAs($manager)
+            ->from(route('inmopro.project-360.show', $project))
+            ->post(route('inmopro.project-360.panoramas.store', $project), [
+                'panorama_files' => [
+                    $this->fakePng('ancha.png', 2048, 1200),
+                ],
+                'panorama_titles' => ['Proporción incorrecta'],
+            ])
+            ->assertSessionHasErrors('panorama_files.0');
+
+        $ratioMessages = implode(' ', session('errors')->get('panorama_files.0'));
+        $this->assertStringContainsString('2048×1200', $ratioMessages);
+        $this->assertStringContainsString('2:1', $ratioMessages);
+    }
+
+    public function test_failed_php_upload_returns_spanish_message(): void
+    {
+        $project = $this->createProject();
+        $manager = $this->manager();
+        $tmp = tempnam(sys_get_temp_dir(), 'pano');
+        $this->assertNotFalse($tmp);
+        file_put_contents($tmp, 'not-an-image');
+
+        $file = new UploadedFile($tmp, 'entrada.jpg', 'image/jpeg', UPLOAD_ERR_INI_SIZE, false);
+
+        $this->actingAs($manager)
+            ->post(route('inmopro.project-360.panoramas.store', $project), [
+                'panorama_files' => [$file],
+                'panorama_titles' => ['Entrada'],
+            ])
+            ->assertSessionHasErrors([
+                'panorama_files.0' => StoreProject360PanoramasRequest::uploadFailedMessage(),
+                'panorama_files' => StoreProject360PanoramasRequest::uploadFailedMessage(),
+            ]);
+
+        @unlink($tmp);
+    }
+
+    public function test_oversized_post_returns_spanish_validation_error(): void
+    {
+        $project = $this->createProject();
+        $manager = $this->manager();
+
+        $this->actingAs($manager)
+            ->from(route('inmopro.project-360.show', $project))
+            ->call(
+                'POST',
+                route('inmopro.project-360.panoramas.store', $project),
+                [],
+                [],
+                [],
+                ['CONTENT_LENGTH' => 20 * 1024 * 1024],
+            )
+            ->assertRedirect(route('inmopro.project-360.show', $project))
+            ->assertSessionHasErrors([
+                'panorama_files' => StoreProject360PanoramasRequest::uploadFailedMessage(),
+            ]);
     }
 
     public function test_hotspots_require_panoramas_from_same_project(): void

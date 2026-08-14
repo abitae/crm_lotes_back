@@ -28,8 +28,17 @@ import {
 } from '@/lib/project-360-geometry';
 import {
     project360HotspotLabelLayout,
+    project360PinGeometry,
     project360RaycastTargets,
 } from '@/lib/project-360-interaction';
+import {
+    project360LabelBoxLayout,
+    resolvePolygonLabelPosition,
+    resolveProject360BadgeVisibility,
+    resolveProject360LabelFont,
+    resolveProject360LabelShape,
+    type Project360LabelStyle,
+} from '@/lib/project-360-label-style';
 import type {
     Project360Hotspot,
     Project360HotspotStyle,
@@ -62,10 +71,12 @@ type Project360ViewerProps = {
     interactionLocked?: boolean;
     editingPolygonId?: number | null;
     selectedPolygonId?: number | null;
+    selectedLabelId?: number | null;
     onPlacement?: (angles: Project360Angles) => void;
     onPolygonClose?: () => void;
     onPanoramaChange?: (panoramaId: number) => void;
     onPolygonSelect?: (polygonId: number | null) => void;
+    onLabelSelect?: (labelId: number | null) => void;
     className?: string;
 };
 
@@ -111,11 +122,17 @@ function HotspotMarker({
     reducedMotion?: boolean;
 }) {
     const { style } = hotspot;
+    const isPin = style.shape === 'pin';
     const labelVisible = style.label_visibility === 'always';
     const pulse = style.pulse_enabled && !draft && !reducedMotion;
     const markerRotation = `${hotspot.pitch} ${-hotspot.yaw} 0`;
     const coreMaterial = `color: ${style.color}; shader: flat; opacity: ${draft ? 0.72 : 1}; transparent: true`;
-    const labelLayout = project360HotspotLabelLayout(hotspot.label, style.size);
+    const labelLayout = project360HotspotLabelLayout(
+        hotspot.label,
+        style.size,
+        style.shape,
+    );
+    const pin = isPin ? project360PinGeometry(style.size) : null;
 
     const core =
         style.shape === 'ring' ? (
@@ -125,19 +142,49 @@ function HotspotMarker({
                 radius-outer={style.size}
                 material={coreMaterial}
             />
-        ) : style.shape === 'pin' ? (
+        ) : isPin && pin ? (
             <a-entity>
-                <a-sphere
+                {pulse ? (
+                    <a-circle
+                        radius={pin.rippleRadius}
+                        position="0 0.012 0"
+                        material={`color: ${style.color}; shader: flat; opacity: 0.42; transparent: true; depthWrite: false`}
+                        animation__ripple="property: scale; from: 0.55 0.55 0.55; to: 2.6 2.6 2.6; loop: true; dur: 1500; easing: easeOutQuad"
+                        animation__fade="property: material.opacity; from: 0.38; to: 0.02; loop: true; dur: 1500; easing: easeOutQuad"
+                    />
+                ) : null}
+                <a-circle
+                    radius={pin.rippleRadius * 0.7}
+                    position="0.01 0.008 -0.008"
+                    material="color: #0f172a; shader: flat; opacity: 0.22; transparent: true; depthWrite: false"
+                />
+                <a-circle
+                    radius={pin.headRadius + 0.02}
+                    position={`0.016 ${pin.headY - 0.018} -0.016`}
+                    material="color: #020617; shader: flat; opacity: 0.22; transparent: true; depthWrite: false"
+                />
+                <a-triangle
                     className="tour-hotspot-core"
-                    radius={style.size * 0.7}
+                    vertex-a="0 0 0"
+                    vertex-b={`${-pin.tipHalfWidth} ${pin.tipTopY} 0`}
+                    vertex-c={`${pin.tipHalfWidth} ${pin.tipTopY} 0`}
                     material={coreMaterial}
                 />
-                <a-cone
-                    radius-bottom={style.size * 0.4}
-                    radius-top="0"
-                    height={style.size * 1.2}
-                    position={`0 ${-style.size * 0.95} 0`}
+                <a-circle
+                    className="tour-hotspot-core"
+                    radius={pin.headRadius}
+                    position={`0 ${pin.headY} 0.004`}
                     material={coreMaterial}
+                />
+                <a-circle
+                    radius={pin.innerRadius}
+                    position={`0 ${pin.headY} 0.012`}
+                    material="color: #ffffff; shader: flat; opacity: 0.98; depthWrite: false"
+                />
+                <a-circle
+                    radius={pin.accentRadius}
+                    position={`0 ${pin.headY} 0.016`}
+                    material={`color: ${style.color}; shader: flat; opacity: 0.95; depthWrite: false`}
                 />
             </a-entity>
         ) : (
@@ -181,57 +228,62 @@ function HotspotMarker({
         >
             <a-sphere
                 className="tour-hotspot-hit-area"
-                radius={style.size * 1.65}
+                radius={isPin && pin ? pin.hitRadius : style.size * 1.65}
+                position={isPin && pin ? `0 ${pin.hitY} 0` : undefined}
                 material="opacity: 0; transparent: true; depthWrite: false"
             />
             <a-entity
                 animation__float={
-                    reducedMotion || draft
+                    reducedMotion || draft || isPin
                         ? undefined
                         : `property: position; from: 0 ${-style.size * 0.06} 0; to: 0 ${style.size * 0.09} 0; dir: alternate; loop: true; dur: 1650; easing: easeInOutSine`
                 }
             >
-                <a-ring
-                    radius-inner={style.size * 1.15}
-                    radius-outer={style.size * 1.3}
-                    material={`color: ${style.color}; shader: flat; opacity: ${draft ? 0.22 : 0.62}; transparent: true; depthWrite: false`}
-                    animation__halo={
-                        pulse
-                            ? 'property: scale; from: 0.82 0.82 0.82; to: 1.55 1.55 1.55; loop: true; dur: 1250; easing: easeOutQuad'
-                            : undefined
-                    }
-                    animation__opacity={
-                        pulse
-                            ? 'property: material.opacity; from: 0.62; to: 0.04; loop: true; dur: 1250; easing: easeOutQuad'
-                            : undefined
-                    }
-                />
-                <a-ring
-                    radius-inner={style.size * 1.38}
-                    radius-outer={style.size * 1.44}
-                    material={`color: ${style.hover_color}; shader: flat; opacity: ${draft ? 0.1 : 0.3}; transparent: true; depthWrite: false`}
-                    animation__halo={
-                        pulse
-                            ? 'property: scale; from: 0.78 0.78 0.78; to: 1.38 1.38 1.38; loop: true; dur: 1650; delay: 340; easing: easeOutSine'
-                            : undefined
-                    }
-                    animation__opacity={
-                        pulse
-                            ? 'property: material.opacity; from: 0.32; to: 0.02; loop: true; dur: 1650; delay: 340; easing: easeOutSine'
-                            : undefined
-                    }
-                />
-                <a-circle
-                    radius={style.size * 1.16}
-                    position="0 0 -0.018"
-                    material="color: #020617; shader: flat; opacity: 0.82; transparent: true; depthWrite: false"
-                />
-                <a-ring
-                    radius-inner={style.size * 1.06}
-                    radius-outer={style.size * 1.18}
-                    position="0 0 -0.012"
-                    material={`color: ${style.hover_color}; shader: flat; opacity: 0.82; transparent: true; depthWrite: false`}
-                />
+                {isPin ? null : (
+                    <>
+                        <a-ring
+                            radius-inner={style.size * 1.15}
+                            radius-outer={style.size * 1.3}
+                            material={`color: ${style.color}; shader: flat; opacity: ${draft ? 0.22 : 0.62}; transparent: true; depthWrite: false`}
+                            animation__halo={
+                                pulse
+                                    ? 'property: scale; from: 0.82 0.82 0.82; to: 1.55 1.55 1.55; loop: true; dur: 1250; easing: easeOutQuad'
+                                    : undefined
+                            }
+                            animation__opacity={
+                                pulse
+                                    ? 'property: material.opacity; from: 0.62; to: 0.04; loop: true; dur: 1250; easing: easeOutQuad'
+                                    : undefined
+                            }
+                        />
+                        <a-ring
+                            radius-inner={style.size * 1.38}
+                            radius-outer={style.size * 1.44}
+                            material={`color: ${style.hover_color}; shader: flat; opacity: ${draft ? 0.1 : 0.3}; transparent: true; depthWrite: false`}
+                            animation__halo={
+                                pulse
+                                    ? 'property: scale; from: 0.78 0.78 0.78; to: 1.38 1.38 1.38; loop: true; dur: 1650; delay: 340; easing: easeOutSine'
+                                    : undefined
+                            }
+                            animation__opacity={
+                                pulse
+                                    ? 'property: material.opacity; from: 0.32; to: 0.02; loop: true; dur: 1650; delay: 340; easing: easeOutSine'
+                                    : undefined
+                            }
+                        />
+                        <a-circle
+                            radius={style.size * 1.16}
+                            position="0 0 -0.018"
+                            material="color: #020617; shader: flat; opacity: 0.82; transparent: true; depthWrite: false"
+                        />
+                        <a-ring
+                            radius-inner={style.size * 1.06}
+                            radius-outer={style.size * 1.18}
+                            position="0 0 -0.012"
+                            material={`color: ${style.hover_color}; shader: flat; opacity: 0.82; transparent: true; depthWrite: false`}
+                        />
+                    </>
+                )}
                 {core}
                 <a-entity
                     className="tour-hotspot-label"
@@ -245,90 +297,422 @@ function HotspotMarker({
                             : 'property: scale; from: 0.82 0.82 0.82; to: 1 1 1; dur: 220; easing: easeOutBack; startEvents: tour-label-show'
                     }
                 >
-                    <a-plane
-                        width={labelLayout.width + 0.07}
-                        height={labelLayout.height + 0.07}
-                        position="0 -0.025 -0.012"
-                        material="color: #000000; shader: flat; opacity: 0.42; transparent: true; depthTest: false; depthWrite: false"
-                    />
-                    <a-plane
-                        width={labelLayout.width}
-                        height={labelLayout.height}
-                        material={`color: ${style.color}; shader: flat; opacity: 0.98; transparent: true; depthTest: false; depthWrite: false`}
-                    />
-                    <a-plane
-                        width={labelLayout.width - 0.045}
-                        height={labelLayout.height - 0.045}
-                        position="0 0 0.006"
-                        material="color: #020617; shader: flat; opacity: 0.96; transparent: true; depthTest: false; depthWrite: false"
-                    />
-                    <a-plane
-                        width="0.035"
-                        height={labelLayout.height - 0.11}
-                        position={`${-labelLayout.width / 2 + 0.045} 0 0.012`}
-                        material={`color: ${style.color}; shader: flat; opacity: 1; depthTest: false; depthWrite: false`}
-                    />
-                    <a-circle
-                        radius="0.06"
-                        segments="3"
-                        position={`0 ${-(labelLayout.height / 2 + 0.045)} 0.004`}
-                        rotation="0 0 180"
-                        material={`color: ${style.color}; shader: flat; opacity: 0.98; depthTest: false; depthWrite: false`}
-                    />
-                    <a-text
-                        value={labelLayout.displayLabel}
-                        align="center"
-                        color={style.text_color}
-                        position="0.015 0 0.018"
-                        width={labelLayout.textWidth}
-                    />
+                    {isPin ? (
+                        <>
+                            <a-plane
+                                width={labelLayout.width + 0.05}
+                                height={labelLayout.height + 0.05}
+                                position="0.012 -0.014 -0.012"
+                                material="color: #0f172a; shader: flat; opacity: 0.16; transparent: true; depthTest: false; depthWrite: false"
+                            />
+                            <a-plane
+                                width={labelLayout.width}
+                                height={labelLayout.height}
+                                material="color: #ffffff; shader: flat; opacity: 0.98; transparent: true; depthTest: false; depthWrite: false"
+                            />
+                            <a-triangle
+                                vertex-a={`0 ${-(labelLayout.height / 2 + 0.055)} 0.004`}
+                                vertex-b={`${-0.055} ${-(labelLayout.height / 2 - 0.004)} 0.004`}
+                                vertex-c={`${0.055} ${-(labelLayout.height / 2 - 0.004)} 0.004`}
+                                material="color: #ffffff; shader: flat; opacity: 0.98; depthTest: false; depthWrite: false"
+                            />
+                            <a-text
+                                value={labelLayout.displayLabel}
+                                align="center"
+                                color="#1f2937"
+                                position="0 0 0.018"
+                                width={labelLayout.textWidth}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            <a-plane
+                                width={labelLayout.width + 0.07}
+                                height={labelLayout.height + 0.07}
+                                position="0 -0.025 -0.012"
+                                material="color: #000000; shader: flat; opacity: 0.42; transparent: true; depthTest: false; depthWrite: false"
+                            />
+                            <a-plane
+                                width={labelLayout.width}
+                                height={labelLayout.height}
+                                material={`color: ${style.color}; shader: flat; opacity: 0.98; transparent: true; depthTest: false; depthWrite: false`}
+                            />
+                            <a-plane
+                                width={labelLayout.width - 0.045}
+                                height={labelLayout.height - 0.045}
+                                position="0 0 0.006"
+                                material="color: #020617; shader: flat; opacity: 0.96; transparent: true; depthTest: false; depthWrite: false"
+                            />
+                            <a-plane
+                                width="0.035"
+                                height={labelLayout.height - 0.11}
+                                position={`${-labelLayout.width / 2 + 0.045} 0 0.012`}
+                                material={`color: ${style.color}; shader: flat; opacity: 1; depthTest: false; depthWrite: false`}
+                            />
+                            <a-circle
+                                radius="0.06"
+                                segments="3"
+                                position={`0 ${-(labelLayout.height / 2 + 0.045)} 0.004`}
+                                rotation="0 0 180"
+                                material={`color: ${style.color}; shader: flat; opacity: 0.98; depthTest: false; depthWrite: false`}
+                            />
+                            <a-text
+                                value={labelLayout.displayLabel}
+                                align="center"
+                                color={style.text_color}
+                                position="0.015 0 0.018"
+                                width={labelLayout.textWidth}
+                            />
+                        </>
+                    )}
                 </a-entity>
             </a-entity>
         </a-entity>
     );
 }
 
+function flatLabelMaterial(color: string, opacity: number): string {
+    return `color: ${color}; shader: flat; opacity: ${opacity}; transparent: true; depthTest: false; depthWrite: false`;
+}
+
+function standaloneLabelStyle(label: Project360Label): Project360LabelStyle {
+    return {
+        color: label.color,
+        background_color: label.background_color,
+        border_color: label.border_color,
+        border_width: label.border_width,
+        font: label.font,
+        size: label.size,
+        width: label.width,
+        height: label.height,
+        rotation: label.rotation,
+        shape: resolveProject360LabelShape(label.shape),
+        visibility: resolveProject360BadgeVisibility(label.visibility),
+    };
+}
+
+function polygonLabelStyle(polygon: Project360Polygon): Project360LabelStyle {
+    return {
+        color: polygon.label_color,
+        background_color: polygon.label_background_color,
+        border_color: polygon.label_border_color,
+        border_width: polygon.label_border_width,
+        font: polygon.label_font,
+        size: polygon.label_size,
+        width: polygon.label_width,
+        height: polygon.label_height,
+        rotation: polygon.label_rotation,
+        shape: resolveProject360LabelShape(polygon.label_shape),
+        visibility: resolveProject360BadgeVisibility(polygon.label_visibility),
+    };
+}
+
+function LabelBadgeMeshes({
+    text,
+    style,
+    draft = false,
+    selected = false,
+    hitArea = false,
+}: {
+    text: string;
+    style: Project360LabelStyle;
+    draft?: boolean;
+    selected?: boolean;
+    hitArea?: boolean;
+}) {
+    const layout = project360LabelBoxLayout(text, style);
+    const fillOpacity = draft ? 0.7 : selected ? 0.98 : 0.94;
+    const borderOpacity = draft ? 0.55 : 0.96;
+    const shape = style.shape;
+    const border = Math.max(0, style.border_width);
+    const width = layout.width;
+    const height = layout.height;
+    const textNode = (
+        <a-text
+            value={layout.displayLabel}
+            font={resolveProject360LabelFont(style.font)}
+            align="center"
+            color={style.color}
+            position="0 0 0.02"
+            width={layout.textWidth}
+            wrap-count="24"
+            side="double"
+        />
+    );
+
+    if (shape === 'none') {
+        return (
+            <>
+                {hitArea ? (
+                    <a-plane
+                        className="tour-label-hit-area"
+                        width={width}
+                        height={height}
+                        material="opacity: 0; transparent: true; depthWrite: false"
+                    />
+                ) : null}
+                {textNode}
+            </>
+        );
+    }
+
+    if (shape === 'pill') {
+        const bodyWidth = Math.max(0.08, width - height);
+        const fillRadius = height / 2;
+        const borderRadius = fillRadius + border;
+
+        return (
+            <>
+                {border > 0 ? (
+                    <>
+                        <a-plane
+                            width={bodyWidth}
+                            height={height + border * 2}
+                            position="0 0 -0.012"
+                            material={flatLabelMaterial(
+                                style.border_color,
+                                borderOpacity,
+                            )}
+                        />
+                        <a-circle
+                            radius={borderRadius}
+                            position={`${(-bodyWidth / 2).toFixed(4)} 0 -0.012`}
+                            material={flatLabelMaterial(
+                                style.border_color,
+                                borderOpacity,
+                            )}
+                        />
+                        <a-circle
+                            radius={borderRadius}
+                            position={`${(bodyWidth / 2).toFixed(4)} 0 -0.012`}
+                            material={flatLabelMaterial(
+                                style.border_color,
+                                borderOpacity,
+                            )}
+                        />
+                    </>
+                ) : null}
+                <a-plane
+                    className={hitArea ? 'tour-label-hit-area' : undefined}
+                    width={bodyWidth}
+                    height={height}
+                    material={flatLabelMaterial(
+                        style.background_color,
+                        fillOpacity,
+                    )}
+                />
+                <a-circle
+                    radius={fillRadius}
+                    position={`${(-bodyWidth / 2).toFixed(4)} 0 0.002`}
+                    material={flatLabelMaterial(
+                        style.background_color,
+                        fillOpacity,
+                    )}
+                />
+                <a-circle
+                    radius={fillRadius}
+                    position={`${(bodyWidth / 2).toFixed(4)} 0 0.002`}
+                    material={flatLabelMaterial(
+                        style.background_color,
+                        fillOpacity,
+                    )}
+                />
+                {textNode}
+            </>
+        );
+    }
+
+    const outerWidth = width + border * 2;
+    const outerHeight = height + border * 2;
+    const corner = shape === 'rounded' ? Math.min(0.09, height * 0.28) : 0;
+
+    return (
+        <>
+            {border > 0 ? (
+                <a-plane
+                    width={outerWidth}
+                    height={outerHeight}
+                    position="0 0 -0.012"
+                    material={flatLabelMaterial(
+                        style.border_color,
+                        borderOpacity,
+                    )}
+                />
+            ) : null}
+            {shape === 'rounded' && border > 0
+                ? (
+                      [
+                          [-outerWidth / 2, outerHeight / 2],
+                          [outerWidth / 2, outerHeight / 2],
+                          [-outerWidth / 2, -outerHeight / 2],
+                          [outerWidth / 2, -outerHeight / 2],
+                      ] as const
+                  ).map(([x, y]) => (
+                      <a-circle
+                          key={`border-${x}-${y}`}
+                          radius={corner + border}
+                          position={`${x.toFixed(4)} ${y.toFixed(4)} -0.012`}
+                          material={flatLabelMaterial(
+                              style.border_color,
+                              borderOpacity,
+                          )}
+                      />
+                  ))
+                : null}
+            <a-plane
+                className={hitArea ? 'tour-label-hit-area' : undefined}
+                width={width}
+                height={height}
+                material={flatLabelMaterial(
+                    style.background_color,
+                    fillOpacity,
+                )}
+            />
+            {shape === 'rounded'
+                ? (
+                      [
+                          [-width / 2, height / 2],
+                          [width / 2, height / 2],
+                          [-width / 2, -height / 2],
+                          [width / 2, -height / 2],
+                      ] as const
+                  ).map(([x, y]) => (
+                      <a-circle
+                          key={`fill-${x}-${y}`}
+                          radius={corner}
+                          position={`${x.toFixed(4)} ${y.toFixed(4)} 0.002`}
+                          material={flatLabelMaterial(
+                              style.background_color,
+                              fillOpacity,
+                          )}
+                      />
+                  ))
+                : null}
+            {shape === 'tag' ? (
+                <a-circle
+                    segments="3"
+                    radius={height * 0.42}
+                    position={`${(-width / 2 - 0.02).toFixed(4)} 0 0.004`}
+                    rotation="0 0 90"
+                    material={flatLabelMaterial(
+                        style.background_color,
+                        fillOpacity,
+                    )}
+                />
+            ) : null}
+            {textNode}
+        </>
+    );
+}
+
 function StandaloneLabelEntity({
     label,
     draft = false,
+    selected = false,
     reducedMotion = false,
 }: {
     label: Project360Label;
     draft?: boolean;
+    selected?: boolean;
     reducedMotion?: boolean;
 }) {
-    const layout = project360HotspotLabelLayout(label.text, 0.16);
+    const style = standaloneLabelStyle(label);
+    const interactive = !draft && label.id >= 0;
+    const expanded = draft || selected || style.visibility === 'always';
 
     return (
         <a-entity
-            position={pointPosition(label.yaw, label.pitch, 3.9)}
+            className={interactive ? 'tour-label' : undefined}
+            data-label-id={interactive ? label.id : undefined}
+            position={pointPosition(label.yaw, label.pitch, 3.95)}
             scale={`${label.size} ${label.size} ${label.size}`}
             tour-billboard=""
+            title={label.text}
         >
             <a-entity
+                rotation={`0 0 ${label.rotation}`}
                 animation__appear={
                     reducedMotion || draft
                         ? undefined
                         : 'property: scale; from: 0.55 0.55 0.55; to: 1 1 1; dur: 420; easing: easeOutBack'
                 }
             >
-                <a-plane
-                    width={layout.width + 0.08}
-                    height={layout.height + 0.08}
-                    position="0 -0.025 -0.012"
-                    material={`color: ${label.color}; shader: flat; opacity: ${draft ? 0.62 : 0.92}; transparent: true; depthTest: false; depthWrite: false`}
-                />
-                <a-plane
-                    width={layout.width}
-                    height={layout.height}
-                    material={`color: #020617; shader: flat; opacity: ${draft ? 0.72 : 0.94}; transparent: true; depthTest: false; depthWrite: false`}
-                />
-                <a-text
-                    value={layout.displayLabel}
-                    align="center"
-                    color={label.color}
-                    position="0 0 0.018"
-                    width={layout.textWidth}
+                {expanded ? (
+                    <LabelBadgeMeshes
+                        text={label.text}
+                        style={style}
+                        draft={draft}
+                        selected={selected}
+                        hitArea={interactive}
+                    />
+                ) : (
+                    <>
+                        <a-circle
+                            className={
+                                interactive ? 'tour-label-hit-area' : undefined
+                            }
+                            radius="0.12"
+                            material={flatLabelMaterial(
+                                style.border_color,
+                                0.95,
+                            )}
+                        />
+                        <a-circle
+                            radius="0.08"
+                            position="0 0 0.006"
+                            material={flatLabelMaterial(
+                                style.background_color,
+                                0.98,
+                            )}
+                        />
+                        <a-circle
+                            radius="0.035"
+                            position="0 0 0.01"
+                            material={flatLabelMaterial(style.color, 1)}
+                        />
+                    </>
+                )}
+            </a-entity>
+        </a-entity>
+    );
+}
+
+function PolygonLabelEntity({
+    polygon,
+    selected,
+}: {
+    polygon: Project360Polygon;
+    selected: boolean;
+}) {
+    const centroid = polygonCentroid(polygon.vertices);
+    const labelText = polygon.label_text?.trim() ?? '';
+    const style = polygonLabelStyle(polygon);
+    const position = resolvePolygonLabelPosition({
+        vertices: polygon.vertices,
+        label_yaw: polygon.label_yaw,
+        label_pitch: polygon.label_pitch,
+        centroid,
+    });
+
+    if (labelText === '') {
+        return null;
+    }
+
+    if (style.visibility === 'click' && !selected) {
+        return null;
+    }
+
+    return (
+        <a-entity
+            position={pointPosition(position.yaw, position.pitch, 3.95)}
+            scale={`${polygon.label_size} ${polygon.label_size} ${polygon.label_size}`}
+            tour-billboard=""
+        >
+            <a-entity rotation={`0 0 ${polygon.label_rotation}`}>
+                <LabelBadgeMeshes
+                    text={labelText}
+                    style={style}
+                    selected={selected}
                 />
             </a-entity>
         </a-entity>
@@ -342,9 +726,8 @@ function PolygonEntity({
     polygon: Project360Polygon;
     selected: boolean;
 }) {
-    const centroid = polygonCentroid(polygon.vertices);
-    const label = polygon.lot ? `Lote ${polygon.lot.number}` : polygon.title;
     const interactive = polygon.id >= 0;
+    const hasLabel = (polygon.label_text?.trim() ?? '') !== '';
 
     return (
         <a-entity
@@ -353,24 +736,9 @@ function PolygonEntity({
             tour-polygon-mesh={`vertices: ${JSON.stringify(polygon.vertices)}; color: ${polygon.color}; hoverColor: ${polygon.hover_color}; opacity: ${polygon.opacity}; selected: ${selected}`}
             title={polygon.title}
         >
-            <a-entity
-                position={pointPosition(centroid.yaw, centroid.pitch, 3.88)}
-                rotation={`${centroid.pitch} ${-centroid.yaw} 0`}
-                visible={polygon.lot || selected ? 'true' : 'false'}
-            >
-                <a-plane
-                    width="0.9"
-                    height="0.28"
-                    material="color: #0f172a; shader: flat; opacity: 0.88; transparent: true; depthWrite: false"
-                />
-                <a-text
-                    value={label}
-                    align="center"
-                    color="#ffffff"
-                    position="0 0 0.01"
-                    width="2.6"
-                />
-            </a-entity>
+            {hasLabel ? (
+                <PolygonLabelEntity polygon={polygon} selected={selected} />
+            ) : null}
         </a-entity>
     );
 }
@@ -398,10 +766,12 @@ const Project360ViewerBase = forwardRef<
         interactionLocked = false,
         editingPolygonId = null,
         selectedPolygonId = null,
+        selectedLabelId = null,
         onPlacement,
         onPolygonClose,
         onPanoramaChange,
         onPolygonSelect,
+        onLabelSelect,
         className = '',
     },
     ref,
@@ -415,6 +785,7 @@ const Project360ViewerBase = forwardRef<
     const [internalPolygonId, setInternalPolygonId] = useState<number | null>(
         null,
     );
+    const [internalLabelId, setInternalLabelId] = useState<number | null>(null);
     const [reducedMotion, setReducedMotion] = useState(false);
     const initialPanoramaId =
         panoramas.find((panorama) => panorama.id === startPanoramaId)?.id ??
@@ -525,6 +896,7 @@ const Project360ViewerBase = forwardRef<
     const selectedPolygon = activePolygons.find(
         (polygon) => polygon.id === effectiveSelectedPolygonId,
     );
+    const effectiveSelectedLabelId = selectedLabelId ?? internalLabelId;
 
     const selectPanorama = useCallback(
         (panoramaId: number) => {
@@ -549,7 +921,9 @@ const Project360ViewerBase = forwardRef<
             image.onload = () => {
                 setActivePanoramaId(panorama.id);
                 setInternalPolygonId(null);
+                setInternalLabelId(null);
                 onPolygonSelect?.(null);
+                onLabelSelect?.(null);
                 onPanoramaChange?.(panorama.id);
                 window.setTimeout(
                     () => setSwitching(false),
@@ -566,6 +940,7 @@ const Project360ViewerBase = forwardRef<
         [
             onPanoramaChange,
             onPolygonSelect,
+            onLabelSelect,
             panoramas,
             interactionLocked,
             placementMode,
@@ -592,7 +967,9 @@ const Project360ViewerBase = forwardRef<
         };
         scene.addEventListener('tour-placement-selected', onPlacementSelected);
         const interactiveElements = Array.from(
-            scene.querySelectorAll<HTMLElement>('.tour-hotspot, .tour-polygon'),
+            scene.querySelectorAll<HTMLElement>(
+                '.tour-hotspot, .tour-polygon, .tour-label',
+            ),
         );
         const listeners = interactiveElements.map((element) => {
             const listener = () => {
@@ -604,7 +981,21 @@ const Project360ViewerBase = forwardRef<
                     const polygonId = Number(element.dataset.polygonId);
                     if (Number.isFinite(polygonId)) {
                         setInternalPolygonId(polygonId);
+                        setInternalLabelId(null);
                         onPolygonSelect?.(polygonId);
+                        onLabelSelect?.(null);
+                    }
+
+                    return;
+                }
+
+                if (element.classList.contains('tour-label')) {
+                    const labelId = Number(element.dataset.labelId);
+                    if (Number.isFinite(labelId)) {
+                        onLabelSelect?.(labelId);
+                        onPolygonSelect?.(null);
+                        setInternalPolygonId(null);
+                        setInternalLabelId(labelId);
                     }
 
                     return;
@@ -640,12 +1031,14 @@ const Project360ViewerBase = forwardRef<
         };
     }, [
         activeHotspots,
+        activeLabels,
         activePolygons,
         aframeReady,
         interactionLocked,
         onPlacement,
         onPolygonClose,
         onPolygonSelect,
+        onLabelSelect,
         placementMode,
         polygonDraft.length,
         polygonDrawing,
@@ -832,6 +1225,7 @@ const Project360ViewerBase = forwardRef<
                         <StandaloneLabelEntity
                             key={label.id}
                             label={label}
+                            selected={label.id === effectiveSelectedLabelId}
                             reducedMotion={reducedMotion}
                         />
                     ))}

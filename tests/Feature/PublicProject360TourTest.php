@@ -10,6 +10,7 @@ use App\Models\Inmopro\Project360Tour;
 use App\Models\Inmopro\ProjectAsset;
 use App\Models\User;
 use App\Services\Inmopro\Project360ShareService;
+use App\Services\Inmopro\Project360TourService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -113,6 +114,80 @@ class PublicProject360TourTest extends TestCase
         $project->update(['is_active' => false]);
 
         $this->get($service->tourUrl($shareLink))->assertNotFound();
+    }
+
+    public function test_public_project_html_and_json_are_available_without_authentication(): void
+    {
+        [$project, , $panorama] = $this->createTour();
+        app(Project360TourService::class)->syncTour360Url($project);
+        $project->refresh();
+
+        $this->assertSame(
+            route('public.project-360.projects.show', $project),
+            $project->tour_360_url,
+        );
+
+        $this->get(route('public.project-360.projects.show', $project))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('public/project-360/show')
+                ->where('project.name', $project->name)
+                ->where('embedded', false)
+                ->has('tour.panoramas', 1));
+
+        $this->get(route('public.project-360.projects.show', ['project' => $project, 'embed' => 1]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('embedded', true));
+
+        $this->get(route('public.project-360.projects.panoramas.show', [$project, $panorama]))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/jpeg');
+
+        $this->getJson(route('api.v1.web.projects.tour-360.show', $project))
+            ->assertOk()
+            ->assertJsonPath('project.id', $project->id)
+            ->assertJsonPath('project.name', $project->name)
+            ->assertJsonPath('tour.panoramas.0.id', $panorama->id)
+            ->assertJsonPath(
+                'tour.panoramas.0.viewer_url',
+                route('api.v1.web.projects.tour-360.panoramas.show', [$project, $panorama]),
+            );
+
+        $this->get(route('api.v1.web.projects.tour-360.panoramas.show', [$project, $panorama]))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/jpeg');
+    }
+
+    public function test_public_project_tour_rejects_inactive_projects_and_empty_tours(): void
+    {
+        $empty = $this->createProject('Sin panoramas');
+        $this->get(route('public.project-360.projects.show', $empty))->assertNotFound();
+        $this->getJson(route('api.v1.web.projects.tour-360.show', $empty))->assertNotFound();
+
+        [$project, , $panorama] = $this->createTour();
+        $foreign = $this->createPanorama($this->createProject('Ajeno'));
+
+        $this->get(route('public.project-360.projects.panoramas.show', [$project, $foreign]))
+            ->assertNotFound();
+
+        $project->update(['is_active' => false]);
+        $this->get(route('public.project-360.projects.show', $project))->assertNotFound();
+        $this->getJson(route('api.v1.web.projects.tour-360.show', $project))->assertNotFound();
+        $this->get(route('public.project-360.projects.panoramas.show', [$project, $panorama]))
+            ->assertNotFound();
+    }
+
+    public function test_tour_360_url_clears_when_last_panorama_is_removed(): void
+    {
+        [$project, , $panorama] = $this->createTour();
+        $service = app(Project360TourService::class);
+        $service->syncTour360Url($project);
+        $this->assertNotNull($project->fresh()->tour_360_url);
+
+        $service->deletePanorama($project, $panorama);
+
+        $this->assertNull($project->fresh()->tour_360_url);
+        $this->get(route('public.project-360.projects.show', $project))->assertNotFound();
     }
 
     /** @return array{0: Project, 1: Project360Tour, 2: ProjectAsset} */

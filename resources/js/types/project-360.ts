@@ -1,5 +1,16 @@
+import type {
+    Project360BadgeVisibility,
+    Project360LabelFont,
+    Project360LabelShape,
+} from '@/lib/project-360-label-style';
+
 export type Project360HotspotShape = 'sphere' | 'ring' | 'pin';
 export type Project360LabelVisibility = 'always' | 'hover' | 'hidden';
+export type {
+    Project360BadgeVisibility,
+    Project360LabelFont,
+    Project360LabelShape,
+};
 
 export type Project360TourSettings = {
     accent_color: string;
@@ -58,7 +69,16 @@ export type Project360Label = {
     yaw: number;
     pitch: number;
     color: string;
+    background_color: string;
+    border_color: string;
+    border_width: number;
+    font: Project360LabelFont;
     size: number;
+    width: number;
+    height: number;
+    rotation: number;
+    shape: Project360LabelShape;
+    visibility: Project360BadgeVisibility;
 };
 
 export type Project360PolygonVertex = {
@@ -95,6 +115,20 @@ export type Project360Polygon = {
     color: string;
     hover_color: string;
     opacity: number;
+    label_text: string | null;
+    label_color: string;
+    label_background_color: string;
+    label_border_color: string;
+    label_border_width: number;
+    label_font: Project360LabelFont;
+    label_size: number;
+    label_width: number;
+    label_height: number;
+    label_rotation: number;
+    label_shape: Project360LabelShape;
+    label_visibility: Project360BadgeVisibility;
+    label_yaw: number | null;
+    label_pitch: number | null;
 };
 
 export type Project360ShareLink = {

@@ -51,6 +51,9 @@ class StoreProject360PanoramasRequest extends FormRequest
             'panorama_files.required' => 'Selecciona al menos una imagen panorámica.',
             'panorama_files.max' => 'Puedes subir hasta 5 panoramas por vez.',
             'panorama_files.*.mimes' => 'Cada panorama debe ser JPG, PNG o WebP.',
+            'panorama_files.*.image' => 'Cada panorama debe ser una imagen JPG, PNG o WebP.',
+            'panorama_files.*.file' => self::uploadFailedMessage(),
+            'panorama_files.*.uploaded' => self::uploadFailedMessage(),
             'panorama_files.*.max' => 'Cada panorama puede pesar como máximo 20 MB.',
             'panorama_files.*.dimensions' => sprintf(
                 'Cada panorama debe medir entre %d×%d y %d×%d píxeles.',
@@ -72,21 +75,22 @@ class StoreProject360PanoramasRequest extends FormRequest
             $titles = $this->input('panorama_titles') ?? [];
 
             foreach ($files as $index => $file) {
-                if (! $file instanceof UploadedFile || $validator->errors()->has("panorama_files.{$index}")) {
+                if (! $file instanceof UploadedFile) {
                     continue;
                 }
 
-                $size = @getimagesize($file->getPathname());
-                if ($size === false) {
+                if (! $file->isValid()) {
                     continue;
                 }
 
-                [$width, $height] = $size;
-                if (! self::hasAcceptableEquirectangularRatio((int) $width, (int) $height)) {
-                    $validator->errors()->add(
-                        "panorama_files.{$index}",
-                        'Cada panorama debe ser aproximadamente 2:1 (equirectangular), con hasta ±5 % de tolerancia.',
-                    );
+                $details = self::describeFileViolations($file);
+                if ($details === []) {
+                    continue;
+                }
+
+                $validator->errors()->forget("panorama_files.{$index}");
+                foreach ($details as $detail) {
+                    $validator->errors()->add("panorama_files.{$index}", $detail);
                 }
             }
 
@@ -109,6 +113,110 @@ class StoreProject360PanoramasRequest extends FormRequest
         $max = 2 * (1 + self::RATIO_TOLERANCE);
 
         return $ratio >= $min && $ratio <= $max;
+    }
+
+    public static function uploadFailedMessage(): string
+    {
+        $upload = (string) (ini_get('upload_max_filesize') ?: '2M');
+        $post = (string) (ini_get('post_max_size') ?: '8M');
+
+        return 'No se pudo subir el panorama. El archivo supera el límite del servidor '
+            ."(máx. archivo {$upload}, máx. POST {$post}) "
+            .'o la transferencia se interrumpió. Usa un JPG, PNG o WebP de hasta 20 MB.';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function describeFileViolations(UploadedFile $file): array
+    {
+        $violations = [];
+        $extension = strtolower((string) $file->getClientOriginalExtension());
+        $mime = strtolower((string) ($file->getMimeType() ?: $file->getClientMimeType()));
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+        $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        $unknownMimes = ['', 'application/octet-stream'];
+        $extensionAllowed = in_array($extension, $allowedExtensions, true);
+        $mimeIsImage = in_array($mime, $allowedMimes, true);
+        $formatOk = $mimeIsImage
+            ? ($extensionAllowed || $extension === '')
+            : (in_array($mime, $unknownMimes, true) && $extensionAllowed);
+
+        if (! $formatOk) {
+            $violations[] = sprintf(
+                'Formato: detectado %s (%s). Debe ser JPG, PNG o WebP.',
+                $extension !== '' ? strtoupper($extension) : 'sin extensión',
+                $mime !== '' ? $mime : 'tipo desconocido',
+            );
+        }
+
+        $bytes = (int) $file->getSize();
+        $maxBytes = 20 * 1024 * 1024;
+        if ($bytes > $maxBytes) {
+            $violations[] = sprintf(
+                'Peso: %s supera el máximo de 20 MB.',
+                self::formatBytes($bytes),
+            );
+        }
+
+        $size = @getimagesize($file->getPathname());
+        if ($size === false) {
+            $violations[] = 'Lectura: no se pudo abrir la imagen para medir resolución y proporción.';
+
+            return $violations;
+        }
+
+        $width = (int) $size[0];
+        $height = (int) $size[1];
+
+        if ($width < self::MIN_WIDTH || $height < self::MIN_HEIGHT) {
+            $violations[] = sprintf(
+                'Resolución mínima: mide %d×%d. Mínimo %d×%d.',
+                $width,
+                $height,
+                self::MIN_WIDTH,
+                self::MIN_HEIGHT,
+            );
+        }
+
+        if ($width > self::MAX_WIDTH || $height > self::MAX_HEIGHT) {
+            $violations[] = sprintf(
+                'Resolución máxima: mide %d×%d. Máximo %d×%d.',
+                $width,
+                $height,
+                self::MAX_WIDTH,
+                self::MAX_HEIGHT,
+            );
+        }
+
+        if (! self::hasAcceptableEquirectangularRatio($width, $height)) {
+            $ratio = $height > 0 ? $width / $height : 0;
+            $minRatio = 2 * (1 - self::RATIO_TOLERANCE);
+            $maxRatio = 2 * (1 + self::RATIO_TOLERANCE);
+            $violations[] = sprintf(
+                'Proporción 2:1: mide %d×%d (%.2f:1). Se requiere ~2:1, rango %.2f:1 a %.2f:1 (±5 %%).',
+                $width,
+                $height,
+                $ratio,
+                $minRatio,
+                $maxRatio,
+            );
+        }
+
+        return $violations;
+    }
+
+    public static function formatBytes(int $bytes): string
+    {
+        if ($bytes < 1024) {
+            return $bytes.' B';
+        }
+
+        if ($bytes < 1024 * 1024) {
+            return number_format($bytes / 1024, 1).' KB';
+        }
+
+        return number_format($bytes / (1024 * 1024), 1).' MB';
     }
 
     private function bubbleIndexedErrors(Validator $validator, string $field): void

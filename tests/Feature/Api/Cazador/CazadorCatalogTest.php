@@ -62,6 +62,28 @@ class CazadorCatalogTest extends TestCase
         $this->assertGreaterThan(0, Project::query()->count());
     }
 
+    public function test_project_payload_includes_tour_360_url(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $project = Project::query()->firstOrFail();
+        $project->update([
+            'tour_360_url' => route('public.project-360.projects.show', $project),
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
+            ->getJson(route('api.v1.cazador.projects.index'))
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $project->id,
+                'tour_360_url' => $project->tour_360_url,
+            ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
+            ->getJson(route('api.v1.cazador.projects.show', $project))
+            ->assertOk()
+            ->assertJsonPath('data.tour_360_url', $project->tour_360_url);
+    }
+
     public function test_advisor_can_show_project(): void
     {
         $advisor = Advisor::firstOrFail();

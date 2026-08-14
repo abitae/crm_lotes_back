@@ -34,6 +34,10 @@ class EnsureInmoproRoutePermission
         'inmopro.project-360.polygons.destroy' => 'inmopro.project-360.manage',
         'inmopro.project-360.share-links.store' => 'inmopro.project-360.manage',
         'inmopro.project-360.share-links.revoke' => 'inmopro.project-360.manage',
+        'inmopro.project-flat.show' => 'inmopro.project-flat.index',
+        'inmopro.project-flat.polygons.store' => 'inmopro.project-flat.manage',
+        'inmopro.project-flat.polygons.update' => 'inmopro.project-flat.manage',
+        'inmopro.project-flat.polygons.destroy' => 'inmopro.project-flat.manage',
     ];
 
     /**

@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\v1\Datero\AuthController as DateroAuthController;
 use App\Http\Controllers\Api\v1\Datero\CityController as DateroCityController;
 use App\Http\Controllers\Api\v1\Datero\ClientController as DateroClientController;
 use App\Http\Controllers\Api\v1\Datero\ProfileController as DateroProfileController;
+use App\Http\Controllers\Api\v1\Datero\ProjectController as DateroProjectController;
+use App\Http\Controllers\Api\v1\Web\Project360Controller as WebProject360Controller;
 use App\Http\Controllers\Api\v1\Web\WebController;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +29,8 @@ Route::prefix('v1/web')->name('api.v1.web.')->middleware('throttle:120,1')->grou
     Route::get('projects', [WebController::class, 'index'])->name('projects.index');
     Route::get('projects/{project}', [WebController::class, 'show'])->name('projects.show');
     Route::get('projects/{project}/assets/{asset}', [WebController::class, 'asset'])->name('projects.assets.show');
+    Route::get('projects/{project}/tour-360', [WebProject360Controller::class, 'show'])->name('projects.tour-360.show');
+    Route::get('projects/{project}/tour-360/panoramas/{panorama}', [WebProject360Controller::class, 'panorama'])->name('projects.tour-360.panoramas.show');
 });
 
 Route::prefix('v1/cazador')->name('api.v1.cazador.')->group(function (): void {
@@ -92,6 +96,8 @@ Route::prefix('v1/datero')->name('api.v1.datero.')->group(function (): void {
         Route::put('me/pin', [DateroProfileController::class, 'updatePin'])->name('me.pin.update');
 
         Route::get('cities', [DateroCityController::class, 'index'])->name('cities.index');
+
+        Route::get('projects', [DateroProjectController::class, 'index'])->name('projects.index');
 
         Route::get('clients', [DateroClientController::class, 'index'])->name('clients.index');
         Route::post('clients', [DateroClientController::class, 'store'])->name('clients.store');

@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Inmopro\Project;
 use App\Models\Inmopro\Project360ShareLink;
 use App\Models\Inmopro\ProjectAsset;
 use App\Services\Inmopro\Project360ShareService;
 use App\Services\Inmopro\Project360TourService;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -37,7 +38,31 @@ class PublicProject360Controller extends Controller
                 'name' => $project->name,
             ],
             'tour' => $payload,
+            'embedded' => false,
         ]);
+    }
+
+    public function showByProject(Request $request, Project $project): Response
+    {
+        $this->tourService->ensurePubliclyViewable($project);
+
+        $payload = $this->tourService->payload(
+            $project,
+            fn (ProjectAsset $panorama): string => $this->tourService->publicPanoramaUrl($project, $panorama),
+        );
+
+        return Inertia::render('public/project-360/show', [
+            'project' => [
+                'name' => $project->name,
+            ],
+            'tour' => $payload,
+            'embedded' => $request->boolean('embed'),
+        ]);
+    }
+
+    public function panoramaByProject(Project $project, ProjectAsset $panorama): StreamedResponse
+    {
+        return $this->tourService->streamPublicPanorama($project, $panorama);
     }
 
     public function panorama(Project360ShareLink $shareLink, ProjectAsset $panorama): StreamedResponse
@@ -51,16 +76,7 @@ class PublicProject360Controller extends Controller
             && $panorama->is_active,
             404,
         );
-        abort_unless(Storage::disk($panorama->disk)->exists($panorama->path), 404);
 
-        return Storage::disk($panorama->disk)->response(
-            $panorama->path,
-            $panorama->file_name,
-            [
-                'Content-Type' => $panorama->mime_type,
-                'Content-Disposition' => 'inline; filename="'.addcslashes($panorama->file_name, '"\\').'"',
-                'Cache-Control' => 'private, max-age=300, must-revalidate',
-            ],
-        );
+        return $panorama->streamInline();
     }
 }

@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import {
     LayoutGrid,
+    Map,
     MapPin,
     Pencil,
     Plus,
@@ -55,6 +56,17 @@ export function ProjectShowHeader({
                     </div>
 
                     <div className="flex flex-wrap gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl border-transparent bg-[#f5f3f3] shadow-none dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                            asChild
+                        >
+                            <Link href={`/inmopro/project-flat/${project.id}`}>
+                                <Map className="h-4 w-4" />
+                                Vista plana
+                            </Link>
+                        </Button>
                         <Button
                             variant="outline"
                             size="sm"

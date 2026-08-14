@@ -32,6 +32,7 @@ class Project extends Model
         'image_portada',
         'is_web',
         'tipo_web',
+        'tour_360_url',
     ];
 
     protected function casts(): array
@@ -105,5 +106,13 @@ class Project extends Model
     public function tour360(): HasOne
     {
         return $this->hasOne(Project360Tour::class);
+    }
+
+    /**
+     * @return HasMany<ProjectFlatPolygon, $this>
+     */
+    public function flatPolygons(): HasMany
+    {
+        return $this->hasMany(ProjectFlatPolygon::class);
     }
 }

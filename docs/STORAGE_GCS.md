@@ -1,11 +1,13 @@
 # Almacenamiento en Google Cloud Storage
 
-## Configuración
+En local el disco es `public` (`FILESYSTEM_DISK=public`, `php artisan storage:link`), sin credenciales GCP. En producción usar `gcs`.
+
+## Configuración (producción)
 
 1. Crear bucket GCS con acceso público de lectura (o CDN delante).
 2. Crear cuenta de servicio con rol **Storage Object Admin**.
 3. Copiar los campos del JSON de la cuenta de servicio a variables de entorno (no subir el JSON al repositorio).
-4. Variables en `.env`:
+4. Variables en producción:
 
 ```env
 FILESYSTEM_DISK=gcs
@@ -21,9 +23,7 @@ GOOGLE_CLOUD_CLIENT_ID=
 GOOGLE_CLOUD_CLIENT_CERT_URL=
 ```
 
-`GOOGLE_CLOUD_PRIVATE_KEY` debe usar `\n` literales entre comillas en `.env`. En GitHub Actions / Laravel Cloud, define cada valor como secret.
-
-En local puede usarse `FILESYSTEM_DISK=public` sin credenciales GCP.
+`GOOGLE_CLOUD_PRIVATE_KEY` debe usar `\n` literales entre comillas en `.env`. En GitHub Actions / Laravel Cloud, define cada valor como secret. `CAZADOR_PROJECT_ASSET_DISK` puede omitirse: hereda `FILESYSTEM_DISK`.
 
 ## Migración desde disco local
 

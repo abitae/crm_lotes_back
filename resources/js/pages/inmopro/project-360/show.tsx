@@ -5,7 +5,9 @@ import {
     Crosshair,
     ExternalLink,
     Link2,
+    LoaderCircle,
     MousePointer2,
+    Pencil,
     Pentagon,
     Plus,
     Rotate3D,
@@ -28,9 +30,29 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import {
+    analyzePanoramaFiles,
+    formatBytes,
+    formatRatio,
+    PROJECT_360_PANORAMA_RULES,
+    type PanoramaFileReport,
+    type PanoramaSelectionAnalysis,
+} from '@/lib/project-360-panorama-validation';
+import {
+    polygonCentroid,
     polygonHasSelfIntersection,
     polylineHasSelfIntersection,
 } from '@/lib/project-360-geometry';
+import {
+    PROJECT_360_LABEL_FONTS,
+    PROJECT_360_LABEL_SHAPES,
+    PROJECT_360_LABEL_STYLE_DEFAULTS,
+    PROJECT_360_LABEL_VISIBILITIES,
+    project360LabelBadgePreviewStyle,
+    type Project360BadgeVisibility,
+    type Project360LabelFont,
+    type Project360LabelShape,
+    type Project360LabelStyle,
+} from '@/lib/project-360-label-style';
 import { confirmDelete } from '@/lib/swal';
 import project360 from '@/routes/inmopro/project-360';
 import hotspotRoutes from '@/routes/inmopro/project-360/hotspots';
@@ -57,6 +79,7 @@ type Project = {
     id: number;
     name: string;
     is_active: boolean;
+    tour_360_url?: string | null;
 };
 
 type PageProps = {
@@ -93,15 +116,27 @@ type PolygonDraft = {
     color: string;
     hover_color: string;
     opacity: number;
+    label_text: string;
+    label_color: string;
+    label_background_color: string;
+    label_border_color: string;
+    label_border_width: number;
+    label_font: Project360LabelFont;
+    label_size: number;
+    label_width: number;
+    label_height: number;
+    label_rotation: number;
+    label_shape: Project360LabelShape;
+    label_visibility: Project360BadgeVisibility;
+    label_yaw: number | null;
+    label_pitch: number | null;
 };
 
 type LabelDraft = {
     text: string;
     yaw: number;
     pitch: number;
-    color: string;
-    size: number;
-};
+} & Project360LabelStyle;
 
 type PolygonDrawingState = 'idle' | 'drawing' | 'closed';
 type PolygonDraftTarget = 'create' | number | null;
@@ -138,20 +173,72 @@ const project360DateFormatter = new Intl.DateTimeFormat('es-PE', {
     timeZone: 'America/Lima',
 });
 
-function collectFieldErrors(
-    errors: Record<string, string>,
-    fields: string[],
-): string[] {
-    const messages = Object.entries(errors)
-        .filter(([key]) =>
-            fields.some(
-                (field) => key === field || key.startsWith(`${field}.`),
-            ),
-        )
-        .map(([, message]) => message)
-        .filter(Boolean);
+function PanoramaRequirementReport({ report }: { report: PanoramaFileReport }) {
+    const { inspection } = report;
+    const failed = report.checks.filter((check) => !check.ok);
+    const summary = [
+        inspection.width && inspection.height
+            ? `${inspection.width}×${inspection.height}`
+            : 'sin resolución',
+        formatBytes(inspection.size),
+        inspection.width && inspection.height
+            ? formatRatio(inspection.width, inspection.height)
+            : null,
+    ]
+        .filter(Boolean)
+        .join(' · ');
 
-    return [...new Set(messages)];
+    return (
+        <div
+            className={`space-y-2 rounded-md border p-2 text-xs ${
+                report.ok
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                    : 'border-red-200 bg-red-50 text-red-950'
+            }`}
+        >
+            <p className="font-medium">
+                {report.ok ? 'Cumple los requisitos' : 'No se puede subir'}
+                <span className="ml-1 font-normal opacity-80">
+                    {report.fileName} · {summary}
+                </span>
+            </p>
+            {failed.length > 0 ? (
+                <div className="rounded border border-red-200 bg-white/80 p-2">
+                    <p className="mb-1 font-semibold text-red-800">
+                        Errores de validación ({failed.length})
+                    </p>
+                    <ul className="space-y-1">
+                        {failed.map((check) => (
+                            <li key={check.id} className="flex gap-1.5">
+                                <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-600" />
+                                <span>
+                                    <span className="font-medium">
+                                        {check.label}:{' '}
+                                    </span>
+                                    {check.detail}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ) : null}
+            <ul className="space-y-1">
+                {report.checks
+                    .filter((check) => check.ok)
+                    .map((check) => (
+                        <li key={check.id} className="flex gap-1.5">
+                            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                            <span>
+                                <span className="font-medium">
+                                    {check.label}:{' '}
+                                </span>
+                                {check.detail}
+                            </span>
+                        </li>
+                    ))}
+            </ul>
+        </div>
+    );
 }
 
 function hotspotDraft(hotspot: Project360Hotspot): HotspotDraft {
@@ -179,6 +266,20 @@ function polygonDraft(polygon: Project360Polygon): PolygonDraft {
         color: polygon.color,
         hover_color: polygon.hover_color,
         opacity: polygon.opacity,
+        label_text: polygon.label_text ?? '',
+        label_color: polygon.label_color,
+        label_background_color: polygon.label_background_color,
+        label_border_color: polygon.label_border_color,
+        label_border_width: polygon.label_border_width,
+        label_font: polygon.label_font,
+        label_size: polygon.label_size,
+        label_width: polygon.label_width,
+        label_height: polygon.label_height,
+        label_rotation: polygon.label_rotation,
+        label_shape: polygon.label_shape,
+        label_visibility: polygon.label_visibility,
+        label_yaw: polygon.label_yaw,
+        label_pitch: polygon.label_pitch,
     };
 }
 
@@ -188,8 +289,21 @@ function labelDraft(label: Project360Label): LabelDraft {
         yaw: label.yaw,
         pitch: label.pitch,
         color: label.color,
+        background_color: label.background_color,
+        border_color: label.border_color,
+        border_width: label.border_width,
+        font: label.font,
         size: label.size,
+        width: label.width,
+        height: label.height,
+        rotation: label.rotation,
+        shape: label.shape,
+        visibility: label.visibility,
     };
+}
+
+function lotNumberLabel(lot: Project360LotOption | null | undefined): string {
+    return lot ? String(lot.number) : '';
 }
 
 export default function Project360Show({
@@ -259,6 +373,10 @@ export default function Project360Show({
         panorama_files: [],
         panorama_titles: [],
     });
+    const [panoramaAnalysis, setPanoramaAnalysis] =
+        useState<PanoramaSelectionAnalysis | null>(null);
+    const [analyzingPanoramas, setAnalyzingPanoramas] = useState(false);
+    const panoramaAnalysisSeq = useRef(0);
     const hotspotForm = useForm<HotspotDraft & { source_panorama_id: number }>({
         source_panorama_id: initialPanoramaId ?? 0,
         target_panorama_id:
@@ -280,8 +398,8 @@ export default function Project360Show({
         text: '',
         yaw: 0,
         pitch: 0,
+        ...PROJECT_360_LABEL_STYLE_DEFAULTS,
         color: tour.settings.hotspot_text_color,
-        size: 1,
     });
     const polygonForm = useForm<PolygonDraft & { source_panorama_id: number }>({
         source_panorama_id: initialPanoramaId ?? 0,
@@ -292,6 +410,21 @@ export default function Project360Show({
         color: tour.settings.accent_color,
         hover_color: tour.settings.hotspot_hover_color,
         opacity: 0.28,
+        label_text: '',
+        label_color: PROJECT_360_LABEL_STYLE_DEFAULTS.color,
+        label_background_color:
+            PROJECT_360_LABEL_STYLE_DEFAULTS.background_color,
+        label_border_color: PROJECT_360_LABEL_STYLE_DEFAULTS.border_color,
+        label_border_width: PROJECT_360_LABEL_STYLE_DEFAULTS.border_width,
+        label_font: PROJECT_360_LABEL_STYLE_DEFAULTS.font,
+        label_size: PROJECT_360_LABEL_STYLE_DEFAULTS.size,
+        label_width: PROJECT_360_LABEL_STYLE_DEFAULTS.width,
+        label_height: PROJECT_360_LABEL_STYLE_DEFAULTS.height,
+        label_rotation: PROJECT_360_LABEL_STYLE_DEFAULTS.rotation,
+        label_shape: PROJECT_360_LABEL_STYLE_DEFAULTS.shape,
+        label_visibility: PROJECT_360_LABEL_STYLE_DEFAULTS.visibility,
+        label_yaw: null,
+        label_pitch: null,
     });
     const themeForm = useForm({ ...tour.settings });
     const shareForm = useForm({ label: '' });
@@ -320,13 +453,13 @@ export default function Project360Show({
         (polygon) => polygon.id === selectedPolygonId,
     );
     const selectedPolygonDraft = selectedPolygon
-        ? polygonDrafts[selectedPolygon.id]
+        ? (polygonDrafts[selectedPolygon.id] ?? polygonDraft(selectedPolygon))
         : null;
     const selectedLabel = tour.labels.find(
         (label) => label.id === selectedLabelId,
     );
     const selectedLabelDraft = selectedLabel
-        ? labelDrafts[selectedLabel.id]
+        ? (labelDrafts[selectedLabel.id] ?? labelDraft(selectedLabel))
         : null;
     const activeLabelDraft =
         selectedLabelDraft ??
@@ -415,6 +548,23 @@ export default function Project360Show({
                       previewLot?.status?.color ??
                       activePolygonDraft.hover_color,
                   opacity: activePolygonDraft.opacity,
+                  label_text: previewLot
+                      ? lotNumberLabel(previewLot)
+                      : activePolygonDraft.label_text.trim() || null,
+                  label_color: activePolygonDraft.label_color,
+                  label_background_color:
+                      activePolygonDraft.label_background_color,
+                  label_border_color: activePolygonDraft.label_border_color,
+                  label_border_width: activePolygonDraft.label_border_width,
+                  label_font: activePolygonDraft.label_font,
+                  label_size: activePolygonDraft.label_size,
+                  label_width: activePolygonDraft.label_width,
+                  label_height: activePolygonDraft.label_height,
+                  label_rotation: activePolygonDraft.label_rotation,
+                  label_shape: activePolygonDraft.label_shape,
+                  label_visibility: activePolygonDraft.label_visibility,
+                  label_yaw: activePolygonDraft.label_yaw,
+                  label_pitch: activePolygonDraft.label_pitch,
               }
             : null;
 
@@ -639,14 +789,94 @@ export default function Project360Show({
         setPlacementMode(null);
     };
 
+    const analyzeSelectedPanoramas = async (files: File[]) => {
+        const seq = ++panoramaAnalysisSeq.current;
+        uploadForm.clearErrors();
+
+        if (files.length === 0) {
+            setPanoramaAnalysis(null);
+            setAnalyzingPanoramas(false);
+            uploadForm.setData({
+                panorama_files: [],
+                panorama_titles: [],
+            });
+
+            return;
+        }
+
+        setAnalyzingPanoramas(true);
+        setPanoramaAnalysis(null);
+
+        const analysis = await analyzePanoramaFiles(files);
+        if (seq !== panoramaAnalysisSeq.current) {
+            return;
+        }
+
+        setPanoramaAnalysis(analysis);
+        setAnalyzingPanoramas(false);
+
+        const errorMap: Record<string, string> = {};
+        analysis.batchErrors.forEach((message, index) => {
+            errorMap[
+                index === 0 ? 'panorama_files' : `panorama_files.batch.${index}`
+            ] = message;
+        });
+        if (Object.keys(errorMap).length > 0) {
+            uploadForm.setError(errorMap);
+        }
+
+        uploadForm.setData({
+            panorama_files: files,
+            panorama_titles: files.map((file) =>
+                file.name.replace(/\.[^.]+$/, ''),
+            ),
+        });
+    };
+
     const submitPanoramas = (event: React.FormEvent) => {
         event.preventDefault();
+
+        if (analyzingPanoramas) {
+            return;
+        }
+
+        const analysis = panoramaAnalysis;
+        if (
+            !analysis ||
+            !analysis.ok ||
+            uploadForm.data.panorama_files.length === 0
+        ) {
+            const errorMap: Record<string, string> = {};
+            if (uploadForm.data.panorama_files.length === 0) {
+                errorMap.panorama_files =
+                    'Selecciona al menos una imagen panorámica.';
+            }
+            analysis?.batchErrors.forEach((message, index) => {
+                errorMap[
+                    index === 0
+                        ? 'panorama_files'
+                        : `panorama_files.batch.${index}`
+                ] = message;
+            });
+            analysis?.reports.forEach((report, index) => {
+                if (!report.ok) {
+                    errorMap[`panorama_files.${index}`] =
+                        report.errors.join(' ');
+                }
+            });
+            uploadForm.setError(errorMap);
+
+            return;
+        }
+
         uploadForm.post(panoramaRoutes.store(project.id).url, {
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => {
+                panoramaAnalysisSeq.current += 1;
                 uploadForm.reset();
                 uploadForm.clearErrors();
+                setPanoramaAnalysis(null);
             },
         });
     };
@@ -734,11 +964,22 @@ export default function Project360Show({
             ...data,
             source_panorama_id: currentPanoramaId,
             description: data.description || null,
+            label_text: data.lot_id
+                ? lotNumberLabel(
+                      lotOptions.find((lot) => lot.id === data.lot_id) ?? null,
+                  )
+                : data.label_text.trim() || null,
         }));
         polygonForm.post(polygonRoutes.store(project.id).url, {
             preserveScroll: true,
             onSuccess: () => {
-                polygonForm.reset('lot_id', 'title', 'description', 'vertices');
+                polygonForm.reset(
+                    'lot_id',
+                    'title',
+                    'description',
+                    'vertices',
+                    'label_text',
+                );
                 setPlacementMode(null);
                 setPolygonDrawingState('idle');
                 setPolygonDraftTarget(null);
@@ -758,6 +999,12 @@ export default function Project360Show({
                 source_panorama_id: polygon.source_panorama_id,
                 ...draft,
                 description: draft.description || null,
+                label_text: draft.lot_id
+                    ? lotNumberLabel(
+                          lotOptions.find((lot) => lot.id === draft.lot_id) ??
+                              null,
+                      )
+                    : draft.label_text.trim() || null,
             },
             {
                 preserveScroll: true,
@@ -797,20 +1044,43 @@ export default function Project360Show({
         polygonId: number,
         changes: Partial<PolygonDraft>,
     ) => {
-        setPolygonDrafts((current) => ({
-            ...current,
-            [polygonId]: { ...current[polygonId], ...changes },
-        }));
+        setPolygonDrafts((current) => {
+            const original = tour.polygons.find(
+                (item) => item.id === polygonId,
+            );
+            const base =
+                current[polygonId] ??
+                (original ? polygonDraft(original) : null);
+
+            if (!base) {
+                return current;
+            }
+
+            return {
+                ...current,
+                [polygonId]: { ...base, ...changes },
+            };
+        });
     };
 
     const updateLabelDraft = (
         labelId: number,
         changes: Partial<LabelDraft>,
     ) => {
-        setLabelDrafts((current) => ({
-            ...current,
-            [labelId]: { ...current[labelId], ...changes },
-        }));
+        setLabelDrafts((current) => {
+            const original = tour.labels.find((item) => item.id === labelId);
+            const base =
+                current[labelId] ?? (original ? labelDraft(original) : null);
+
+            if (!base) {
+                return current;
+            }
+
+            return {
+                ...current,
+                [labelId]: { ...base, ...changes },
+            };
+        });
     };
 
     const cancelPlacement = () => {
@@ -881,7 +1151,10 @@ export default function Project360Show({
                 project: project.id,
                 polygon: polygon.id,
             }).url,
-            { preserveScroll: true },
+            {
+                preserveScroll: true,
+                onSuccess: () => setSelectedPolygonId(null),
+            },
         );
     };
 
@@ -895,7 +1168,10 @@ export default function Project360Show({
                 project: project.id,
                 label: label.id,
             }).url,
-            { preserveScroll: true },
+            {
+                preserveScroll: true,
+                onSuccess: () => setSelectedLabelId(null),
+            },
         );
     };
 
@@ -933,11 +1209,11 @@ export default function Project360Show({
                 <div
                     className={`grid min-h-0 flex-1 gap-4 ${
                         canManage
-                            ? 'xl:grid-cols-[minmax(0,1fr)_26rem]'
+                            ? 'lg:grid-cols-[minmax(0,1fr)_minmax(22rem,28rem)]'
                             : 'grid-cols-1'
                     }`}
                 >
-                    <div className="min-h-[34rem] xl:sticky xl:top-4 xl:h-[calc(100vh-7.5rem)]">
+                    <div className="min-h-[32rem] lg:sticky lg:top-4 lg:h-[calc(100vh-7.5rem)]">
                         <Project360Viewer
                             ref={viewerRef}
                             panoramas={tour.panoramas}
@@ -962,6 +1238,7 @@ export default function Project360Show({
                                     : null
                             }
                             selectedPolygonId={selectedPolygonId}
+                            selectedLabelId={selectedLabelId}
                             onPlacement={handlePlacement}
                             onPolygonClose={closePolygonDrawing}
                             onPanoramaChange={handlePanoramaChange}
@@ -969,18 +1246,31 @@ export default function Project360Show({
                                 setSelectedPolygonId(polygonId);
                                 if (polygonId !== null) {
                                     setActiveTab('polygons');
+                                    setSelectedLabelId(null);
+                                    setSelectedHotspotId(null);
+                                    setPlacementMode(null);
                                 }
                             }}
-                            className="h-full min-h-[34rem] w-full"
+                            onLabelSelect={(labelId) => {
+                                setSelectedLabelId(labelId);
+                                if (labelId !== null) {
+                                    setActiveTab('labels');
+                                    setSelectedPolygonId(null);
+                                    setSelectedHotspotId(null);
+                                    setCreateLabelPointSelected(false);
+                                    setPlacementMode(null);
+                                }
+                            }}
+                            className="h-full min-h-[32rem] w-full"
                         />
                     </div>
 
                     {canManage ? (
-                        <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-background shadow-sm xl:sticky xl:top-4 xl:h-[calc(100vh-7.5rem)]">
+                        <aside className="flex flex-col rounded-xl border bg-background shadow-sm lg:sticky lg:top-4 lg:h-[calc(100vh-7.5rem)] lg:min-h-0 lg:overflow-hidden">
                             <div
                                 role="tablist"
                                 aria-label="Configuración del tour 360"
-                                className="flex gap-1 overflow-x-auto border-b bg-slate-50 p-2"
+                                className="flex shrink-0 gap-1 overflow-x-auto border-b bg-slate-50 p-2"
                             >
                                 {editorTabs.map((tab) => (
                                     <button
@@ -1007,7 +1297,7 @@ export default function Project360Show({
                                     </button>
                                 ))}
                             </div>
-                            <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-20">
+                            <div className="p-4 pb-20 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
                                 {activeTab === 'panoramas' ? (
                                     <PanoramasPanel
                                         project={project}
@@ -1017,6 +1307,11 @@ export default function Project360Show({
                                         setPanoramaTitles={setPanoramaTitles}
                                         uploadForm={uploadForm}
                                         submitPanoramas={submitPanoramas}
+                                        panoramaAnalysis={panoramaAnalysis}
+                                        analyzingPanoramas={analyzingPanoramas}
+                                        onPanoramaFilesChosen={
+                                            analyzeSelectedPanoramas
+                                        }
                                         sceneDraft={sceneDraft}
                                         setSceneDraft={setSceneDraft}
                                         viewerRef={viewerRef}
@@ -1130,6 +1425,7 @@ export default function Project360Show({
                                         setSelectedHotspotId={
                                             setSelectedHotspotId
                                         }
+                                        setSelectedLabelId={setSelectedLabelId}
                                         createPolygon={createPolygon}
                                         updateDraft={updatePolygonDraft}
                                         updatePolygon={updatePolygon}
@@ -1153,6 +1449,7 @@ export default function Project360Show({
                                     <SharePanel
                                         projectId={project.id}
                                         tour={tour}
+                                        publicUrl={project.tour_360_url ?? null}
                                         shareForm={shareForm}
                                         copiedLinkId={copiedLinkId}
                                         copyLink={copyLink}
@@ -1177,6 +1474,9 @@ function PanoramasPanel({
     setPanoramaTitles,
     uploadForm,
     submitPanoramas,
+    panoramaAnalysis,
+    analyzingPanoramas,
+    onPanoramaFilesChosen,
     sceneDraft,
     setSceneDraft,
     viewerRef,
@@ -1191,6 +1491,9 @@ function PanoramasPanel({
     >;
     uploadForm: InertiaForm<UploadForm>;
     submitPanoramas: (event: React.FormEvent) => void;
+    panoramaAnalysis: PanoramaSelectionAnalysis | null;
+    analyzingPanoramas: boolean;
+    onPanoramaFilesChosen: (files: File[]) => void;
     sceneDraft: { initial_yaw: number; initial_pitch: number };
     setSceneDraft: React.Dispatch<
         React.SetStateAction<{ initial_yaw: number; initial_pitch: number }>
@@ -1207,28 +1510,66 @@ function PanoramasPanel({
                 onSubmit={submitPanoramas}
                 className="space-y-3 rounded-lg border bg-slate-50 p-3"
             >
-                <p className="text-xs text-slate-500">
-                    JPG, PNG o WebP · máx. 20&nbsp;MB · proporción ~2:1 (±5&nbsp;%) ·
-                    entre 1920×960 y 8192×4200 · hasta 5 por carga.
-                </p>
+                <ul className="space-y-1 text-xs text-slate-600">
+                    <li>Formato: JPG, PNG o WebP.</li>
+                    <li>
+                        Peso: máximo{' '}
+                        {PROJECT_360_PANORAMA_RULES.maxBytes / (1024 * 1024)}{' '}
+                        MB.
+                    </li>
+                    <li>
+                        Resolución: entre {PROJECT_360_PANORAMA_RULES.minWidth}×
+                        {PROJECT_360_PANORAMA_RULES.minHeight} y{' '}
+                        {PROJECT_360_PANORAMA_RULES.maxWidth}×
+                        {PROJECT_360_PANORAMA_RULES.maxHeight} px.
+                    </li>
+                    <li>
+                        Proporción: ~2:1 equirectangular (±5 %, de 1.90:1 a
+                        2.10:1).
+                    </li>
+                    <li>
+                        Cantidad: hasta {PROJECT_360_PANORAMA_RULES.maxFiles}{' '}
+                        archivos por carga.
+                    </li>
+                </ul>
                 <Input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     multiple
+                    disabled={analyzingPanoramas || uploadForm.processing}
                     onChange={(event) => {
                         const files = Array.from(event.target.files ?? []);
-                        uploadForm.clearErrors();
-                        uploadForm.setData({
-                            panorama_files: files,
-                            panorama_titles: files.map((file) =>
-                                file.name.replace(/\.[^.]+$/, ''),
-                            ),
-                        });
+                        void onPanoramaFilesChosen(files);
                     }}
                 />
+                {analyzingPanoramas ? (
+                    <p className="flex items-center gap-2 text-sm text-slate-600">
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Analizando requisitos de cada imagen…
+                    </p>
+                ) : null}
+                {panoramaAnalysis &&
+                !panoramaAnalysis.ok &&
+                !analyzingPanoramas ? (
+                    <p className="rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-sm text-red-800">
+                        Corrige los errores de validación antes de subir. El
+                        archivo no se enviará al servidor hasta que cumpla todos
+                        los requisitos.
+                    </p>
+                ) : null}
+                {panoramaAnalysis?.batchErrors.map((message) => (
+                    <InputError key={message} message={message} />
+                ))}
+                {uploadForm.errors.panorama_files &&
+                !panoramaAnalysis?.batchErrors.includes(
+                    uploadForm.errors.panorama_files,
+                ) ? (
+                    <InputError message={uploadForm.errors.panorama_files} />
+                ) : null}
                 {uploadForm.data.panorama_titles.map((title, index) => (
                     <div
                         key={`${uploadForm.data.panorama_files[index]?.name}-${index}`}
+                        className="space-y-2 rounded-md border bg-white p-2"
                     >
                         <Input
                             value={title}
@@ -1246,12 +1587,12 @@ function PanoramasPanel({
                                 uploadForm.errors[`panorama_titles.${index}`]
                             }
                         />
+                        {panoramaAnalysis?.reports[index] ? (
+                            <PanoramaRequirementReport
+                                report={panoramaAnalysis.reports[index]}
+                            />
+                        ) : null}
                     </div>
-                ))}
-                {collectFieldErrors(uploadForm.errors, [
-                    'panorama_files',
-                ]).map((message) => (
-                    <InputError key={message} message={message} />
                 ))}
                 <InputError message={uploadForm.errors.panorama_titles} />
                 <Button
@@ -1259,7 +1600,9 @@ function PanoramasPanel({
                     size="sm"
                     disabled={
                         uploadForm.processing ||
-                        uploadForm.data.panorama_files.length === 0
+                        analyzingPanoramas ||
+                        uploadForm.data.panorama_files.length === 0 ||
+                        panoramaAnalysis?.ok !== true
                     }
                 >
                     <Upload className="h-4 w-4" /> Subir panoramas
@@ -1554,11 +1897,11 @@ function HotspotsPanel({
                                     )
                                 }
                             />
-                            <details className="rounded-lg border bg-slate-50 p-3">
-                                <summary className="cursor-pointer text-sm font-medium">
-                                    Ajuste fino
-                                </summary>
-                                <div className="mt-3 grid grid-cols-2 gap-3">
+                            <fieldset className="space-y-3 rounded-lg border bg-white p-3">
+                                <legend className="px-1 text-sm font-medium">
+                                    Posición
+                                </legend>
+                                <div className="grid grid-cols-2 gap-3">
                                     <NumberField
                                         label="Yaw"
                                         value={hotspotForm.data.yaw}
@@ -1582,7 +1925,7 @@ function HotspotsPanel({
                                         }}
                                     />
                                 </div>
-                            </details>
+                            </fieldset>
                             <HotspotStyleFields
                                 value={hotspotForm.data}
                                 inherited={inheritedStyle}
@@ -1682,11 +2025,11 @@ function HotspotsPanel({
                             })
                         }
                     />
-                    <details className="rounded-lg border bg-white p-3">
-                        <summary className="cursor-pointer text-sm font-medium">
-                            Ajuste fino
-                        </summary>
-                        <div className="mt-3 grid grid-cols-2 gap-3">
+                    <fieldset className="space-y-3 rounded-lg border bg-white p-3">
+                        <legend className="px-1 text-sm font-medium">
+                            Posición
+                        </legend>
+                        <div className="grid grid-cols-2 gap-3">
                             <NumberField
                                 label="Yaw"
                                 value={selectedDraft.yaw}
@@ -1708,7 +2051,7 @@ function HotspotsPanel({
                                 }
                             />
                         </div>
-                    </details>
+                    </fieldset>
                     <HotspotStyleFields
                         value={selectedDraft}
                         inherited={inheritedStyle}
@@ -1794,7 +2137,7 @@ function LabelsPanel({
     return (
         <PanelSection
             title="Etiquetas informativas"
-            description="Coloca textos independientes, sin navegación, en cualquier ángulo del panorama."
+            description="Coloca textos, edítalos o elimínalos. Ajusta forma, colores, borde, tamaño y si se ven siempre o al hacer clic."
         >
             <div className="flex flex-wrap gap-2">
                 <Button
@@ -1849,28 +2192,21 @@ function LabelsPanel({
                         />
                         <InputError message={labelForm.errors.text} />
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                        <ColorField
-                            label="Color"
-                            value={labelForm.data.color}
-                            onChange={(color) =>
-                                labelForm.setData('color', color)
-                            }
-                        />
-                        <NumberField
-                            label="Tamaño"
-                            value={labelForm.data.size}
-                            min={0.5}
-                            max={3}
-                            step={0.05}
-                            onChange={(size) => labelForm.setData('size', size)}
-                        />
-                    </div>
-                    <details className="rounded-lg border bg-slate-50 p-3">
-                        <summary className="cursor-pointer text-sm font-medium">
-                            Ángulos de posición
-                        </summary>
-                        <div className="mt-3 grid grid-cols-2 gap-3">
+                    <LabelStyleFields
+                        value={labelForm.data}
+                        previewText={labelForm.data.text}
+                        onChange={(changes) =>
+                            labelForm.setData((current) => ({
+                                ...current,
+                                ...changes,
+                            }))
+                        }
+                    />
+                    <fieldset className="space-y-3 rounded-lg border bg-white p-3">
+                        <legend className="px-1 text-sm font-medium">
+                            Posición
+                        </legend>
+                        <div className="grid grid-cols-2 gap-3">
                             <NumberField
                                 label="Yaw"
                                 value={labelForm.data.yaw}
@@ -1894,13 +2230,22 @@ function LabelsPanel({
                                 }}
                             />
                         </div>
-                    </details>
+                    </fieldset>
                     <InputError
                         message={
                             labelForm.errors.yaw ??
                             labelForm.errors.pitch ??
                             labelForm.errors.color ??
-                            labelForm.errors.size
+                            labelForm.errors.background_color ??
+                            labelForm.errors.border_color ??
+                            labelForm.errors.border_width ??
+                            labelForm.errors.font ??
+                            labelForm.errors.size ??
+                            labelForm.errors.width ??
+                            labelForm.errors.height ??
+                            labelForm.errors.rotation ??
+                            labelForm.errors.shape ??
+                            labelForm.errors.visibility
                         }
                     />
                     <Button
@@ -1927,30 +2272,71 @@ function LabelsPanel({
                     </p>
                 ) : null}
                 {currentLabels.map((label) => (
-                    <button
+                    <div
                         key={label.id}
-                        type="button"
-                        className={`flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left text-sm transition ${
+                        className={`flex items-center gap-2 rounded-lg border p-2 ${
                             selectedLabel?.id === label.id
                                 ? 'border-orange-400 bg-orange-50'
-                                : 'hover:bg-slate-50'
+                                : 'bg-white'
                         }`}
-                        onClick={() => {
-                            setCreatePointSelected(false);
-                            setPlacementMode(null);
-                            setLabelDrafts((current) => ({
-                                ...current,
-                                [label.id]:
-                                    current[label.id] ?? labelDraft(label),
-                            }));
-                            setSelectedLabelId(label.id);
-                        }}
                     >
-                        <span className="truncate">{label.text}</span>
-                        <span className="shrink-0 text-xs text-slate-500">
-                            {label.yaw.toFixed(1)}° / {label.pitch.toFixed(1)}°
-                        </span>
-                    </button>
+                        <button
+                            type="button"
+                            className="min-w-0 flex-1 rounded-md px-1 py-1 text-left text-sm hover:bg-slate-50"
+                            onClick={() => {
+                                setCreatePointSelected(false);
+                                setPlacementMode(null);
+                                setSelectedLabelId(label.id);
+                                setSelectedPolygonId(null);
+                                setSelectedHotspotId(null);
+                            }}
+                        >
+                            <span className="flex items-center gap-2">
+                                <span
+                                    className="h-4 w-4 shrink-0 rounded-sm border"
+                                    style={{
+                                        backgroundColor: label.background_color,
+                                        borderColor: label.border_color,
+                                        color: label.color,
+                                    }}
+                                />
+                                <span className="block min-w-0 truncate font-medium">
+                                    {label.text}
+                                </span>
+                            </span>
+                            <span className="text-xs text-slate-500">
+                                {label.visibility === 'click'
+                                    ? 'Al hacer clic · '
+                                    : ''}
+                                {label.yaw.toFixed(1)}° /{' '}
+                                {label.pitch.toFixed(1)}°
+                            </span>
+                        </button>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            aria-label={`Editar etiqueta ${label.text}`}
+                            onClick={() => {
+                                setCreatePointSelected(false);
+                                setPlacementMode(null);
+                                setSelectedLabelId(label.id);
+                                setSelectedPolygonId(null);
+                                setSelectedHotspotId(null);
+                            }}
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="destructive"
+                            aria-label={`Eliminar etiqueta ${label.text}`}
+                            onClick={() => void deleteLabel(label)}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
                 ))}
             </div>
 
@@ -1980,30 +2366,18 @@ function LabelsPanel({
                             }
                         />
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                        <ColorField
-                            label="Color"
-                            value={selectedDraft.color}
-                            onChange={(color) =>
-                                updateDraft(selectedLabel.id, { color })
-                            }
-                        />
-                        <NumberField
-                            label="Tamaño"
-                            value={selectedDraft.size}
-                            min={0.5}
-                            max={3}
-                            step={0.05}
-                            onChange={(size) =>
-                                updateDraft(selectedLabel.id, { size })
-                            }
-                        />
-                    </div>
-                    <details className="rounded-lg border bg-white p-3">
-                        <summary className="cursor-pointer text-sm font-medium">
-                            Ángulos de posición
-                        </summary>
-                        <div className="mt-3 grid grid-cols-2 gap-3">
+                    <LabelStyleFields
+                        value={selectedDraft}
+                        previewText={selectedDraft.text}
+                        onChange={(changes) =>
+                            updateDraft(selectedLabel.id, changes)
+                        }
+                    />
+                    <fieldset className="space-y-3 rounded-lg border bg-white p-3">
+                        <legend className="px-1 text-sm font-medium">
+                            Posición
+                        </legend>
+                        <div className="grid grid-cols-2 gap-3">
                             <NumberField
                                 label="Yaw"
                                 value={selectedDraft.yaw}
@@ -2025,7 +2399,7 @@ function LabelsPanel({
                                 }
                             />
                         </div>
-                    </details>
+                    </fieldset>
                     <div className="flex flex-wrap gap-2">
                         <Button
                             type="button"
@@ -2078,6 +2452,7 @@ function PolygonsPanel({
     polygonDrawingError,
     setSelectedPolygonId,
     setSelectedHotspotId,
+    setSelectedLabelId,
     createPolygon,
     updateDraft,
     updatePolygon,
@@ -2102,6 +2477,7 @@ function PolygonsPanel({
     polygonDrawingError: string | null;
     setSelectedPolygonId: React.Dispatch<React.SetStateAction<number | null>>;
     setSelectedHotspotId: React.Dispatch<React.SetStateAction<number | null>>;
+    setSelectedLabelId: React.Dispatch<React.SetStateAction<number | null>>;
     createPolygon: (event: React.FormEvent) => void;
     updateDraft: (id: number, changes: Partial<PolygonDraft>) => void;
     updatePolygon: (polygon: Project360Polygon) => void;
@@ -2126,7 +2502,7 @@ function PolygonsPanel({
     return (
         <PanelSection
             title="Polígonos informativos"
-            description="Dibuja zonas independientes de los hotspots y añade información contextual."
+            description="Dibuja zonas, edítalas o elimínalas. La etiqueta del polígono usa el mismo editor de estilo y puede mostrarse siempre o al hacer clic."
         >
             <div className="flex flex-wrap gap-2">
                 {!selectedPolygon && polygonDrawingState === 'idle' ? (
@@ -2216,7 +2592,17 @@ function PolygonsPanel({
                         lotOptions={lotOptions}
                         usedLotIds={usedLotIds}
                         onChange={(lot_id) =>
-                            polygonForm.setData('lot_id', lot_id)
+                            polygonForm.setData((current) => ({
+                                ...current,
+                                lot_id,
+                                label_text: lot_id
+                                    ? lotNumberLabel(
+                                          lotOptions.find(
+                                              (lot) => lot.id === lot_id,
+                                          ) ?? null,
+                                      )
+                                    : current.label_text,
+                            }))
                         }
                     />
                     <InputError message={polygonForm.errors.lot_id} />
@@ -2253,6 +2639,17 @@ function PolygonsPanel({
                             placeholder="Información que verá el visitante."
                         />
                     </div>
+                    <PolygonLabelFields
+                        value={polygonForm.data}
+                        vertices={polygonForm.data.vertices}
+                        lotLocked={polygonForm.data.lot_id !== null}
+                        onChange={(changes) =>
+                            polygonForm.setData((current) => ({
+                                ...current,
+                                ...changes,
+                            }))
+                        }
+                    />
                     {polygonForm.data.lot_id === null ? (
                         <PolygonStyleFields
                             value={polygonForm.data}
@@ -2302,36 +2699,74 @@ function PolygonsPanel({
                     </p>
                 ) : null}
                 {currentPolygons.map((polygon) => (
-                    <button
+                    <div
                         key={polygon.id}
-                        type="button"
-                        className={`flex w-full items-center justify-between rounded-lg border p-3 text-left text-sm transition ${
+                        className={`flex items-center gap-2 rounded-lg border p-2 ${
                             selectedPolygon?.id === polygon.id
                                 ? 'border-orange-400 bg-orange-50'
-                                : 'hover:bg-slate-50'
+                                : 'bg-white'
                         }`}
-                        disabled={polygonDrawingState !== 'idle'}
-                        onClick={() => {
-                            setSelectedHotspotId(null);
-                            setSelectedPolygonId(polygon.id);
-                        }}
                     >
-                        <span className="flex items-center gap-2">
-                            {polygon.lot?.status ? (
-                                <span
-                                    className="h-2.5 w-2.5 rounded-full"
-                                    style={{
-                                        backgroundColor:
-                                            polygon.lot.status.color,
-                                    }}
-                                />
-                            ) : null}
-                            {polygon.title}
-                        </span>
-                        <span className="text-xs text-slate-500">
-                            {polygon.vertices.length} vértices
-                        </span>
-                    </button>
+                        <button
+                            type="button"
+                            className="min-w-0 flex-1 rounded-md px-1 py-1 text-left text-sm hover:bg-slate-50 disabled:opacity-60"
+                            disabled={polygonDrawingState !== 'idle'}
+                            onClick={() => {
+                                setSelectedHotspotId(null);
+                                setSelectedLabelId(null);
+                                setSelectedPolygonId(polygon.id);
+                            }}
+                        >
+                            <span className="flex items-center gap-2 font-medium">
+                                {polygon.lot?.status ? (
+                                    <span
+                                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                        style={{
+                                            backgroundColor:
+                                                polygon.lot.status.color,
+                                        }}
+                                    />
+                                ) : null}
+                                <span className="truncate">
+                                    {polygon.title}
+                                </span>
+                            </span>
+                            <span className="text-xs text-slate-500">
+                                {polygon.label_text
+                                    ? `Etiqueta: ${polygon.label_text}${
+                                          polygon.label_visibility === 'click'
+                                              ? ' (al clic)'
+                                              : ''
+                                      } · `
+                                    : ''}
+                                {polygon.vertices.length} vértices
+                            </span>
+                        </button>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            aria-label={`Editar polígono ${polygon.title}`}
+                            disabled={polygonDrawingState !== 'idle'}
+                            onClick={() => {
+                                setSelectedHotspotId(null);
+                                setSelectedLabelId(null);
+                                setSelectedPolygonId(polygon.id);
+                            }}
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="destructive"
+                            aria-label={`Eliminar polígono ${polygon.title}`}
+                            disabled={polygonDrawingState !== 'idle'}
+                            onClick={() => void deletePolygon(polygon)}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
                 ))}
             </div>
 
@@ -2355,9 +2790,17 @@ function PolygonsPanel({
                         lotOptions={lotOptions}
                         usedLotIds={usedLotIds}
                         currentLotId={selectedPolygon.lot_id}
-                        onChange={(lot_id) =>
-                            updateDraft(selectedPolygon.id, { lot_id })
-                        }
+                        onChange={(lot_id) => {
+                            const lot = lotOptions.find(
+                                (item) => item.id === lot_id,
+                            );
+                            updateDraft(selectedPolygon.id, {
+                                lot_id,
+                                ...(lot_id
+                                    ? { label_text: lotNumberLabel(lot) }
+                                    : {}),
+                            });
+                        }}
                     />
                     {selectedDraft.lot_id === null ? (
                         <div>
@@ -2387,6 +2830,14 @@ function PolygonsPanel({
                             className="min-h-24 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
                         />
                     </div>
+                    <PolygonLabelFields
+                        value={selectedDraft}
+                        vertices={selectedDraft.vertices}
+                        lotLocked={selectedDraft.lot_id !== null}
+                        onChange={(changes) =>
+                            updateDraft(selectedPolygon.id, changes)
+                        }
+                    />
                     {selectedDraft.lot_id === null ? (
                         <PolygonStyleFields
                             value={selectedDraft}
@@ -2525,7 +2976,8 @@ function LinkedLotSummary({ lot }: { lot: Project360LotOption | null }) {
                 <div>
                     <p className="font-semibold">Lote {lot.number}</p>
                     <p className="text-xs text-slate-500">
-                        El título y el color se actualizarán desde el lote.
+                        El título y la etiqueta del 360 usarán el número del
+                        lote.
                     </p>
                 </div>
                 <span
@@ -2550,12 +3002,13 @@ function PolygonOpacityField({
 }) {
     return (
         <div className="rounded-lg border bg-white p-3">
-            <NumberField
+            <SliderField
                 label="Opacidad"
                 value={value}
                 min={0.1}
                 max={0.7}
                 step={0.05}
+                format={(current) => current.toFixed(2)}
                 onChange={onChange}
             />
         </div>
@@ -2619,7 +3072,7 @@ function AppearancePanel({
                     options={[
                         ['sphere', 'Esfera'],
                         ['ring', 'Anillo'],
-                        ['pin', 'Pin'],
+                        ['pin', 'Pin (Google Maps)'],
                     ]}
                     onChange={(value) =>
                         themeForm.setData(
@@ -2675,12 +3128,14 @@ function AppearancePanel({
 function SharePanel({
     projectId,
     tour,
+    publicUrl,
     shareForm,
     copiedLinkId,
     copyLink,
 }: {
     projectId: number;
     tour: Project360Tour;
+    publicUrl: string | null;
     shareForm: InertiaForm<{ label: string }>;
     copiedLinkId: string | null;
     copyLink: (id: string, url: string) => Promise<void>;
@@ -2688,8 +3143,47 @@ function SharePanel({
     return (
         <PanelSection
             title="Compartir"
-            description="Genera enlaces firmados para mostrar el recorrido."
+            description="El enlace estable abre el recorrido público. Los enlaces firmados siguen disponibles para campañas puntuales."
         >
+            {publicUrl ? (
+                <div className="space-y-2 rounded-lg border p-3">
+                    <p className="text-sm font-medium">
+                        Enlace público del proyecto
+                    </p>
+                    <p className="text-xs break-all text-slate-500">
+                        {publicUrl}
+                    </p>
+                    <div className="flex gap-2">
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            onClick={() => void copyLink('public', publicUrl)}
+                            title="Copiar enlace público"
+                        >
+                            {copiedLinkId === 'public' ? (
+                                <Check className="h-4 w-4" />
+                            ) : (
+                                <Clipboard className="h-4 w-4" />
+                            )}
+                        </Button>
+                        <Button asChild size="icon" variant="outline">
+                            <a
+                                href={publicUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                <ExternalLink className="h-4 w-4" />
+                            </a>
+                        </Button>
+                    </div>
+                </div>
+            ) : (
+                <p className="text-sm text-slate-500">
+                    Sube al menos un panorama activo para generar el enlace
+                    público.
+                </p>
+            )}
             <form
                 className="flex gap-2"
                 onSubmit={(event) => {
@@ -2721,7 +3215,7 @@ function SharePanel({
             <div className="space-y-2">
                 {(tour.share_links ?? []).length === 0 ? (
                     <p className="text-sm text-slate-500">
-                        Todavía no hay enlaces públicos.
+                        Todavía no hay enlaces firmados.
                     </p>
                 ) : null}
                 {(tour.share_links ?? []).map((link) => (
@@ -2838,14 +3332,53 @@ function NumberField({
 }) {
     return (
         <div>
-            <Label>{label}</Label>
+            <Label className="text-xs text-slate-600">{label}</Label>
             <Input
                 type="number"
                 value={value}
                 min={min}
                 max={max}
                 step={step}
+                className="h-8"
                 onChange={(event) => onChange(Number(event.target.value))}
+            />
+        </div>
+    );
+}
+
+function SliderField({
+    label,
+    value,
+    min,
+    max,
+    step,
+    onChange,
+    format = (current) => String(current),
+}: {
+    label: string;
+    value: number;
+    min: number;
+    max: number;
+    step: number;
+    onChange: (value: number) => void;
+    format?: (value: number) => string;
+}) {
+    return (
+        <div>
+            <div className="mb-1 flex items-center justify-between gap-2">
+                <Label className="text-xs text-slate-600">{label}</Label>
+                <span className="font-mono text-[11px] text-slate-500">
+                    {format(value)}
+                </span>
+            </div>
+            <input
+                type="range"
+                value={value}
+                min={min}
+                max={max}
+                step={step}
+                onChange={(event) => onChange(Number(event.target.value))}
+                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-orange-500"
             />
         </div>
     );
@@ -2861,19 +3394,21 @@ function ColorField({
     onChange: (value: string) => void;
 }) {
     return (
-        <div>
-            <Label>{label}</Label>
-            <div className="flex gap-2">
-                <Input
+        <div className="min-w-0">
+            <Label className="text-xs text-slate-600">{label}</Label>
+            <div className="mt-1 flex items-center gap-1.5">
+                <input
                     type="color"
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
-                    className="w-14 p-1"
+                    className="h-8 w-8 shrink-0 cursor-pointer rounded-md border border-slate-200 bg-white p-0.5"
+                    aria-label={label}
                 />
                 <Input
                     value={value}
                     pattern="^#[0-9A-Fa-f]{6}$"
                     onChange={(event) => onChange(event.target.value)}
+                    className="h-8 font-mono text-xs uppercase"
                 />
             </div>
         </div>
@@ -2888,16 +3423,16 @@ function SelectField({
 }: {
     label: string;
     value: string;
-    options: [string, string][];
+    options: readonly (readonly [string, string])[];
     onChange: (value: string) => void;
 }) {
     return (
         <div>
-            <Label>{label}</Label>
+            <Label className="text-xs text-slate-600">{label}</Label>
             <select
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                className="mt-1 h-8 w-full rounded-md border border-input bg-white px-2 text-sm"
             >
                 {options.map(([optionValue, optionLabel]) => (
                     <option key={optionValue} value={optionValue}>
@@ -2905,6 +3440,376 @@ function SelectField({
                     </option>
                 ))}
             </select>
+        </div>
+    );
+}
+
+function ChoicePills({
+    label,
+    value,
+    options,
+    onChange,
+}: {
+    label: string;
+    value: string;
+    options: readonly (readonly [string, string])[];
+    onChange: (value: string) => void;
+}) {
+    return (
+        <div>
+            <Label className="mb-1.5 block text-xs text-slate-600">
+                {label}
+            </Label>
+            <div className="flex flex-wrap gap-1">
+                {options.map(([optionValue, optionLabel]) => {
+                    const active = value === optionValue;
+
+                    return (
+                        <button
+                            key={optionValue}
+                            type="button"
+                            onClick={() => onChange(optionValue)}
+                            className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                                active
+                                    ? 'border-orange-500 bg-orange-500 text-white'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:border-orange-300 hover:bg-orange-50'
+                            }`}
+                        >
+                            {optionLabel}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+function LabelBadgePreview({
+    text,
+    style,
+}: {
+    text: string;
+    style: Project360LabelStyle;
+}) {
+    const preview = project360LabelBadgePreviewStyle(style);
+
+    return (
+        <div className="flex min-h-16 items-center justify-center overflow-hidden rounded-lg bg-[radial-gradient(circle_at_center,#1e293b,transparent_70%),linear-gradient(135deg,#0f172a,#334155)] p-3">
+            <span style={preview} className="max-w-[90%] truncate shadow-lg">
+                {text.trim() || 'Etiqueta'}
+            </span>
+        </div>
+    );
+}
+
+function LabelStyleFields({
+    value,
+    onChange,
+    previewText,
+}: {
+    value: Project360LabelStyle;
+    onChange: (changes: Partial<Project360LabelStyle>) => void;
+    previewText: string;
+}) {
+    return (
+        <fieldset className="space-y-3 rounded-lg border bg-white p-3">
+            <legend className="px-1 text-sm font-medium">Apariencia</legend>
+            <LabelBadgePreview text={previewText} style={value} />
+            <ChoicePills
+                label="Visibilidad"
+                value={value.visibility}
+                options={PROJECT_360_LABEL_VISIBILITIES}
+                onChange={(visibility) =>
+                    onChange({
+                        visibility: visibility as Project360BadgeVisibility,
+                    })
+                }
+            />
+            {value.visibility === 'click' ? (
+                <p className="text-xs text-slate-500">
+                    Solo aparece al seleccionarla en el panorama (las de
+                    polígono, al pulsar la zona).
+                </p>
+            ) : null}
+            <ChoicePills
+                label="Forma"
+                value={value.shape}
+                options={PROJECT_360_LABEL_SHAPES}
+                onChange={(shape) =>
+                    onChange({ shape: shape as Project360LabelShape })
+                }
+            />
+            <div className="grid grid-cols-3 gap-2">
+                <ColorField
+                    label="Texto"
+                    value={value.color}
+                    onChange={(color) => onChange({ color })}
+                />
+                <ColorField
+                    label="Fondo"
+                    value={value.background_color}
+                    onChange={(background_color) =>
+                        onChange({ background_color })
+                    }
+                />
+                <ColorField
+                    label="Borde"
+                    value={value.border_color}
+                    onChange={(border_color) => onChange({ border_color })}
+                />
+            </div>
+            <SliderField
+                label="Grosor del borde"
+                value={value.border_width}
+                min={0}
+                max={0.16}
+                step={0.01}
+                format={(current) => current.toFixed(2)}
+                onChange={(border_width) => onChange({ border_width })}
+            />
+            <div className="grid grid-cols-2 gap-2">
+                <SelectField
+                    label="Tipo de letra"
+                    value={value.font}
+                    options={PROJECT_360_LABEL_FONTS}
+                    onChange={(font) =>
+                        onChange({ font: font as Project360LabelFont })
+                    }
+                />
+                <SliderField
+                    label="Tamaño del texto"
+                    value={value.size}
+                    min={0.5}
+                    max={3}
+                    step={0.05}
+                    format={(current) => current.toFixed(2)}
+                    onChange={(size) => onChange({ size })}
+                />
+                <SliderField
+                    label="Ancho"
+                    value={value.width}
+                    min={0.5}
+                    max={4}
+                    step={0.05}
+                    format={(current) => current.toFixed(2)}
+                    onChange={(width) => onChange({ width })}
+                />
+                <SliderField
+                    label="Largo"
+                    value={value.height}
+                    min={0.18}
+                    max={1.5}
+                    step={0.02}
+                    format={(current) => current.toFixed(2)}
+                    onChange={(height) => onChange({ height })}
+                />
+            </div>
+            <SliderField
+                label="Ángulo"
+                value={value.rotation}
+                min={-180}
+                max={180}
+                step={1}
+                format={(current) => `${Math.round(current)}°`}
+                onChange={(rotation) => onChange({ rotation })}
+            />
+        </fieldset>
+    );
+}
+
+function polygonLabelAppearance(
+    value: Pick<
+        PolygonDraft,
+        | 'label_color'
+        | 'label_background_color'
+        | 'label_border_color'
+        | 'label_border_width'
+        | 'label_font'
+        | 'label_size'
+        | 'label_width'
+        | 'label_height'
+        | 'label_rotation'
+        | 'label_shape'
+        | 'label_visibility'
+    >,
+): Project360LabelStyle {
+    return {
+        color: value.label_color,
+        background_color: value.label_background_color,
+        border_color: value.label_border_color,
+        border_width: value.label_border_width,
+        font: value.label_font,
+        size: value.label_size,
+        width: value.label_width,
+        height: value.label_height,
+        rotation: value.label_rotation,
+        shape: value.label_shape,
+        visibility: value.label_visibility,
+    };
+}
+
+function appearanceToPolygonFields(
+    changes: Partial<Project360LabelStyle>,
+): Partial<PolygonDraft> {
+    const mapped: Partial<PolygonDraft> = {};
+
+    if (changes.color !== undefined) {
+        mapped.label_color = changes.color;
+    }
+    if (changes.background_color !== undefined) {
+        mapped.label_background_color = changes.background_color;
+    }
+    if (changes.border_color !== undefined) {
+        mapped.label_border_color = changes.border_color;
+    }
+    if (changes.border_width !== undefined) {
+        mapped.label_border_width = changes.border_width;
+    }
+    if (changes.font !== undefined) {
+        mapped.label_font = changes.font;
+    }
+    if (changes.size !== undefined) {
+        mapped.label_size = changes.size;
+    }
+    if (changes.width !== undefined) {
+        mapped.label_width = changes.width;
+    }
+    if (changes.height !== undefined) {
+        mapped.label_height = changes.height;
+    }
+    if (changes.rotation !== undefined) {
+        mapped.label_rotation = changes.rotation;
+    }
+    if (changes.shape !== undefined) {
+        mapped.label_shape = changes.shape;
+    }
+    if (changes.visibility !== undefined) {
+        mapped.label_visibility = changes.visibility;
+    }
+
+    return mapped;
+}
+
+function PolygonLabelFields({
+    value,
+    vertices,
+    onChange,
+    lotLocked = false,
+}: {
+    value: Pick<
+        PolygonDraft,
+        | 'label_text'
+        | 'label_color'
+        | 'label_background_color'
+        | 'label_border_color'
+        | 'label_border_width'
+        | 'label_font'
+        | 'label_size'
+        | 'label_width'
+        | 'label_height'
+        | 'label_rotation'
+        | 'label_shape'
+        | 'label_visibility'
+        | 'label_yaw'
+        | 'label_pitch'
+    >;
+    vertices: Project360PolygonVertex[];
+    onChange: (changes: Partial<PolygonDraft>) => void;
+    lotLocked?: boolean;
+}) {
+    const centered = value.label_yaw === null || value.label_pitch === null;
+
+    return (
+        <div className="space-y-3">
+            <fieldset className="space-y-3 rounded-lg border bg-white p-3">
+                <legend className="px-1 text-sm font-medium">
+                    {lotLocked ? 'Etiqueta del lote' : 'Etiqueta'}
+                </legend>
+                <div>
+                    <Label className="text-xs text-slate-600">
+                        Texto en el panorama
+                    </Label>
+                    <Input
+                        value={value.label_text}
+                        maxLength={120}
+                        readOnly={lotLocked}
+                        className="mt-1 h-8"
+                        placeholder={
+                            lotLocked
+                                ? 'Número del lote'
+                                : 'Vacío = sin etiqueta en el 360'
+                        }
+                        onChange={(event) =>
+                            onChange({ label_text: event.target.value })
+                        }
+                    />
+                    {lotLocked ? (
+                        <p className="mt-1 text-xs text-slate-500">
+                            Ligado al lote: el texto es el número del lote.
+                        </p>
+                    ) : (
+                        <p className="mt-1 text-xs text-slate-500">
+                            Si dejas el texto vacío, el polígono no mostrará
+                            etiqueta.
+                        </p>
+                    )}
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                    <input
+                        type="checkbox"
+                        checked={centered}
+                        onChange={(event) => {
+                            if (event.target.checked) {
+                                onChange({
+                                    label_yaw: null,
+                                    label_pitch: null,
+                                });
+
+                                return;
+                            }
+
+                            const center =
+                                vertices.length >= 3
+                                    ? polygonCentroid(vertices)
+                                    : { yaw: 0, pitch: 0 };
+                            onChange({
+                                label_yaw: center.yaw,
+                                label_pitch: center.pitch,
+                            });
+                        }}
+                    />
+                    Centrar en el polígono
+                </label>
+                {!centered ? (
+                    <div className="grid grid-cols-2 gap-2">
+                        <NumberField
+                            label="Yaw"
+                            value={value.label_yaw ?? 0}
+                            min={-180}
+                            max={180}
+                            step={0.001}
+                            onChange={(label_yaw) => onChange({ label_yaw })}
+                        />
+                        <NumberField
+                            label="Pitch"
+                            value={value.label_pitch ?? 0}
+                            min={-85}
+                            max={85}
+                            step={0.001}
+                            onChange={(label_pitch) =>
+                                onChange({ label_pitch })
+                            }
+                        />
+                    </div>
+                ) : null}
+            </fieldset>
+            <LabelStyleFields
+                value={polygonLabelAppearance(value)}
+                previewText={value.label_text}
+                onChange={(changes) =>
+                    onChange(appearanceToPolygonFields(changes))
+                }
+            />
         </div>
     );
 }
@@ -2917,11 +3822,11 @@ function PolygonStyleFields({
     onChange: (changes: Partial<PolygonDraft>) => void;
 }) {
     return (
-        <details className="rounded-lg border bg-white p-3">
-            <summary className="cursor-pointer text-sm font-medium">
+        <fieldset className="space-y-3 rounded-lg border bg-white p-3">
+            <legend className="px-1 text-sm font-medium">
                 Apariencia del polígono
-            </summary>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+            </legend>
+            <div className="grid gap-3 sm:grid-cols-2">
                 <ColorField
                     label="Color"
                     value={value.color}
@@ -2932,16 +3837,17 @@ function PolygonStyleFields({
                     value={value.hover_color}
                     onChange={(hover_color) => onChange({ hover_color })}
                 />
-                <NumberField
+                <SliderField
                     label="Opacidad"
                     value={value.opacity}
                     min={0.1}
                     max={0.7}
                     step={0.05}
+                    format={(current) => current.toFixed(2)}
                     onChange={(opacity) => onChange({ opacity })}
                 />
             </div>
-        </details>
+        </fieldset>
     );
 }
 
@@ -2981,11 +3887,11 @@ function HotspotStyleFields({
         value.pulse_enabled !== null;
 
     return (
-        <details className="rounded-lg border bg-white p-3">
-            <summary className="cursor-pointer text-sm font-medium">
-                Estilo avanzado
-            </summary>
-            <label className="mt-3 flex items-center gap-2 text-sm">
+        <fieldset className="space-y-3 rounded-lg border bg-white p-3">
+            <legend className="px-1 text-sm font-medium">
+                Estilo del hotspot
+            </legend>
+            <label className="flex items-center gap-2 text-sm">
                 <input
                     type="checkbox"
                     checked={custom}
@@ -3038,7 +3944,7 @@ function HotspotStyleFields({
                         options={[
                             ['sphere', 'Esfera'],
                             ['ring', 'Anillo'],
-                            ['pin', 'Pin'],
+                            ['pin', 'Pin (Google Maps)'],
                         ]}
                         onChange={(shape) =>
                             onChange({
@@ -3079,6 +3985,6 @@ function HotspotStyleFields({
                     </label>
                 </div>
             ) : null}
-        </details>
+        </fieldset>
     );
 }

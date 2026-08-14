@@ -3,6 +3,7 @@
 namespace Tests\Unit\Services\Inmopro;
 
 use App\Services\Inmopro\ProjectLocationMapsResolver;
+use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -123,5 +124,37 @@ class ProjectLocationMapsResolverTest extends TestCase
     {
         $this->assertNull($this->resolver->displayLabel(null));
         $this->assertNull($this->resolver->displayLabel(''));
+    }
+
+    public function test_resolves_coordinates_from_pair_and_maps_urls(): void
+    {
+        $this->assertSame(
+            ['lat' => -12.046374, 'lng' => -77.042793],
+            $this->resolver->resolveCoordinates('-12.046374,-77.042793'),
+        );
+        $this->assertSame(
+            ['lat' => -12.0464, 'lng' => -77.0428],
+            $this->resolver->resolveCoordinates('https://www.google.com/maps/@-12.0464,-77.0428,17z'),
+        );
+        $this->assertSame(
+            ['lat' => -12.046374, 'lng' => -77.042793],
+            $this->resolver->resolveCoordinates('https://www.google.com/maps/search/?api=1&query=-12.046374,-77.042793'),
+        );
+        $this->assertNull($this->resolver->resolveCoordinates('https://www.google.com/maps/search/?api=1&query=Lima'));
+        $this->assertNull($this->resolver->resolveCoordinates('Huancayo'));
+    }
+
+    public function test_follows_short_maps_url_to_extract_coordinates(): void
+    {
+        Http::fake([
+            'https://maps.app.goo.gl/abc123' => Http::response('', 302, [
+                'Location' => 'https://www.google.com/maps/@-12.05,-77.04,18z',
+            ]),
+        ]);
+
+        $this->assertSame(
+            ['lat' => -12.05, 'lng' => -77.04],
+            $this->resolver->resolveCoordinates('https://maps.app.goo.gl/abc123'),
+        );
     }
 }

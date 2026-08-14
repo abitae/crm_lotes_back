@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
     project360HotspotLabelLayout,
+    project360PinGeometry,
     project360RaycastTargets,
 } from '../../resources/js/lib/project-360-interaction.ts';
 
@@ -13,6 +14,18 @@ test('calcula una etiqueta legible con fondo para el hotspot', () => {
         textWidth: 3.736,
         positionY: 0.532,
     });
+});
+
+test('la etiqueta del pin queda sobre la cabeza estilo mapa', () => {
+    const pin = project360PinGeometry(0.16);
+    const layout = project360HotspotLabelLayout('Sala', 0.16, 'pin');
+
+    assert.equal(pin.headY, 0.275);
+    assert.equal(layout.positionY, 0.754);
+    assert.ok(layout.positionY > pin.headY + pin.headRadius);
+    assert.ok(
+        layout.positionY > project360HotspotLabelLayout('Sala', 0.16).positionY,
+    );
 });
 
 test('limita el fondo de etiquetas muy extensas y admite un texto vacío', () => {
@@ -40,6 +53,6 @@ test('el cierre solo habilita el panorama y el primer vértice', () => {
 
 test('fuera del dibujo se conservan las interacciones del visor', () => {
     assert.deepEqual(project360RaycastTargets(false, false, false), {
-        pointer: '.tour-hotspot-hit-area, .tour-polygon',
+        pointer: '.tour-hotspot-hit-area, .tour-polygon, .tour-label-hit-area',
     });
 });

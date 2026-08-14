@@ -335,6 +335,7 @@ class WebController extends Controller
             'videos' => $videos->map(fn (ProjectAsset $a) => $this->assetPayload($a))->all(),
             'images_count' => $images->count(),
             'videos_count' => $videos->count(),
+            'tour_360_url' => $project->tour_360_url,
         ];
     }
 

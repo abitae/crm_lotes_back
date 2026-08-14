@@ -51,7 +51,12 @@ class DatabaseSeeder extends Seeder
             Inmopro\LotPreReservationSeeder::class,
             Inmopro\FunctionalTestingSeeder::class,
             Inmopro\Asesor1RemindersAndTicketsSeeder::class,
+            Inmopro\Project360Seeder::class,
         ]);
         */
+
+        if (app()->environment('local')) {
+            $this->call(Inmopro\Project360Seeder::class);
+        }
     }
 }

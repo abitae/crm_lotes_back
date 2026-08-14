@@ -7,6 +7,7 @@ use App\Models\Inmopro\City;
 use App\Models\Inmopro\Client;
 use App\Models\Inmopro\ClientType;
 use App\Models\Inmopro\Datero;
+use App\Models\Inmopro\Project;
 use Database\Seeders\Inmopro\AdvisorLevelSeeder;
 use Database\Seeders\Inmopro\AdvisorSeeder;
 use Database\Seeders\Inmopro\CitySeeder;
@@ -32,6 +33,10 @@ class DateroApiTest extends TestCase
     public function test_protected_routes_require_authentication(): void
     {
         $this->getJson(route('api.v1.datero.clients.index'))
+            ->assertUnauthorized()
+            ->assertJsonFragment(['message' => 'No autenticado.']);
+
+        $this->getJson(route('api.v1.datero.projects.index'))
             ->assertUnauthorized()
             ->assertJsonFragment(['message' => 'No autenticado.']);
     }
@@ -128,6 +133,36 @@ class DateroApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.datero.username', 'datero_me')
             ->assertJsonPath('data.advisor.id', $advisor->id);
+    }
+
+    public function test_datero_can_list_projects_with_tour_360_url(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $city = City::firstOrFail();
+        $datero = $this->makeDateroForAdvisor($advisor, $city, 'datero_projects', '44111240');
+        $project = Project::query()->create([
+            'name' => 'Proyecto datero 360',
+            'location' => 'Lima',
+            'total_lots' => 1,
+            'blocks' => ['A'],
+            'is_active' => true,
+            'tour_360_url' => 'https://example.test/tours/360/projects/1',
+        ]);
+        Project::query()->create([
+            'name' => 'Inactivo',
+            'location' => 'Lima',
+            'total_lots' => 1,
+            'blocks' => ['A'],
+            'is_active' => false,
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$this->loginToken($datero))
+            ->getJson(route('api.v1.datero.projects.index'))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $project->id)
+            ->assertJsonPath('data.0.name', $project->name)
+            ->assertJsonPath('data.0.tour_360_url', $project->tour_360_url)
+            ->assertJsonCount(1, 'data');
     }
 
     public function test_datero_can_change_pin_with_valid_current_pin(): void

@@ -7,10 +7,13 @@ use App\Http\Middleware\EnsureOpenAiCazadorEnabled;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Requests\Inmopro\StoreProject360PanoramasRequest;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Validation\ValidationException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -37,5 +40,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->dontReport([PostTooLargeException::class]);
+        $exceptions->map(function (PostTooLargeException $exception): ValidationException {
+            $message = StoreProject360PanoramasRequest::uploadFailedMessage();
+
+            return ValidationException::withMessages([
+                'panorama_files' => $message,
+                'file' => $message,
+            ]);
+        });
     })->create();

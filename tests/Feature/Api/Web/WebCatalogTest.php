@@ -99,6 +99,7 @@ class WebCatalogTest extends TestCase
                         'videos',
                         'images_count',
                         'videos_count',
+                        'tour_360_url',
                     ],
                 ],
             ]);

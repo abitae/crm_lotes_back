@@ -39,6 +39,8 @@ use App\Http\Controllers\Inmopro\Project360PolygonController;
 use App\Http\Controllers\Inmopro\Project360SettingsController;
 use App\Http\Controllers\Inmopro\Project360ShareLinkController;
 use App\Http\Controllers\Inmopro\ProjectController;
+use App\Http\Controllers\Inmopro\ProjectFlatController;
+use App\Http\Controllers\Inmopro\ProjectFlatPolygonController;
 use App\Http\Controllers\Inmopro\ProjectTypeController;
 use App\Http\Controllers\Inmopro\ReportController;
 use App\Http\Controllers\Inmopro\Reports\ContractsWeekReportController;
@@ -54,6 +56,10 @@ use App\Http\Controllers\Inmopro\Reports\TransfersByProjectReportController;
 use App\Http\Controllers\Inmopro\ReportSalesConfigController;
 use App\Http\Controllers\Inmopro\TeamController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('inmopro/project-360/{project}/panoramas/{panorama}/file', [Project360PanoramaController::class, 'file'])
+    ->middleware('throttle:project-360-public')
+    ->name('inmopro.project-360.panoramas.file');
 
 Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->group(function (): void {
     Route::middleware(['rbac.super-admin'])->prefix('access-control')->name('access-control.')->group(function (): void {
@@ -99,6 +105,13 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
             Route::delete('{project}/polygons/{polygon}', [Project360PolygonController::class, 'destroy'])->name('polygons.destroy');
             Route::post('{project}/share-links', [Project360ShareLinkController::class, 'store'])->name('share-links.store');
             Route::patch('{project}/share-links/{shareLink}/revoke', [Project360ShareLinkController::class, 'revoke'])->name('share-links.revoke');
+        });
+        Route::prefix('project-flat')->name('project-flat.')->group(function (): void {
+            Route::get('/', [ProjectFlatController::class, 'index'])->name('index');
+            Route::get('{project}', [ProjectFlatController::class, 'show'])->name('show');
+            Route::post('{project}/polygons', [ProjectFlatPolygonController::class, 'store'])->name('polygons.store');
+            Route::put('{project}/polygons/{polygon}', [ProjectFlatPolygonController::class, 'update'])->name('polygons.update');
+            Route::delete('{project}/polygons/{polygon}', [ProjectFlatPolygonController::class, 'destroy'])->name('polygons.destroy');
         });
         Route::resource('project-types', ProjectTypeController::class)
             ->except(['create', 'edit', 'show'])

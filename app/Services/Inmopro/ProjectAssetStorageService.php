@@ -15,20 +15,28 @@ class ProjectAssetStorageService
      */
     public function store(Project $project, UploadedFile $file, string $kind): array
     {
-        $disk = ProjectAsset::storageDisk();
         $directory = $this->directoryFor($project->id, $kind);
         $extension = $this->resolveExtension($file);
-        $fileName = $this->generateUniqueFileName($project->id, $kind, $extension, $directory, $disk);
-        $storedPath = $file->storeAs($directory, $fileName, $disk);
+        $disks = array_values(array_unique([ProjectAsset::storageDisk(), 'public']));
+        $lastError = null;
 
-        if ($storedPath === false) {
-            throw new RuntimeException('No se pudo guardar el archivo del proyecto.');
+        foreach ($disks as $disk) {
+            try {
+                $fileName = $this->generateUniqueFileName($project->id, $kind, $extension, $directory, $disk);
+                $storedPath = $file->storeAs($directory, $fileName, $disk);
+
+                if ($storedPath !== false) {
+                    return [
+                        'file_path' => $storedPath,
+                        'file_name' => $fileName,
+                    ];
+                }
+            } catch (\Throwable $exception) {
+                $lastError = $exception;
+            }
         }
 
-        return [
-            'file_path' => $storedPath,
-            'file_name' => $fileName,
-        ];
+        throw new RuntimeException('No se pudo guardar el archivo del proyecto.', 0, $lastError);
     }
 
     public function generateStoredFileName(int $projectId, string $kind, string $extension): string

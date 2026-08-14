@@ -14,6 +14,7 @@ use App\Support\FileStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 class Project360TourService
@@ -75,6 +76,7 @@ class Project360TourService
                     }
                 }
             });
+            $this->syncTour360Url($project);
         } catch (Throwable $exception) {
             foreach ($storedPaths as $path) {
                 FileStorage::deleteIfExists($path);
@@ -126,6 +128,66 @@ class Project360TourService
         });
 
         FileStorage::deleteIfExists($path);
+        $this->syncTour360Url($project);
+    }
+
+    public function hasActivePanoramas(Project $project): bool
+    {
+        return $project->panoramas()->where('is_active', true)->exists();
+    }
+
+    public function ensurePubliclyViewable(Project $project): void
+    {
+        abort_unless($project->is_active, 404);
+        abort_unless($this->hasActivePanoramas($project), 404, 'El tour no tiene panoramas disponibles.');
+    }
+
+    public function publicHtmlUrl(Project $project): string
+    {
+        return route('public.project-360.projects.show', $project);
+    }
+
+    public function publicPanoramaUrl(Project $project, ProjectAsset $panorama): string
+    {
+        return route('public.project-360.projects.panoramas.show', [
+            'project' => $project,
+            'panorama' => $panorama,
+        ]);
+    }
+
+    public function publicJsonPanoramaUrl(Project $project, ProjectAsset $panorama): string
+    {
+        return route('api.v1.web.projects.tour-360.panoramas.show', [
+            'project' => $project,
+            'panorama' => $panorama,
+        ]);
+    }
+
+    public function syncTour360Url(Project $project): void
+    {
+        $url = $this->hasActivePanoramas($project)
+            ? $this->publicHtmlUrl($project)
+            : null;
+
+        if ($project->tour_360_url === $url) {
+            return;
+        }
+
+        $project->forceFill(['tour_360_url' => $url])->save();
+    }
+
+    public function streamPublicPanorama(Project $project, ProjectAsset $panorama): StreamedResponse
+    {
+        $this->ensurePubliclyViewable($project);
+
+        abort_unless(
+            $panorama->project_id === $project->id
+            && $panorama->kind === ProjectAsset::KIND_PANORAMA
+            && $panorama->is_active,
+            404,
+        );
+
+        return $panorama->streamInline();
     }
 
     public function ensurePanoramaForProject(Project $project, ProjectAsset $panorama): void
@@ -282,6 +344,21 @@ class Project360TourService
         return $lot;
     }
 
+    public function polygonLabelText(?Lot $lot, mixed $submitted): ?string
+    {
+        if ($lot) {
+            return (string) $lot->number;
+        }
+
+        if (! is_string($submitted)) {
+            return null;
+        }
+
+        $text = trim($submitted);
+
+        return $text !== '' ? $text : null;
+    }
+
     /**
      * @param  callable(ProjectAsset): string|null  $urlResolver
      * @return array<string, mixed>
@@ -380,7 +457,16 @@ class Project360TourService
                 'yaw' => (float) $label->yaw,
                 'pitch' => (float) $label->pitch,
                 'color' => $label->color,
+                'background_color' => $label->background_color ?: '#0f172a',
+                'border_color' => $label->border_color ?: '#334155',
+                'border_width' => $label->border_width !== null ? (float) $label->border_width : 0.03,
+                'font' => $label->font ?: 'roboto',
                 'size' => (float) $label->size,
+                'width' => $label->width !== null ? (float) $label->width : 1.2,
+                'height' => $label->height !== null ? (float) $label->height : 0.34,
+                'rotation' => (float) $label->rotation,
+                'shape' => $label->shape ?: 'rounded',
+                'visibility' => $label->visibility ?: 'always',
             ])->values()->all(),
             'polygons' => $polygons->map(function (Project360Polygon $polygon): array {
                 $lot = $polygon->lot;
@@ -401,6 +487,22 @@ class Project360TourService
                     ] : null,
                     'title' => $lot ? 'Lote '.$lot->number : $polygon->title,
                     'description' => $polygon->description,
+                    'label_text' => $lot ? (string) $lot->number : $polygon->label_text,
+                    'label_color' => $polygon->label_color ?: '#ffffff',
+                    'label_background_color' => $polygon->label_background_color ?: '#0f172a',
+                    'label_border_color' => $polygon->label_border_color ?: '#334155',
+                    'label_border_width' => $polygon->label_border_width !== null
+                        ? (float) $polygon->label_border_width
+                        : 0.03,
+                    'label_font' => $polygon->label_font ?: 'roboto',
+                    'label_size' => (float) ($polygon->label_size ?: 1),
+                    'label_width' => $polygon->label_width !== null ? (float) $polygon->label_width : 1.2,
+                    'label_height' => $polygon->label_height !== null ? (float) $polygon->label_height : 0.34,
+                    'label_rotation' => (float) $polygon->label_rotation,
+                    'label_shape' => $polygon->label_shape ?: 'rounded',
+                    'label_visibility' => $polygon->label_visibility ?: 'always',
+                    'label_yaw' => $polygon->label_yaw !== null ? (float) $polygon->label_yaw : null,
+                    'label_pitch' => $polygon->label_pitch !== null ? (float) $polygon->label_pitch : null,
                     'vertices' => collect($polygon->vertices)->map(fn (array $vertex): array => [
                         'yaw' => (float) $vertex['yaw'],
                         'pitch' => (float) $vertex['pitch'],

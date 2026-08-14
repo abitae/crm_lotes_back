@@ -22,6 +22,7 @@ class Project360PolygonController extends Controller
         $this->tourService->polygonPanorama($project, $validated);
         $lot = $this->tourService->polygonLot($project, $validated);
         $validated['title'] = $lot ? 'Lote '.$lot->number : trim((string) $validated['title']);
+        $validated['label_text'] = $this->tourService->polygonLabelText($lot, $validated['label_text'] ?? null);
         $this->tourService->tourForProject($project)->polygons()->create($validated);
 
         return back()->with('success', 'Polígono añadido correctamente.');
@@ -37,6 +38,7 @@ class Project360PolygonController extends Controller
         $this->tourService->polygonPanorama($project, $validated);
         $lot = $this->tourService->polygonLot($project, $validated, $polygon);
         $validated['title'] = $lot ? 'Lote '.$lot->number : trim((string) $validated['title']);
+        $validated['label_text'] = $this->tourService->polygonLabelText($lot, $validated['label_text'] ?? null);
         $polygon->update($validated);
 
         return back()->with('success', 'Polígono actualizado correctamente.');

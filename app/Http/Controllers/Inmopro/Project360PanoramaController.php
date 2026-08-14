@@ -11,12 +11,26 @@ use App\Models\Inmopro\ProjectAsset;
 use App\Services\Inmopro\Project360TourService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\UploadedFile;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class Project360PanoramaController extends Controller
 {
     public function __construct(
         private Project360TourService $tourService,
     ) {}
+
+    public function file(Project $project, ProjectAsset $panorama): StreamedResponse
+    {
+        abort_unless(
+            $project->is_active
+            && $panorama->project_id === $project->id
+            && $panorama->kind === ProjectAsset::KIND_PANORAMA
+            && $panorama->is_active,
+            404,
+        );
+
+        return $panorama->streamInline();
+    }
 
     public function store(StoreProject360PanoramasRequest $request, Project $project): RedirectResponse
     {

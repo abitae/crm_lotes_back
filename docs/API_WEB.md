@@ -174,6 +174,25 @@ Un solo proyecto en `data`. Misma estructura que un elemento del listado (sin `s
 
 ---
 
+### 3.4 Tour 360 — `GET /projects/{id}/tour-360`
+
+**URL:** `{BASE_URL}/api/v1/web/projects/{id}/tour-360`
+
+JSON de solo lectura para montar un visor propio. **No exige** `is_web`: basta con que el proyecto esté activo y tenga al menos un panorama.
+
+La página HTML equivalente (navegador, iframe o WebView) es `{APP_URL}/tours/360/projects/{id}`. Añade `?embed=1` para ocultar el encabezado.
+
+Archivo de cada panorama: `GET /projects/{id}/tour-360/panoramas/{panoramaId}` (también en `viewer_url` del JSON).
+
+
+| Código | Significado                               |
+| ------ | ----------------------------------------- |
+| `200`  | OK                                        |
+| `404`  | Proyecto inactivo o sin panoramas activos |
+
+
+---
+
 ## 4. Estructura de la respuesta
 
 ### 4.1 `summary` (solo listado)
@@ -236,6 +255,7 @@ Paginación del resultado **filtrado** (mismo `tipo_web` y filtros opcionales).
 | `videos_count`    | int         | Cantidad de vídeos en la respuesta                                                                |
 | `images`          | array       | Activos imagen                                                                                    |
 | `videos`          | array       | Activos vídeo                                                                                     |
+| `tour_360_url`    | string|null | URL HTML pública del tour 360. `null` si el proyecto no tiene panoramas activos                   |
 
 
 ### 4.4 Activo (imagen / vídeo)

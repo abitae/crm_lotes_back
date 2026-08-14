@@ -12,6 +12,7 @@ final class InmoproPermissionSynchronizer
     /** @var list<string> */
     private const EXTRA_PERMISSION_NAMES = [
         'inmopro.project-360.manage',
+        'inmopro.project-flat.manage',
     ];
 
     /**

@@ -74,6 +74,7 @@ class ProjectController extends Controller
             'lots_count' => $project->lots_count,
             'images_count' => $project->images_count ?? null,
             'documents_count' => $project->documents_count ?? null,
+            'tour_360_url' => $project->tour_360_url,
         ];
 
         if (! $includeAssets) {

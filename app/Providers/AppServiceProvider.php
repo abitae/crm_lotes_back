@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Console\ServeCommand;
 use App\Models\User;
 use App\Support\AppBrandingResolver;
 use App\Support\OpenAiCazadorConfigResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Foundation\Console\ServeCommand as LaravelServeCommand;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +25,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->extend(LaravelServeCommand::class, function ($command) {
+            return $command instanceof ServeCommand
+                ? $command
+                : $this->app->make(ServeCommand::class);
+        });
     }
 
     /**
@@ -102,11 +108,20 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('project-360-public', function (Request $request) {
             $shareLink = $request->route('shareLink');
-            $shareLinkId = is_object($shareLink) && isset($shareLink->id)
-                ? (string) $shareLink->id
-                : (string) $shareLink;
+            $project = $request->route('project');
+            $key = '';
 
-            return Limit::perMinute(120)->by($request->ip().':'.$shareLinkId);
+            if (is_object($shareLink) && isset($shareLink->id)) {
+                $key = (string) $shareLink->id;
+            } elseif (filled($shareLink)) {
+                $key = (string) $shareLink;
+            } elseif (is_object($project) && isset($project->id)) {
+                $key = 'project:'.$project->id;
+            } elseif (filled($project)) {
+                $key = 'project:'.$project;
+            }
+
+            return Limit::perMinute(120)->by($request->ip().':'.$key);
         });
     }
 

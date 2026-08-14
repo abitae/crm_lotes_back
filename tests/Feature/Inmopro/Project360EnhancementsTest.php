@@ -149,6 +149,7 @@ class Project360EnhancementsTest extends TestCase
         );
 
         $this->assertSame('Área social', $payload['polygons'][0]['title']);
+        $this->assertNull($payload['polygons'][0]['label_text']);
         $this->assertCount(4, $payload['polygons'][0]['vertices']);
         $this->assertArrayNotHasKey('floor_plans', $payload);
         $this->assertArrayNotHasKey('floor_plan_id', $payload['panoramas'][0]);
@@ -172,6 +173,79 @@ class Project360EnhancementsTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertModelMissing($polygon);
+    }
+
+    public function test_polygon_optional_label_is_fully_editable(): void
+    {
+        $project = $this->createProject();
+        $manager = $this->manager();
+        $panorama = $this->createAsset($project, ProjectAsset::KIND_PANORAMA, 'Entrada');
+        $vertices = [
+            ['yaw' => 10, 'pitch' => -8],
+            ['yaw' => 30, 'pitch' => -8],
+            ['yaw' => 30, 'pitch' => 6],
+            ['yaw' => 10, 'pitch' => 6],
+        ];
+
+        $this->actingAs($manager)
+            ->post(route('inmopro.project-360.polygons.store', $project), [
+                'source_panorama_id' => $panorama->id,
+                'title' => 'Mirador',
+                'vertices' => $vertices,
+                'color' => '#123456',
+                'hover_color' => '#abcdef',
+                'opacity' => 0.3,
+                'label_text' => 'Vista al valle',
+                'label_color' => '#fef08a',
+                'label_background_color' => '#1e293b',
+                'label_border_color' => '#facc15',
+                'label_border_width' => 0.05,
+                'label_font' => 'kelsonsans',
+                'label_size' => 1.4,
+                'label_width' => 1.8,
+                'label_height' => 0.42,
+                'label_rotation' => -12.5,
+                'label_shape' => 'pill',
+                'label_visibility' => 'click',
+                'label_yaw' => 20,
+                'label_pitch' => -1,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $polygon = $project->tour360()->firstOrFail()->polygons()->firstOrFail();
+        $payload = app(Project360TourService::class)->payload(
+            $project,
+            fn (ProjectAsset $asset): string => '/'.$asset->file_path,
+        );
+
+        $this->assertSame('Vista al valle', $payload['polygons'][0]['label_text']);
+        $this->assertSame('#fef08a', $payload['polygons'][0]['label_color']);
+        $this->assertSame('#1e293b', $payload['polygons'][0]['label_background_color']);
+        $this->assertSame('#facc15', $payload['polygons'][0]['label_border_color']);
+        $this->assertSame(0.05, $payload['polygons'][0]['label_border_width']);
+        $this->assertSame('kelsonsans', $payload['polygons'][0]['label_font']);
+        $this->assertSame(1.4, $payload['polygons'][0]['label_size']);
+        $this->assertSame(1.8, $payload['polygons'][0]['label_width']);
+        $this->assertSame(0.42, $payload['polygons'][0]['label_height']);
+        $this->assertSame(-12.5, $payload['polygons'][0]['label_rotation']);
+        $this->assertSame('pill', $payload['polygons'][0]['label_shape']);
+        $this->assertSame('click', $payload['polygons'][0]['label_visibility']);
+        $this->assertSame(20.0, $payload['polygons'][0]['label_yaw']);
+        $this->assertSame(-1.0, $payload['polygons'][0]['label_pitch']);
+
+        $this->actingAs($manager)
+            ->put(route('inmopro.project-360.polygons.update', [$project, $polygon]), [
+                'source_panorama_id' => $panorama->id,
+                'title' => 'Mirador',
+                'vertices' => $vertices,
+                'color' => '#123456',
+                'hover_color' => '#abcdef',
+                'opacity' => 0.3,
+                'label_text' => '',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertNull($polygon->fresh()->label_text);
     }
 
     public function test_manager_can_create_update_and_delete_standalone_label(): void
@@ -201,7 +275,16 @@ class Project360EnhancementsTest extends TestCase
         $this->assertSame(32.125, $payload['labels'][0]['yaw']);
         $this->assertSame(-7.5, $payload['labels'][0]['pitch']);
         $this->assertSame('#22c55e', $payload['labels'][0]['color']);
+        $this->assertSame('#0f172a', $payload['labels'][0]['background_color']);
+        $this->assertSame('#334155', $payload['labels'][0]['border_color']);
+        $this->assertSame(0.03, $payload['labels'][0]['border_width']);
+        $this->assertSame('roboto', $payload['labels'][0]['font']);
         $this->assertSame(1.25, $payload['labels'][0]['size']);
+        $this->assertSame(1.2, $payload['labels'][0]['width']);
+        $this->assertSame(0.34, $payload['labels'][0]['height']);
+        $this->assertSame(0.0, $payload['labels'][0]['rotation']);
+        $this->assertSame('rounded', $payload['labels'][0]['shape']);
+        $this->assertSame('always', $payload['labels'][0]['visibility']);
 
         $this->actingAs($manager)
             ->put(route('inmopro.project-360.labels.update', [$project, $label]), [
@@ -210,13 +293,31 @@ class Project360EnhancementsTest extends TestCase
                 'yaw' => -18,
                 'pitch' => 4.25,
                 'color' => '#38bdf8',
+                'background_color' => '#111827',
+                'border_color' => '#0ea5e9',
+                'border_width' => 0.06,
+                'font' => 'exo2bold',
                 'size' => 1.75,
+                'width' => 2.1,
+                'height' => 0.48,
+                'rotation' => 15,
+                'shape' => 'pill',
+                'visibility' => 'click',
             ])
             ->assertSessionHasNoErrors();
 
         $this->assertSame('Recepción principal', $label->fresh()->text);
         $this->assertSame(-18.0, $label->fresh()->yaw);
+        $this->assertSame('#111827', $label->fresh()->background_color);
+        $this->assertSame('#0ea5e9', $label->fresh()->border_color);
+        $this->assertSame(0.06, $label->fresh()->border_width);
+        $this->assertSame('exo2bold', $label->fresh()->font);
         $this->assertSame(1.75, $label->fresh()->size);
+        $this->assertSame(2.1, $label->fresh()->width);
+        $this->assertSame(0.48, $label->fresh()->height);
+        $this->assertSame(15.0, $label->fresh()->rotation);
+        $this->assertSame('pill', $label->fresh()->shape);
+        $this->assertSame('click', $label->fresh()->visibility);
 
         $this->actingAs($manager)
             ->delete(route('inmopro.project-360.labels.destroy', [$project, $label]))
@@ -239,9 +340,15 @@ class Project360EnhancementsTest extends TestCase
                 'yaw' => 181,
                 'pitch' => -86,
                 'color' => 'verde',
+                'font' => 'comic-sans',
                 'size' => 3.5,
+                'width' => 5,
+                'height' => 0.05,
+                'rotation' => 200,
+                'shape' => 'estrella',
+                'visibility' => 'hover',
             ])
-            ->assertSessionHasErrors(['yaw', 'pitch', 'color', 'size']);
+            ->assertSessionHasErrors(['yaw', 'pitch', 'color', 'font', 'size', 'width', 'height', 'rotation', 'shape', 'visibility']);
 
         $this->actingAs($manager)
             ->post(route('inmopro.project-360.labels.store', $project), [
@@ -280,6 +387,7 @@ class Project360EnhancementsTest extends TestCase
             'color' => '#f97316',
             'hover_color' => '#fb923c',
             'opacity' => 0.3,
+            'label_text' => 'Texto personalizado',
         ];
 
         $this->actingAs($manager)
@@ -298,6 +406,7 @@ class Project360EnhancementsTest extends TestCase
         $polygon = $project->tour360()->firstOrFail()->polygons()->firstOrFail();
         $this->assertSame($lot->id, $polygon->lot_id);
         $this->assertSame('Lote 12', $polygon->title);
+        $this->assertSame('12', $polygon->label_text);
         $this->assertSame('#f97316', $polygon->color);
 
         $tourPayload = app(Project360TourService::class)->payload(
@@ -305,6 +414,7 @@ class Project360EnhancementsTest extends TestCase
             fn (ProjectAsset $asset): string => '/'.$asset->file_path,
         );
         $this->assertSame('12', $tourPayload['polygons'][0]['lot']['number']);
+        $this->assertSame('12', $tourPayload['polygons'][0]['label_text']);
         $this->assertSame('Libre', $tourPayload['polygons'][0]['lot']['status']['name']);
         $this->assertSame('#10b981', $tourPayload['polygons'][0]['color']);
         $this->assertArrayNotHasKey('client_name', $tourPayload['polygons'][0]['lot']);

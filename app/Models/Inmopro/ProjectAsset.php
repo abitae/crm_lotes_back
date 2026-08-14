@@ -6,6 +6,8 @@ use App\Support\FileStorage;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProjectAsset extends Model
 {
@@ -72,5 +74,44 @@ class ProjectAsset extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class, 'project_id');
+    }
+
+    /**
+     * Sirve el archivo inline desde el disco donde realmente está (public o el configurado).
+     */
+    public function streamInline(): StreamedResponse
+    {
+        $path = FileStorage::pathFromStored($this->file_path);
+        abort_unless(is_string($path) && $path !== '', 404);
+
+        $diskName = $this->readableDisk($path);
+        abort_unless($diskName !== null, 404);
+
+        return Storage::disk($diskName)->response(
+            $path,
+            $this->file_name,
+            [
+                'Content-Type' => $this->mime_type ?: 'image/jpeg',
+                'Content-Disposition' => 'inline; filename="'.addcslashes((string) $this->file_name, '"\\').'"',
+                'Cache-Control' => 'private, max-age=300, must-revalidate',
+                'Access-Control-Allow-Origin' => '*',
+                'Cross-Origin-Resource-Policy' => 'cross-origin',
+            ],
+        );
+    }
+
+    private function readableDisk(string $path): ?string
+    {
+        foreach (array_unique(['public', static::storageDisk()]) as $disk) {
+            try {
+                if (Storage::disk($disk)->exists($path)) {
+                    return $disk;
+                }
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return null;
     }
 }

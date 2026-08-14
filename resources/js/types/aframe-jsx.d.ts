@@ -18,6 +18,7 @@ declare module 'react' {
             'a-sky': AFrameElementProps;
             'a-sphere': AFrameElementProps;
             'a-text': AFrameElementProps;
+            'a-triangle': AFrameElementProps;
         }
     }
 }
