@@ -24,12 +24,14 @@ class SearchAvailableLotsTool implements Tool
         $arguments = $request->all();
         $projectId = array_key_exists('project_id', $arguments) ? (int) $request->integer('project_id') : null;
         $search = array_key_exists('search', $arguments) ? (string) ($arguments['search'] ?? '') : null;
-        $availableOnly = array_key_exists('available_only', $arguments)
-            ? filter_var($arguments['available_only'], FILTER_VALIDATE_BOOLEAN)
-            : true;
+        $results = $this->knowledge->searchLotsPayload($projectId, $search, true);
 
         return $this->knowledge->encodeForTool(
-            $this->knowledge->searchLotsPayload($projectId, $search, $availableOnly)
+            [
+                'total' => count($results),
+                'truncated' => count($results) > 50,
+                'data' => array_slice($results, 0, 50),
+            ]
         );
     }
 
@@ -38,7 +40,6 @@ class SearchAvailableLotsTool implements Tool
         return [
             'project_id' => $schema->integer()->min(1),
             'search' => $schema->string(),
-            'available_only' => $schema->boolean(),
         ];
     }
 }

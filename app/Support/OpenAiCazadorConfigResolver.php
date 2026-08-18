@@ -28,7 +28,7 @@ class OpenAiCazadorConfigResolver
 
         config([
             'openai_cazador.enabled' => $settings->enabled,
-            'openai_cazador.model' => $settings->model,
+            'openai_cazador.model' => 'gpt-5.4',
             'openai_cazador.max_message_length' => $settings->max_message_length,
             'openai_cazador.rate_limit' => $settings->rate_limit,
             'openai_cazador.knowledge_rate_limit' => $settings->knowledge_rate_limit,

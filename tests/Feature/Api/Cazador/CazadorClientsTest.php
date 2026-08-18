@@ -58,6 +58,26 @@ class CazadorClientsTest extends TestCase
             ->assertJsonFragment(['name' => 'Cliente Cazador']);
     }
 
+    public function test_advisor_cannot_create_client_without_city(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $token = $this->loginToken($advisor);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson(route('api.v1.cazador.clients.store'), [
+                'name' => 'Cliente Sin Ciudad',
+                'dni' => '76543211',
+                'phone' => '987654322',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['city_id']);
+
+        $this->assertDatabaseMissing('clients', [
+            'name' => 'Cliente Sin Ciudad',
+            'advisor_id' => $advisor->id,
+        ]);
+    }
+
     public function test_advisor_cannot_register_client_with_duplicate_phone(): void
     {
         $ownerAdvisor = Advisor::firstOrFail();
@@ -74,6 +94,9 @@ class CazadorClientsTest extends TestCase
             'city_id' => $city->id,
         ]);
         $existing->load('advisor');
+        $existing->forceFill(['created_at' => '2026-08-17 10:00:00'])->saveQuietly();
+
+        $duplicateMessage = 'Cliente ya registrado por '.$existing->advisor->name.' el 17/08/2026';
 
         $response = $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
             ->postJson(route('api.v1.cazador.clients.store'), [
@@ -85,9 +108,9 @@ class CazadorClientsTest extends TestCase
             ]);
 
         $response->assertUnprocessable()
-            ->assertJsonPath('message', 'Cliente ya registrado por '.$existing->advisor->name)
-            ->assertJsonPath('errors.duplicate_registration.0', 'Cliente ya registrado por '.$existing->advisor->name)
-            ->assertJsonPath('errors.phone.0', 'Cliente ya registrado por '.$existing->advisor->name);
+            ->assertJsonPath('message', $duplicateMessage)
+            ->assertJsonPath('errors.duplicate_registration.0', $duplicateMessage)
+            ->assertJsonPath('errors.phone.0', $duplicateMessage);
 
         $this->assertDatabaseMissing('clients', [
             'name' => 'Intento duplicado',
@@ -96,7 +119,7 @@ class CazadorClientsTest extends TestCase
         ]);
     }
 
-    public function test_advisor_cannot_register_client_with_duplicate_dni(): void
+    public function test_advisor_can_register_client_with_duplicate_dni_and_different_phone(): void
     {
         $ownerAdvisor = Advisor::firstOrFail();
         $advisor = Advisor::query()->whereKeyNot($ownerAdvisor->id)->firstOrFail();
@@ -120,10 +143,14 @@ class CazadorClientsTest extends TestCase
                 'phone' => '911000999',
                 'city_id' => $city->id,
             ])
-            ->assertUnprocessable()
-            ->assertJsonPath('message', 'Cliente ya registrado por '.$existing->advisor->name)
-            ->assertJsonPath('errors.duplicate_registration.0', 'Cliente ya registrado por '.$existing->advisor->name)
-            ->assertJsonPath('errors.dni.0', 'Cliente ya registrado por '.$existing->advisor->name);
+            ->assertCreated();
+
+        $this->assertDatabaseHas('clients', [
+            'name' => 'Otro nombre',
+            'dni' => $existing->dni,
+            'phone' => '911000999',
+            'advisor_id' => $advisor->id,
+        ]);
     }
 
     public function test_advisor_cannot_register_client_with_duplicate_phone_ignoring_formatting(): void
@@ -147,13 +174,13 @@ class CazadorClientsTest extends TestCase
             ->postJson(route('api.v1.cazador.clients.store'), [
                 'name' => 'Mismo telefono sin espacios',
                 'dni' => '87654322',
-                'phone' => '980111222',
+                'phone' => '+(980)-111 222',
                 'city_id' => $city->id,
             ])
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Cliente ya registrado por '.$existing->advisor->name)
-            ->assertJsonPath('errors.phone.0', 'Cliente ya registrado por '.$existing->advisor->name)
-            ->assertJsonPath('errors.duplicate_registration.0', 'Cliente ya registrado por '.$existing->advisor->name);
+            ->assertJsonPath('message', 'Cliente ya registrado por '.$existing->advisor->name.' el '.$existing->created_at->format('d/m/Y'))
+            ->assertJsonPath('errors.phone.0', 'Cliente ya registrado por '.$existing->advisor->name.' el '.$existing->created_at->format('d/m/Y'))
+            ->assertJsonPath('errors.duplicate_registration.0', 'Cliente ya registrado por '.$existing->advisor->name.' el '.$existing->created_at->format('d/m/Y'));
     }
 
     public function test_advisor_can_list_show_and_update_datero_clients_for_same_advisor(): void
@@ -257,6 +284,32 @@ class CazadorClientsTest extends TestCase
         ]);
     }
 
+    public function test_advisor_cannot_update_client_without_city(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+        $token = $this->loginToken($advisor);
+
+        $client = Client::create([
+            'name' => 'Cliente Propio Sin Ciudad En Update',
+            'dni' => '33445567',
+            'phone' => '911222334',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson(route('api.v1.cazador.clients.update', $client), [
+                'name' => 'Cliente Propio Sin Ciudad En Update',
+                'dni' => '33445567',
+                'phone' => '911222334',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['city_id']);
+    }
+
     public function test_advisor_can_update_client_with_nested_city_payload(): void
     {
         $advisor = Advisor::firstOrFail();
@@ -330,6 +383,51 @@ class CazadorClientsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.name', 'Cliente Renombrado')
             ->assertJsonMissingPath('errors.duplicate_registration');
+    }
+
+    public function test_advisor_cannot_update_client_with_another_clients_phone(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+        $token = $this->loginToken($advisor);
+
+        $client = Client::create([
+            'name' => 'Cliente a editar',
+            'dni' => '11223345',
+            'phone' => '933444556',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+        ]);
+
+        $existing = Client::create([
+            'name' => 'Cliente con telefono ocupado',
+            'dni' => '11223346',
+            'phone' => '944 555 667',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+        ]);
+
+        $message = 'Cliente ya registrado por '.$advisor->name.' el '.$existing->created_at->format('d/m/Y');
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson(route('api.v1.cazador.clients.update', $client), [
+                'name' => 'Nombre no persistido',
+                'dni' => '11223345',
+                'phone' => '+(944)-555 667',
+                'city_id' => $city->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', $message)
+            ->assertJsonPath('errors.phone.0', $message);
+
+        $this->assertDatabaseHas('clients', [
+            'id' => $client->id,
+            'name' => 'Cliente a editar',
+            'phone' => '933444556',
+        ]);
     }
 
     public function test_index_filters_by_client_type_propio(): void

@@ -153,6 +153,25 @@ class PublicDateroClientRegistrationTest extends TestCase
             ->assertSessionHasErrors('duplicate_registration');
     }
 
+    public function test_post_requires_city(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $city = City::firstOrFail();
+        $datero = $this->makeDatero($advisor, $city, 'datero_pub_no_city', '55111228');
+
+        $this->from(route('public.datero-registration.show', ['token' => $datero->invite_token]))
+            ->post(route('public.datero-registration.store', ['token' => $datero->invite_token]), [
+                'name' => 'Cliente Web Sin Ciudad',
+                'phone' => '900888778',
+            ])
+            ->assertSessionHasErrors('city_id');
+
+        $this->assertDatabaseMissing('clients', [
+            'name' => 'Cliente Web Sin Ciudad',
+            'registered_by_datero_id' => $datero->id,
+        ]);
+    }
+
     private function makeDatero(Advisor $advisor, City $city, string $username, string $dni): Datero
     {
         return Datero::create([

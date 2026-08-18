@@ -3,6 +3,8 @@
 namespace Tests\Feature\OpenAi\Cazador;
 
 use App\Models\Inmopro\Advisor;
+use App\Models\Inmopro\OpenAiCazadorConversation;
+use App\Models\Inmopro\OpenAiCazadorKnowledgeDocument;
 use App\OpenAi\Agents\CazadorCatalogAssistant;
 use Database\Seeders\Inmopro\AdvisorLevelSeeder;
 use Database\Seeders\Inmopro\AdvisorSeeder;
@@ -91,6 +93,94 @@ class ChatApiTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['message']);
+    }
+
+    public function test_personal_data_is_rejected_before_prompting_openai(): void
+    {
+        CazadorCatalogAssistant::fake()->preventStrayPrompts();
+        $advisor = Advisor::firstOrFail();
+
+        $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
+            ->postJson(route('api.v1.cazador.openai.chat.store'), [
+                'message' => 'Escribe a cliente@example.com para coordinar',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['message']);
+
+        CazadorCatalogAssistant::assertNeverPrompted();
+        $this->assertDatabaseCount('openai_cazador_conversations', 0);
+    }
+
+    public function test_conversation_is_persisted_and_isolated_per_advisor(): void
+    {
+        CazadorCatalogAssistant::fake(['Primera respuesta', 'Segunda respuesta']);
+        $advisors = Advisor::query()->take(2)->get();
+        $owner = $advisors->firstOrFail();
+        $other = $advisors->last();
+        $ownerToken = $this->loginToken($owner);
+
+        $conversationId = $this->withHeader('Authorization', 'Bearer '.$ownerToken)
+            ->postJson(route('api.v1.cazador.openai.chat.store'), ['message' => 'Primera pregunta'])
+            ->assertOk()
+            ->json('conversation_id');
+
+        $this->withHeader('Authorization', 'Bearer '.$ownerToken)
+            ->postJson(route('api.v1.cazador.openai.chat.store'), [
+                'message' => 'Segunda pregunta',
+                'conversation_id' => $conversationId,
+            ])
+            ->assertOk()
+            ->assertJsonPath('conversation_id', $conversationId);
+
+        $this->assertDatabaseCount('openai_cazador_conversation_messages', 4);
+        $this->assertDatabaseCount('openai_cazador_runs', 2);
+
+        $this->withHeader('Authorization', 'Bearer '.$this->loginToken($other))
+            ->deleteJson(route('api.v1.cazador.openai.conversations.destroy', $conversationId))
+            ->assertNotFound();
+    }
+
+    public function test_expired_conversation_is_replaced(): void
+    {
+        CazadorCatalogAssistant::fake(['Respuesta nueva']);
+        $advisor = Advisor::firstOrFail();
+        $old = OpenAiCazadorConversation::query()->create([
+            'advisor_id' => $advisor->id,
+            'last_active_at' => now()->subMinutes(121),
+        ]);
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
+            ->postJson(route('api.v1.cazador.openai.chat.store'), [
+                'message' => 'Continuemos',
+                'conversation_id' => $old->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('conversation_reset', true);
+
+        $this->assertNotSame($old->id, $response->json('conversation_id'));
+        $this->assertDatabaseMissing('openai_cazador_conversations', ['id' => $old->id]);
+    }
+
+    public function test_status_exposes_dynamic_limit_and_active_knowledge_version(): void
+    {
+        config(['openai_cazador.max_message_length' => 1350]);
+        $advisor = Advisor::firstOrFail();
+        OpenAiCazadorKnowledgeDocument::query()->create([
+            'version' => 3,
+            'original_name' => 'ventas.md',
+            'storage_path' => 'private/ventas.md',
+            'file_size' => 100,
+            'sha256' => str_repeat('a', 64),
+            'status' => 'ready',
+            'is_active' => true,
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
+            ->getJson(route('api.v1.cazador.openai.status'))
+            ->assertOk()
+            ->assertJsonPath('max_message_length', 1350)
+            ->assertJsonPath('knowledge.version', 3)
+            ->assertJsonPath('knowledge.ready', true);
     }
 
     public function test_chat_is_rate_limited_per_advisor(): void

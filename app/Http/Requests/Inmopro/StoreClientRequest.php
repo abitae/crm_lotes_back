@@ -42,7 +42,7 @@ class StoreClientRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:255'],
             'referred_by' => ['nullable', 'string', 'max:255'],
             'client_type_id' => ['required', 'exists:client_types,id'],
-            'city_id' => ['nullable', 'exists:cities,id'],
+            'city_id' => ['required', 'exists:cities,id'],
             'advisor_id' => ['required', 'exists:advisors,id'],
         ];
     }

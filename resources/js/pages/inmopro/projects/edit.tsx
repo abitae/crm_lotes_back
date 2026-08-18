@@ -183,8 +183,7 @@ export default function ProjectsEdit({
                 formData.project_type_id === ''
                     ? null
                     : Number(formData.project_type_id),
-            city_id:
-                formData.city_id === '' ? null : Number(formData.city_id),
+            city_id: formData.city_id === '' ? null : Number(formData.city_id),
             total_lots:
                 formData.total_lots === '' ? null : Number(formData.total_lots),
             is_web: formData.is_web ? 1 : 0,
@@ -250,12 +249,8 @@ export default function ProjectsEdit({
                         registryStatus={data.registry_status}
                         errors={errors}
                         onCityIdChange={(value) => setData('city_id', value)}
-                        onProvinceChange={(value) =>
-                            setData('province', value)
-                        }
-                        onDistrictChange={(value) =>
-                            setData('district', value)
-                        }
+                        onProvinceChange={(value) => setData('province', value)}
+                        onDistrictChange={(value) => setData('district', value)}
                         onProjectZoneChange={(value) =>
                             setData('project_zone', value)
                         }
@@ -266,9 +261,7 @@ export default function ProjectsEdit({
                     <ProjectGoogleMapsCoordinatesField
                         location={data.location}
                         errors={errors}
-                        onLocationChange={(value) =>
-                            setData('location', value)
-                        }
+                        onLocationChange={(value) => setData('location', value)}
                     />
                     <div className="flex items-center gap-2">
                         <input
@@ -306,7 +299,10 @@ export default function ProjectsEdit({
                             setData('descripcion', value)
                         }
                         onPrecioWebChange={(value) =>
-                            setData('precio_web', value)
+                            setData(
+                                'precio_web',
+                                value === '' ? '' : Number(value),
+                            )
                         }
                         onPortadaFileChange={(file) =>
                             setData('portada_file', file)

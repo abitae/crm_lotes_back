@@ -89,6 +89,7 @@ class LotController extends Controller
             'project' => $lot->project ? [
                 'id' => $lot->project->id,
                 'name' => $lot->project->name,
+                'location' => $lot->project->location,
             ] : null,
             'status' => $lot->status ? [
                 'id' => $lot->status->id,

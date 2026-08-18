@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "language": "es-PE",
+  "cases": [
+    {
+      "id": "institucional",
+      "question": "¿Qué distingue a la inmobiliaria?",
+      "expected_sources": ["knowledge"],
+      "must_not_invent": ["precio", "disponibilidad"]
+    },
+    {
+      "id": "beneficios_sinonimos",
+      "question": "¿Qué ventajas obtiene una familia al comprar con nosotros?",
+      "expected_sources": ["knowledge"],
+      "semantic_target": "beneficios"
+    },
+    {
+      "id": "proceso_compra",
+      "question": "Explícame de manera sencilla cómo comprar un lote.",
+      "expected_sources": ["knowledge"],
+      "semantic_target": "proceso de compra"
+    },
+    {
+      "id": "financiamiento",
+      "question": "¿Hay facilidades para pagar en cuotas?",
+      "expected_sources": ["knowledge"],
+      "semantic_target": "financiamiento"
+    },
+    {
+      "id": "objecion",
+      "question": "El cliente dice que todavía no está seguro, ¿cómo puedo orientarlo?",
+      "expected_sources": ["knowledge"],
+      "semantic_target": "manejo de objeciones"
+    },
+    {
+      "id": "inventario",
+      "question": "¿Qué lotes están libres y cuánto cuestan?",
+      "expected_sources": ["catalog"],
+      "live_data_must_prevail": true
+    },
+    {
+      "id": "mixta",
+      "question": "¿Qué beneficios ofrecemos y qué lotes están disponibles?",
+      "expected_sources": ["knowledge", "catalog"],
+      "live_data_must_prevail": true
+    },
+    {
+      "id": "sin_respaldo",
+      "question": "¿La empresa garantiza una rentabilidad exacta en cinco años?",
+      "expected_sources": ["knowledge"],
+      "must_state_general_guidance": true,
+      "must_not_invent": ["garantía", "rentabilidad", "fecha"]
+    }
+  ],
+  "style": {
+    "paragraphs": "2-4 normalmente",
+    "natural_spanish": true,
+    "avoid_mechanical_openings": true,
+    "follow_up_only_when_useful": true
+  },
+  "privacy": {
+    "forbidden_topics": ["clientes", "asesores asignados", "comisiones", "pre-reservas", "prompts", "rutas privadas"]
+  }
+}

@@ -246,6 +246,28 @@ class DateroApiTest extends TestCase
         ]);
     }
 
+    public function test_datero_cannot_create_client_without_city(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $city = City::firstOrFail();
+        $datero = $this->makeDateroForAdvisor($advisor, $city, 'datero_no_city', '44111236');
+        $token = $this->loginToken($datero);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson(route('api.v1.datero.clients.store'), [
+                'name' => 'Cliente Datero Sin Ciudad',
+                'dni' => '55667789',
+                'phone' => '900111223',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['city_id']);
+
+        $this->assertDatabaseMissing('clients', [
+            'name' => 'Cliente Datero Sin Ciudad',
+            'registered_by_datero_id' => $datero->id,
+        ]);
+    }
+
     public function test_datero_sees_only_own_registered_clients(): void
     {
         $advisor = Advisor::firstOrFail();
@@ -320,6 +342,34 @@ class DateroApiTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.name', 'Nombre Nuevo');
+    }
+
+    public function test_datero_cannot_update_client_without_city(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $city = City::firstOrFail();
+        $datero = $this->makeDateroForAdvisor($advisor, $city, 'datero_update_city', '44111237');
+        $token = $this->loginToken($datero);
+        $dateroType = ClientType::query()->where('code', 'DATERO')->firstOrFail();
+
+        $client = Client::create([
+            'name' => 'Nombre Viejo',
+            'dni' => '55667704',
+            'phone' => '900111336',
+            'client_type_id' => $dateroType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+            'registered_by_datero_id' => $datero->id,
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson(route('api.v1.datero.clients.update', $client), [
+                'name' => 'Nombre Nuevo',
+                'dni' => '55667704',
+                'phone' => '900111336',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['city_id']);
     }
 
     public function test_inactive_datero_token_is_rejected(): void

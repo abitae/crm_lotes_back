@@ -14,7 +14,15 @@ return [
 
     'enabled' => env('OPENAI_CAZADOR_ENABLED', true),
 
-    'model' => env('OPENAI_CAZADOR_MODEL'),
+    'model' => 'gpt-5.4',
+
+    'embedding_model' => 'text-embedding-3-small',
+
+    'conversation_ttl_minutes' => 120,
+
+    'max_conversation_messages' => 12,
+
+    'timeout_seconds' => 30,
 
     'max_message_length' => (int) env('OPENAI_CAZADOR_MAX_MESSAGE_LENGTH', 2000),
 

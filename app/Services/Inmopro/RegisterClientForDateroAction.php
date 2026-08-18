@@ -10,7 +10,7 @@ use RuntimeException;
 class RegisterClientForDateroAction
 {
     /**
-     * @param  array{name: string, phone: string, dni?: string|null, email?: string|null, referred_by?: string|null, city_id?: int|null}  $fields
+     * @param  array{name: string, phone: string, city_id: int, dni?: string|null, email?: string|null, referred_by?: string|null}  $fields
      */
     public function execute(Datero $datero, array $fields): Client
     {
@@ -25,7 +25,7 @@ class RegisterClientForDateroAction
             'phone' => $fields['phone'],
             'email' => $fields['email'] ?? null,
             'referred_by' => $fields['referred_by'] ?? null,
-            'city_id' => $fields['city_id'] ?? null,
+            'city_id' => $fields['city_id'],
             'advisor_id' => $datero->advisor_id,
             'client_type_id' => $dateroTypeId,
             'registered_by_datero_id' => $datero->id,

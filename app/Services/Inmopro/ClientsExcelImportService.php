@@ -136,6 +136,9 @@ class ClientsExcelImportService
             if ($advisorName === null) {
                 $rowErrors[] = ['field' => 'advisor', 'message' => 'El asesor es obligatorio.'];
             }
+            if ($cityName === null) {
+                $rowErrors[] = ['field' => 'city', 'message' => 'La ciudad es obligatoria.'];
+            }
             if ($registeredAtInvalid) {
                 $rowErrors[] = [
                     'field' => 'registered_at',
@@ -302,11 +305,11 @@ class ClientsExcelImportService
                 $payload = $row['payload'];
                 $cityName = $row['city_name'] ?? null;
 
-                if (is_string($cityName) && $cityName !== '') {
-                    $payload['city_id'] = $this->findOrCreateCityId($cityName);
-                } else {
-                    $payload['city_id'] = null;
+                if (! is_string($cityName) || $cityName === '') {
+                    throw new RuntimeException('La ciudad es obligatoria.');
                 }
+
+                $payload['city_id'] = $this->findOrCreateCityId($cityName);
 
                 $client->fill($payload);
 
@@ -469,6 +472,7 @@ class ClientsExcelImportService
             'name' => 'Nombre',
             'phone' => 'Telefono',
             'client_type' => 'Tipo cliente',
+            'city' => 'Ciudad',
             'advisor' => 'Asesor',
         ];
 

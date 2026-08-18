@@ -7,6 +7,28 @@ use Illuminate\Contracts\Validation\Validator;
 
 class ClientDuplicateRegistrationChecker
 {
+    public function findPhoneConflict(?string $phone, ?int $exceptClientId = null): ?Client
+    {
+        $phoneNormalized = $this->normalizePhone($phone);
+
+        if ($phoneNormalized === '') {
+            return null;
+        }
+
+        return Client::query()
+            ->with('advisor')
+            ->where(function ($query) use ($phoneNormalized): void {
+                $query->where('phone', $phoneNormalized)
+                    ->orWhereRaw(
+                        "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') = ?",
+                        [$phoneNormalized]
+                    );
+            })
+            ->when($exceptClientId !== null, fn ($query) => $query->where('id', '!=', $exceptClientId))
+            ->orderBy('id')
+            ->first();
+    }
+
     /**
      * Busca un cliente existente con el mismo DNI (si no está vacío) o el mismo teléfono (si no está vacío).
      */
@@ -51,6 +73,32 @@ class ClientDuplicateRegistrationChecker
         $advisorName = $existing->advisor?->name ?? 'otro vendedor';
 
         return 'Cliente ya registrado por '.$advisorName;
+    }
+
+    public function messageWithRegistrationDate(Client $existing): string
+    {
+        $registrationDate = $existing->created_at
+            ->timezone(config('app.timezone'))
+            ->format('d/m/Y');
+
+        return $this->message($existing).' el '.$registrationDate;
+    }
+
+    public function addPhoneValidationErrors(
+        Validator $validator,
+        ?string $phone,
+        ?int $exceptClientId = null,
+        string $fieldPrefix = '',
+    ): void {
+        $conflict = $this->findPhoneConflict($phone, $exceptClientId);
+
+        if ($conflict === null) {
+            return;
+        }
+
+        $message = $this->messageWithRegistrationDate($conflict);
+        $validator->errors()->add('duplicate_registration', $message);
+        $validator->errors()->add($fieldPrefix.'phone', $message);
     }
 
     /**

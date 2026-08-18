@@ -204,6 +204,12 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::put('branding', [AppBrandingController::class, 'update'])->name('branding.update');
         Route::get('openai-cazador', [OpenAiCazadorConfigController::class, 'edit'])->name('openai-cazador.edit');
         Route::put('openai-cazador', [OpenAiCazadorConfigController::class, 'update'])->name('openai-cazador.update');
+        Route::post('openai-cazador/knowledge', [OpenAiCazadorConfigController::class, 'uploadKnowledge'])->name('openai-cazador.knowledge.upload');
+        Route::get('openai-cazador/knowledge/{document}/download', [OpenAiCazadorConfigController::class, 'downloadKnowledge'])->name('openai-cazador.knowledge.download');
+        Route::delete('openai-cazador/knowledge/{document}', [OpenAiCazadorConfigController::class, 'destroyKnowledge'])->name('openai-cazador.knowledge.destroy');
+        Route::post('openai-cazador/knowledge/{document}/reindex', [OpenAiCazadorConfigController::class, 'reindexKnowledge'])->name('openai-cazador.knowledge.reindex');
+        Route::post('openai-cazador/knowledge/{document}/activate', [OpenAiCazadorConfigController::class, 'activateKnowledge'])->name('openai-cazador.knowledge.activate');
+        Route::post('openai-cazador/knowledge/preview', [OpenAiCazadorConfigController::class, 'previewKnowledge'])->name('openai-cazador.knowledge.preview');
         Route::get('attention-tickets/calendar', [AttentionTicketController::class, 'calendar'])->name('attention-tickets.calendar');
         Route::get('attention-tickets/{attention_ticket}/delivery-deed', [AttentionTicketController::class, 'deliveryDeed'])->name('attention-tickets.delivery-deed');
         Route::post('attention-tickets/{attention_ticket}/delivery-deed/mark-signed', [AttentionTicketController::class, 'markDeedSigned'])->name('attention-tickets.delivery-deed.mark-signed');

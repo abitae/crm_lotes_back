@@ -4,11 +4,18 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import allLocales from '@fullcalendar/core/locales-all';
+import type { EventClickArg } from '@fullcalendar/core';
 import { FormEvent, useEffect, useState } from 'react';
 import { Calendar, Plus, Bell } from 'lucide-react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import InputError from '@/components/input-error';
@@ -57,7 +64,12 @@ type PageProps = {
     clients: Client[];
     events: CalendarEvent[];
     remindersPending: PendingReminder[];
-    filters: { advisor_id?: string; start?: string; end?: string; event_id?: string };
+    filters: {
+        advisor_id?: string;
+        start?: string;
+        end?: string;
+        event_id?: string;
+    };
 };
 
 export default function AgendaIndex({
@@ -89,26 +101,43 @@ export default function AgendaIndex({
     useEffect(() => {
         if (filters.event_id) {
             const ev = events.find(
-                (e) => e.extendedProps?.eventId === Number(filters.event_id) || e.extendedProps?.reminderId === Number(filters.event_id)
+                (e) =>
+                    e.extendedProps?.eventId === Number(filters.event_id) ||
+                    e.extendedProps?.reminderId === Number(filters.event_id),
             );
-            if (ev?.extendedProps?.type === 'event' && ev.extendedProps?.eventId) {
+            if (
+                ev?.extendedProps?.type === 'event' &&
+                ev.extendedProps?.eventId
+            ) {
                 setEditEventData({
                     id: ev.extendedProps.eventId,
                     client_id: ev.extendedProps.client_id ?? 0,
                     title: ev.extendedProps.title ?? ev.title,
                     notes: ev.extendedProps.notes ?? '',
-                    starts_at: ev.extendedProps.starts_at ? ev.extendedProps.starts_at.slice(0, 16) : '',
-                    ends_at: ev.extendedProps.ends_at ? ev.extendedProps.ends_at.slice(0, 16) : '',
+                    starts_at: ev.extendedProps.starts_at
+                        ? ev.extendedProps.starts_at.slice(0, 16)
+                        : '',
+                    ends_at: ev.extendedProps.ends_at
+                        ? ev.extendedProps.ends_at.slice(0, 16)
+                        : '',
                 });
                 setEventModalOpen(true);
             }
-            if (ev?.extendedProps?.type === 'reminder' && ev.extendedProps?.reminderId) {
+            if (
+                ev?.extendedProps?.type === 'reminder' &&
+                ev.extendedProps?.reminderId
+            ) {
                 setEditReminderData({
                     id: ev.extendedProps.reminderId,
                     client_id: ev.extendedProps.client_id ?? 0,
-                    title: (ev.extendedProps.title ?? ev.title).replace(/^⏰\s*/, ''),
+                    title: (ev.extendedProps.title ?? ev.title).replace(
+                        /^⏰\s*/,
+                        '',
+                    ),
                     notes: ev.extendedProps.notes ?? '',
-                    remind_at: ev.extendedProps.remind_at ? ev.extendedProps.remind_at.slice(0, 16) : '',
+                    remind_at: ev.extendedProps.remind_at
+                        ? ev.extendedProps.remind_at.slice(0, 16)
+                        : '',
                 });
                 setReminderModalOpen(true);
             }
@@ -121,21 +150,30 @@ export default function AgendaIndex({
     ];
 
     const handleAdvisorChange = (value: string) => {
-        router.get('/inmopro/agenda', { advisor_id: value || undefined }, { preserveState: false });
+        router.get(
+            '/inmopro/agenda',
+            { advisor_id: value || undefined },
+            { preserveState: false },
+        );
     };
 
     const handleDatesSet = (arg: { startStr: string; endStr: string }) => {
         if (!advisorId) return;
-        router.get('/inmopro/agenda', {
-            advisor_id: advisorId,
-            start: arg.startStr,
-            end: arg.endStr,
-        }, { preserveState: true });
+        router.get(
+            '/inmopro/agenda',
+            {
+                advisor_id: advisorId,
+                start: arg.startStr,
+                end: arg.endStr,
+            },
+            { preserveState: true },
+        );
     };
 
-    const handleEventClick = (info: { event: { url?: string; extendedProps?: CalendarEvent['extendedProps'] }; jsEvent: { preventDefault: () => void } }) => {
+    const handleEventClick = (info: EventClickArg) => {
         info.jsEvent.preventDefault();
-        const props = info.event.extendedProps;
+        const props = info.event
+            .extendedProps as CalendarEvent['extendedProps'];
         if (!props) return;
         if (props.type === 'event' && props.eventId) {
             setEditEventData({
@@ -152,7 +190,10 @@ export default function AgendaIndex({
             setEditReminderData({
                 id: props.reminderId,
                 client_id: props.client_id ?? 0,
-                title: (props.title ?? info.event.title ?? '').replace(/^⏰\s*/, ''),
+                title: (props.title ?? info.event.title ?? '').replace(
+                    /^⏰\s*/,
+                    '',
+                ),
                 notes: props.notes ?? '',
                 remind_at: props.remind_at ? props.remind_at.slice(0, 16) : '',
             });
@@ -166,25 +207,36 @@ export default function AgendaIndex({
             <div className="space-y-6 p-4 md:p-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Agenda por vendedor</h1>
-                        <p className="mt-1 text-sm text-slate-500">Eventos y recordatorios ligados a clientes.</p>
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                            Agenda por vendedor
+                        </h1>
+                        <p className="mt-1 text-sm text-slate-500">
+                            Eventos y recordatorios ligados a clientes.
+                        </p>
                     </div>
                 </div>
 
                 <Card>
                     <CardHeader>
                         <CardTitle>Vendedor</CardTitle>
-                        <CardDescription>Seleccione un vendedor para ver su agenda y recordatorios.</CardDescription>
+                        <CardDescription>
+                            Seleccione un vendedor para ver su agenda y
+                            recordatorios.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <select
                             value={advisorId}
-                            onChange={(e) => handleAdvisorChange(e.target.value)}
+                            onChange={(e) =>
+                                handleAdvisorChange(e.target.value)
+                            }
                             className="w-full max-w-xs rounded-lg border border-slate-200 px-3 py-2"
                         >
                             <option value="">— Seleccione vendedor —</option>
                             {advisors.map((a) => (
-                                <option key={a.id} value={String(a.id)}>{a.name}</option>
+                                <option key={a.id} value={String(a.id)}>
+                                    {a.name}
+                                </option>
                             ))}
                         </select>
                     </CardContent>
@@ -194,17 +246,32 @@ export default function AgendaIndex({
                     <Card>
                         <CardContent className="flex flex-col items-center justify-center py-16">
                             <Calendar className="h-12 w-12 text-slate-300" />
-                            <p className="mt-4 text-slate-500">Seleccione un vendedor para ver el calendario.</p>
+                            <p className="mt-4 text-slate-500">
+                                Seleccione un vendedor para ver el calendario.
+                            </p>
                         </CardContent>
                     </Card>
                 ) : (
                     <>
                         <div className="flex flex-wrap gap-2">
-                            <Button size="sm" onClick={() => { setEditEventData(null); setEventModalOpen(true); }}>
+                            <Button
+                                size="sm"
+                                onClick={() => {
+                                    setEditEventData(null);
+                                    setEventModalOpen(true);
+                                }}
+                            >
                                 <Plus className="h-4 w-4" />
                                 Nuevo evento
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => { setEditReminderData(null); setReminderModalOpen(true); }}>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setEditReminderData(null);
+                                    setReminderModalOpen(true);
+                                }}
+                            >
                                 <Bell className="h-4 w-4" />
                                 Nuevo recordatorio
                             </Button>
@@ -215,7 +282,11 @@ export default function AgendaIndex({
                                 <Card className="overflow-hidden">
                                     <CardContent className="p-4">
                                         <FullCalendar
-                                            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                                            plugins={[
+                                                dayGridPlugin,
+                                                timeGridPlugin,
+                                                interactionPlugin,
+                                            ]}
                                             initialView="timeGridWeek"
                                             headerToolbar={{
                                                 left: 'prev,next today',
@@ -251,32 +322,62 @@ export default function AgendaIndex({
                                             <Bell className="h-5 w-5" />
                                             Recordatorios pendientes
                                         </CardTitle>
-                                        <CardDescription>Hoy o vencidos, sin completar.</CardDescription>
+                                        <CardDescription>
+                                            Hoy o vencidos, sin completar.
+                                        </CardDescription>
                                     </CardHeader>
                                     <CardContent>
                                         {remindersPending.length === 0 ? (
-                                            <p className="text-sm text-slate-500">No hay recordatorios pendientes.</p>
+                                            <p className="text-sm text-slate-500">
+                                                No hay recordatorios pendientes.
+                                            </p>
                                         ) : (
                                             <ul className="space-y-2">
                                                 {remindersPending.map((r) => (
-                                                    <li key={r.id} className="flex items-start justify-between gap-2 rounded-lg border border-slate-100 p-2 text-sm">
+                                                    <li
+                                                        key={r.id}
+                                                        className="flex items-start justify-between gap-2 rounded-lg border border-slate-100 p-2 text-sm"
+                                                    >
                                                         <div>
-                                                            <p className="font-medium text-slate-800">{r.title}</p>
-                                                            <p className="text-slate-500">{r.client?.name ?? ''} · {new Date(r.remind_at).toLocaleString('es-PE')}</p>
+                                                            <p className="font-medium text-slate-800">
+                                                                {r.title}
+                                                            </p>
+                                                            <p className="text-slate-500">
+                                                                {r.client
+                                                                    ?.name ??
+                                                                    ''}{' '}
+                                                                ·{' '}
+                                                                {new Date(
+                                                                    r.remind_at,
+                                                                ).toLocaleString(
+                                                                    'es-PE',
+                                                                )}
+                                                            </p>
                                                         </div>
                                                         <div className="flex gap-1">
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
                                                                 onClick={() => {
-                                                                    setEditReminderData({
-                                                                        id: r.id,
-                                                                        client_id: r.client_id,
-                                                                        title: r.title,
-                                                                        notes: r.notes ?? '',
-                                                                        remind_at: r.remind_at.slice(0, 16),
-                                                                    });
-                                                                    setReminderModalOpen(true);
+                                                                    setEditReminderData(
+                                                                        {
+                                                                            id: r.id,
+                                                                            client_id:
+                                                                                r.client_id,
+                                                                            title: r.title,
+                                                                            notes:
+                                                                                r.notes ??
+                                                                                '',
+                                                                            remind_at:
+                                                                                r.remind_at.slice(
+                                                                                    0,
+                                                                                    16,
+                                                                                ),
+                                                                        },
+                                                                    );
+                                                                    setReminderModalOpen(
+                                                                        true,
+                                                                    );
                                                                 }}
                                                             >
                                                                 Editar
@@ -284,7 +385,11 @@ export default function AgendaIndex({
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"
-                                                                onClick={() => router.post(`/inmopro/advisor-reminders/${r.id}/complete`)}
+                                                                onClick={() =>
+                                                                    router.post(
+                                                                        `/inmopro/advisor-reminders/${r.id}/complete`,
+                                                                    )
+                                                                }
                                                             >
                                                                 Realizado
                                                             </Button>
@@ -337,13 +442,20 @@ function EventModal({
     onOpenChange: (open: boolean) => void;
     advisorId: number;
     clients: Client[];
-    editData: { id: number; client_id: number; title: string; notes: string; starts_at: string; ends_at: string } | null;
+    editData: {
+        id: number;
+        client_id: number;
+        title: string;
+        notes: string;
+        starts_at: string;
+        ends_at: string;
+    } | null;
     onClose: () => void;
 }) {
     const isEdit = editData !== null;
     const { data, setData, post, put, processing, errors, reset } = useForm({
         advisor_id: advisorId,
-        client_id: editData?.client_id ?? (clients[0]?.id ?? 0),
+        client_id: editData?.client_id ?? clients[0]?.id ?? 0,
         title: editData?.title ?? '',
         notes: editData?.notes ?? '',
         starts_at: editData?.starts_at ?? '',
@@ -378,52 +490,98 @@ function EventModal({
     const submit = (e: FormEvent) => {
         e.preventDefault();
         if (isEdit) {
-            put(`/inmopro/advisor-agenda-events/${editData.id}`, { onSuccess: () => { onOpenChange(false); onClose(); } });
+            put(`/inmopro/advisor-agenda-events/${editData.id}`, {
+                onSuccess: () => {
+                    onOpenChange(false);
+                    onClose();
+                },
+            });
         } else {
-            post('/inmopro/advisor-agenda-events', { onSuccess: () => { onOpenChange(false); onClose(); } });
+            post('/inmopro/advisor-agenda-events', {
+                onSuccess: () => {
+                    onOpenChange(false);
+                    onClose();
+                },
+            });
         }
     };
 
     return (
-        <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) onClose(); }}>
+        <Dialog
+            open={open}
+            onOpenChange={(v) => {
+                onOpenChange(v);
+                if (!v) onClose();
+            }}
+        >
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>{isEdit ? 'Editar evento' : 'Nuevo evento'}</DialogTitle>
-                    <DialogDescription>Evento de agenda ligado a un cliente.</DialogDescription>
+                    <DialogTitle>
+                        {isEdit ? 'Editar evento' : 'Nuevo evento'}
+                    </DialogTitle>
+                    <DialogDescription>
+                        Evento de agenda ligado a un cliente.
+                    </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={submit} className="space-y-4">
                     <div>
                         <Label>Cliente</Label>
                         <select
                             value={data.client_id}
-                            onChange={(e) => setData('client_id', Number(e.target.value))}
+                            onChange={(e) =>
+                                setData('client_id', Number(e.target.value))
+                            }
                             className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                             required
                         >
                             {clients.map((c) => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
+                                <option key={c.id} value={c.id}>
+                                    {c.name}
+                                </option>
                             ))}
                         </select>
                         <InputError message={errors.client_id} />
                     </div>
                     <div>
                         <Label>Título</Label>
-                        <Input value={data.title} onChange={(e) => setData('title', e.target.value)} className="mt-1" required />
+                        <Input
+                            value={data.title}
+                            onChange={(e) => setData('title', e.target.value)}
+                            className="mt-1"
+                            required
+                        />
                         <InputError message={errors.title} />
                     </div>
                     <div>
                         <Label>Notas</Label>
-                        <Input value={data.notes} onChange={(e) => setData('notes', e.target.value)} className="mt-1" />
+                        <Input
+                            value={data.notes}
+                            onChange={(e) => setData('notes', e.target.value)}
+                            className="mt-1"
+                        />
                         <InputError message={errors.notes} />
                     </div>
                     <div>
                         <Label>Inicio</Label>
-                        <Input type="datetime-local" value={data.starts_at} onChange={(e) => setData('starts_at', e.target.value)} className="mt-1" required />
+                        <Input
+                            type="datetime-local"
+                            value={data.starts_at}
+                            onChange={(e) =>
+                                setData('starts_at', e.target.value)
+                            }
+                            className="mt-1"
+                            required
+                        />
                         <InputError message={errors.starts_at} />
                     </div>
                     <div>
                         <Label>Fin (opcional)</Label>
-                        <Input type="datetime-local" value={data.ends_at} onChange={(e) => setData('ends_at', e.target.value)} className="mt-1" />
+                        <Input
+                            type="datetime-local"
+                            value={data.ends_at}
+                            onChange={(e) => setData('ends_at', e.target.value)}
+                            className="mt-1"
+                        />
                         <InputError message={errors.ends_at} />
                     </div>
                     <DialogFooter className="flex-wrap gap-2">
@@ -433,8 +591,16 @@ function EventModal({
                                 variant="outline"
                                 className="text-red-600"
                                 onClick={() => {
-                                    if (window.confirm('¿Eliminar este evento?')) {
-                                        router.delete(`/inmopro/advisor-agenda-events/${editData.id}`, { onSuccess: () => onOpenChange(false) });
+                                    if (
+                                        window.confirm('¿Eliminar este evento?')
+                                    ) {
+                                        router.delete(
+                                            `/inmopro/advisor-agenda-events/${editData.id}`,
+                                            {
+                                                onSuccess: () =>
+                                                    onOpenChange(false),
+                                            },
+                                        );
                                     }
                                 }}
                             >
@@ -442,8 +608,16 @@ function EventModal({
                             </Button>
                         )}
                         <div className="flex flex-1 justify-end gap-2">
-                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                            <Button type="submit" disabled={processing}>{isEdit ? 'Guardar' : 'Crear'}</Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => onOpenChange(false)}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button type="submit" disabled={processing}>
+                                {isEdit ? 'Guardar' : 'Crear'}
+                            </Button>
                         </div>
                     </DialogFooter>
                 </form>
@@ -464,13 +638,19 @@ function ReminderModal({
     onOpenChange: (open: boolean) => void;
     advisorId: number;
     clients: Client[];
-    editData: { id: number; client_id: number; title: string; notes: string; remind_at: string } | null;
+    editData: {
+        id: number;
+        client_id: number;
+        title: string;
+        notes: string;
+        remind_at: string;
+    } | null;
     onClose: () => void;
 }) {
     const isEdit = editData !== null;
     const { data, setData, post, put, processing, errors, reset } = useForm({
         advisor_id: advisorId,
-        client_id: editData?.client_id ?? (clients[0]?.id ?? 0),
+        client_id: editData?.client_id ?? clients[0]?.id ?? 0,
         title: editData?.title ?? '',
         notes: editData?.notes ?? '',
         remind_at: editData?.remind_at ?? '',
@@ -501,47 +681,88 @@ function ReminderModal({
     const submit = (e: FormEvent) => {
         e.preventDefault();
         if (isEdit) {
-            put(`/inmopro/advisor-reminders/${editData.id}`, { onSuccess: () => { onOpenChange(false); onClose(); } });
+            put(`/inmopro/advisor-reminders/${editData.id}`, {
+                onSuccess: () => {
+                    onOpenChange(false);
+                    onClose();
+                },
+            });
         } else {
-            post('/inmopro/advisor-reminders', { onSuccess: () => { onOpenChange(false); onClose(); } });
+            post('/inmopro/advisor-reminders', {
+                onSuccess: () => {
+                    onOpenChange(false);
+                    onClose();
+                },
+            });
         }
     };
 
     return (
-        <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) onClose(); }}>
+        <Dialog
+            open={open}
+            onOpenChange={(v) => {
+                onOpenChange(v);
+                if (!v) onClose();
+            }}
+        >
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>{isEdit ? 'Editar recordatorio' : 'Nuevo recordatorio'}</DialogTitle>
-                    <DialogDescription>Recordatorio puntual ligado a un cliente.</DialogDescription>
+                    <DialogTitle>
+                        {isEdit ? 'Editar recordatorio' : 'Nuevo recordatorio'}
+                    </DialogTitle>
+                    <DialogDescription>
+                        Recordatorio puntual ligado a un cliente.
+                    </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={submit} className="space-y-4">
                     <div>
                         <Label>Cliente</Label>
                         <select
                             value={data.client_id}
-                            onChange={(e) => setData('client_id', Number(e.target.value))}
+                            onChange={(e) =>
+                                setData('client_id', Number(e.target.value))
+                            }
                             className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                             required
                         >
                             {clients.map((c) => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
+                                <option key={c.id} value={c.id}>
+                                    {c.name}
+                                </option>
                             ))}
                         </select>
                         <InputError message={errors.client_id} />
                     </div>
                     <div>
                         <Label>Título</Label>
-                        <Input value={data.title} onChange={(e) => setData('title', e.target.value)} className="mt-1" required />
+                        <Input
+                            value={data.title}
+                            onChange={(e) => setData('title', e.target.value)}
+                            className="mt-1"
+                            required
+                        />
                         <InputError message={errors.title} />
                     </div>
                     <div>
                         <Label>Notas</Label>
-                        <Input value={data.notes} onChange={(e) => setData('notes', e.target.value)} className="mt-1" />
+                        <Input
+                            value={data.notes}
+                            onChange={(e) => setData('notes', e.target.value)}
+                            className="mt-1"
+                        />
                         <InputError message={errors.notes} />
                     </div>
                     <div>
                         <Label>Fecha y hora</Label>
-                        <Input type="datetime-local" value={data.remind_at} onChange={(e) => setData('remind_at', e.target.value)} className="mt-1" required />
+                        <Input
+                            type="datetime-local"
+                            value={data.remind_at}
+                            onChange={(e) =>
+                                setData('remind_at', e.target.value)
+                            }
+                            className="mt-1"
+                            required
+                        />
                         <InputError message={errors.remind_at} />
                     </div>
                     <DialogFooter className="flex-wrap gap-2">
@@ -551,8 +772,18 @@ function ReminderModal({
                                 variant="outline"
                                 className="text-red-600"
                                 onClick={() => {
-                                    if (window.confirm('¿Eliminar este recordatorio?')) {
-                                        router.delete(`/inmopro/advisor-reminders/${editData.id}`, { onSuccess: () => onOpenChange(false) });
+                                    if (
+                                        window.confirm(
+                                            '¿Eliminar este recordatorio?',
+                                        )
+                                    ) {
+                                        router.delete(
+                                            `/inmopro/advisor-reminders/${editData.id}`,
+                                            {
+                                                onSuccess: () =>
+                                                    onOpenChange(false),
+                                            },
+                                        );
                                     }
                                 }}
                             >
@@ -560,8 +791,16 @@ function ReminderModal({
                             </Button>
                         )}
                         <div className="flex flex-1 justify-end gap-2">
-                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                            <Button type="submit" disabled={processing}>{isEdit ? 'Guardar' : 'Crear'}</Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => onOpenChange(false)}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button type="submit" disabled={processing}>
+                                {isEdit ? 'Guardar' : 'Crear'}
+                            </Button>
                         </div>
                     </DialogFooter>
                 </form>

@@ -169,6 +169,29 @@ class InmoproClientsTest extends TestCase
         ]);
     }
 
+    public function test_store_client_requires_city(): void
+    {
+        $user = User::factory()->create();
+        $type = ClientType::first();
+        $advisor = Advisor::first();
+        $this->actingAs($user);
+
+        $this->from(route('inmopro.clients.create'))
+            ->post(route('inmopro.clients.store'), [
+                'name' => 'Cliente Sin Ciudad',
+                'dni' => '12345679',
+                'phone' => '999888776',
+                'email' => 'sinciudad@example.com',
+                'client_type_id' => $type->id,
+                'advisor_id' => $advisor->id,
+            ])
+            ->assertSessionHasErrors(['city_id']);
+
+        $this->assertDatabaseMissing('clients', [
+            'name' => 'Cliente Sin Ciudad',
+        ]);
+    }
+
     public function test_store_client_redirect_preserves_listing_query_string(): void
     {
         $user = User::factory()->create();
@@ -271,6 +294,25 @@ class InmoproClientsTest extends TestCase
             'id' => $client->id,
             'name' => 'Cliente Actualizado',
         ]);
+    }
+
+    public function test_update_client_requires_city(): void
+    {
+        $user = User::factory()->create();
+        $client = Client::firstOrFail();
+        $this->actingAs($user);
+
+        $this->from(route('inmopro.clients.edit', $client))
+            ->put(route('inmopro.clients.update', $client), [
+                'name' => $client->name,
+                'dni' => $client->dni,
+                'phone' => $client->phone,
+                'email' => $client->email,
+                'client_type_id' => $client->client_type_id,
+                'advisor_id' => $client->advisor_id,
+                'city_id' => '',
+            ])
+            ->assertSessionHasErrors(['city_id']);
     }
 
     public function test_clients_search_returns_json_with_like_match(): void
@@ -723,6 +765,28 @@ class InmoproClientsTest extends TestCase
             ->assertJsonPath('summary.valid', 0)
             ->assertJsonPath('summary.invalid', 1)
             ->assertJsonPath('can_import', false);
+    }
+
+    public function test_clients_import_preview_requires_city(): void
+    {
+        $user = User::factory()->create();
+        $type = ClientType::query()->firstOrFail();
+        $advisor = Advisor::query()->firstOrFail();
+        $this->actingAs($user);
+
+        $file = $this->makeClientsExcelFile([
+            ['Nombre (*)', 'DNI', 'Telefono (*)', 'Email', 'Referido por', 'Tipo cliente (*)', 'Ciudad', 'Asesor (*)', 'Fecha registro (DD/MM/AAAA)'],
+            ['Cliente Sin Ciudad', '11223344', '955667700', null, null, $type->name, '', $advisor->name, null],
+        ]);
+
+        $this->post(route('inmopro.clients.import-preview'), [
+            'file' => $file,
+        ])
+            ->assertOk()
+            ->assertJsonPath('summary.valid', 0)
+            ->assertJsonPath('summary.invalid', 1)
+            ->assertJsonPath('can_import', false)
+            ->assertJsonPath('errors.0.field', 'city');
     }
 
     public function test_clients_import_uppercases_and_creates_missing_city(): void

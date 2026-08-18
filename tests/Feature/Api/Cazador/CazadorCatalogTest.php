@@ -219,12 +219,13 @@ class CazadorCatalogTest extends TestCase
             ->getJson(route('api.v1.cazador.lots.show', $lot))
             ->assertOk()
             ->assertJsonPath('data.id', $lot->id)
+            ->assertJsonPath('data.project.location', $lot->project?->location)
             ->assertJsonStructure([
                 'data' => [
                     'id',
                     'block',
                     'number',
-                    'project',
+                    'project' => ['id', 'name', 'location'],
                     'status',
                     'can_pre_reserve',
                     'pre_reservations',

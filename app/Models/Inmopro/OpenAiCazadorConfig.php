@@ -45,7 +45,7 @@ class OpenAiCazadorConfig extends Model
         if ($config === null) {
             $config = self::query()->create([
                 'enabled' => (bool) config('openai_cazador.enabled', true),
-                'model' => config('openai_cazador.model'),
+                'model' => 'gpt-5.4',
                 'max_message_length' => (int) config('openai_cazador.max_message_length', 2000),
                 'rate_limit' => (int) config('openai_cazador.rate_limit', 8),
                 'knowledge_rate_limit' => (int) config('openai_cazador.knowledge_rate_limit', 60),

@@ -19,7 +19,7 @@ trait ValidatesDateroCapturedClient
             'phone' => ['required', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
             'referred_by' => ['nullable', 'string', 'max:255'],
-            'city_id' => ['nullable', 'exists:cities,id'],
+            'city_id' => ['required', 'exists:cities,id'],
         ];
     }
 

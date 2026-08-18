@@ -158,7 +158,10 @@ export default function Reports({
     const topRows = useMemo(
         () =>
             rows.slice(0, 12).map((row) => ({
-                name: row.label.length > 22 ? `${row.label.slice(0, 20)}…` : row.label,
+                name:
+                    row.label.length > 22
+                        ? `${row.label.slice(0, 20)}…`
+                        : row.label,
                 fullName: row.label,
                 Ventas: row.sold_amount,
                 Meta: row.goal_amount,
@@ -191,10 +194,13 @@ export default function Reports({
 
     const q = buildExportQueryString(view, filters);
     const pdfUrl = () => `/inmopro/reports/sales/pdf?${q}`;
-    const pdfDownloadUrl = () => `/inmopro/reports/sales/pdf?${buildExportQueryString(view, filters, 'attachment')}`;
+    const pdfDownloadUrl = () =>
+        `/inmopro/reports/sales/pdf?${buildExportQueryString(view, filters, 'attachment')}`;
     const csvUrl = () => `/inmopro/reports/sales/csv?${q}`;
 
-    const navigateWithFilters = (next: Partial<Pick<Filters, 'start_date' | 'end_date'>>) => {
+    const navigateWithFilters = (
+        next: Partial<Pick<Filters, 'start_date' | 'end_date'>>,
+    ) => {
         router.get(
             '/inmopro/reports/sales',
             {
@@ -209,12 +215,17 @@ export default function Reports({
         );
     };
 
-    const applyDatePreset = (preset: 'this_month' | 'last_month' | 'quarter' | 'ytd') => {
+    const applyDatePreset = (
+        preset: 'this_month' | 'last_month' | 'quarter' | 'ytd',
+    ) => {
         const end = new Date();
 
         if (preset === 'this_month') {
             const start = new Date(end.getFullYear(), end.getMonth(), 1);
-            navigateWithFilters({ start_date: toYmdLocal(start), end_date: toYmdLocal(end) });
+            navigateWithFilters({
+                start_date: toYmdLocal(start),
+                end_date: toYmdLocal(end),
+            });
 
             return;
         }
@@ -222,7 +233,10 @@ export default function Reports({
         if (preset === 'last_month') {
             const start = new Date(end.getFullYear(), end.getMonth() - 1, 1);
             const lastDay = new Date(end.getFullYear(), end.getMonth(), 0);
-            navigateWithFilters({ start_date: toYmdLocal(start), end_date: toYmdLocal(lastDay) });
+            navigateWithFilters({
+                start_date: toYmdLocal(start),
+                end_date: toYmdLocal(lastDay),
+            });
 
             return;
         }
@@ -230,13 +244,19 @@ export default function Reports({
         if (preset === 'quarter') {
             const quarterIndex = Math.floor(end.getMonth() / 3);
             const start = new Date(end.getFullYear(), quarterIndex * 3, 1);
-            navigateWithFilters({ start_date: toYmdLocal(start), end_date: toYmdLocal(end) });
+            navigateWithFilters({
+                start_date: toYmdLocal(start),
+                end_date: toYmdLocal(end),
+            });
 
             return;
         }
 
         const start = new Date(end.getFullYear(), 0, 1);
-        navigateWithFilters({ start_date: toYmdLocal(start), end_date: toYmdLocal(end) });
+        navigateWithFilters({
+            start_date: toYmdLocal(start),
+            end_date: toYmdLocal(end),
+        });
     };
 
     const handleFilter = (event: FormEvent<HTMLFormElement>) => {
@@ -257,12 +277,12 @@ export default function Reports({
         );
     };
 
-    const chartTooltipFormatter = (value: number | string) => {
+    const chartTooltipFormatter = (value: unknown): [string, string] => {
         if (typeof value === 'number') {
             return [formatPen(value), ''];
         }
 
-        return [value, ''];
+        return [value == null ? '' : String(value), ''];
     };
 
     return (
@@ -272,18 +292,21 @@ export default function Reports({
                 <section className="rounded-[2rem] bg-slate-950 p-6 text-white shadow-2xl md:p-8">
                     <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                         <div className="space-y-3 lg:max-w-xl">
-                            <p className="text-xs font-black uppercase tracking-[0.3em] text-emerald-300">
+                            <p className="text-xs font-black tracking-[0.3em] text-emerald-300 uppercase">
                                 Inteligencia comercial
                             </p>
                             <h1 className="text-2xl font-black tracking-tight md:text-3xl">
                                 Reporte por {viewLabel.toLowerCase()}
                             </h1>
                             <p className="text-sm text-slate-300">
-                                Consolidado de lotes transferidos según fecha de escritura. Las ventas usan precio del
-                                lote × porcentaje del tipo de proyecto. Solo incluye lotes en estado transferido.
+                                Consolidado de lotes transferidos según fecha de
+                                escritura. Las ventas usan precio del lote ×
+                                porcentaje del tipo de proyecto. Solo incluye
+                                lotes en estado transferido.
                             </p>
                             <p className="text-xs font-semibold text-slate-400">
-                                {filterSummary || 'Sin filtros aplicados'} · Generado el {generatedAt}
+                                {filterSummary || 'Sin filtros aplicados'} ·
+                                Generado el {generatedAt}
                             </p>
                         </div>
                         <div className="flex flex-col items-center gap-4 sm:flex-row lg:items-start">
@@ -317,25 +340,47 @@ export default function Reports({
                     </div>
                 </section>
 
-                <div className="rounded-3xl border border-border bg-card text-card-foreground p-5 shadow-sm">
+                <div className="rounded-3xl border border-border bg-card p-5 text-card-foreground shadow-sm">
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                         <CalendarRange className="h-4 w-4 text-slate-500" />
-                        <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        <span className="text-xs font-bold tracking-wide text-slate-500 uppercase">
                             Atajos de periodo
                         </span>
-                        <span className="text-xs text-slate-400">(mantienen proyecto, equipo y vendedor)</span>
+                        <span className="text-xs text-slate-400">
+                            (mantienen proyecto, equipo y vendedor)
+                        </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={() => applyDatePreset('this_month')}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => applyDatePreset('this_month')}
+                        >
                             Este mes
                         </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => applyDatePreset('last_month')}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => applyDatePreset('last_month')}
+                        >
                             Mes anterior
                         </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => applyDatePreset('quarter')}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => applyDatePreset('quarter')}
+                        >
                             Trimestre en curso
                         </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => applyDatePreset('ytd')}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => applyDatePreset('ytd')}
+                        >
                             Año en curso
                         </Button>
                     </div>
@@ -343,23 +388,31 @@ export default function Reports({
 
                 <form
                     onSubmit={handleFilter}
-                    className="grid gap-4 rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm md:grid-cols-3 xl:grid-cols-6"
+                    className="grid gap-4 rounded-3xl border border-border bg-card p-6 text-card-foreground shadow-sm md:grid-cols-3 xl:grid-cols-6"
                 >
                     <p className="text-xs leading-relaxed text-slate-600 md:col-span-3 xl:col-span-6">
-                        <span className="font-bold text-slate-800">Fechas:</span> si no eliges rango, se usa{' '}
-                        <strong>desde el 1 del mes actual hasta hoy</strong> (fecha de escritura del lote). Déjalas vacías
-                        y pulsa Filtrar para restablecer ese rango.
+                        <span className="font-bold text-slate-800">
+                            Fechas:
+                        </span>{' '}
+                        si no eliges rango, se usa{' '}
+                        <strong>desde el 1 del mes actual hasta hoy</strong>{' '}
+                        (fecha de escritura del lote). Déjalas vacías y pulsa
+                        Filtrar para restablecer ese rango.
                     </p>
                     <p className="text-xs leading-relaxed text-slate-600 md:col-span-3 xl:col-span-6">
-                        <span className="font-bold text-slate-800">Metas:</span> la tarjeta <strong>Meta</strong> del
-                        resumen usa la{' '}
+                        <span className="font-bold text-slate-800">Metas:</span>{' '}
+                        la tarjeta <strong>Meta</strong> del resumen usa la{' '}
                         <strong>meta general</strong> configurada en{' '}
-                        <a href={reportSettingsUrl} className="font-semibold text-sky-700 underline hover:text-sky-800">
+                        <a
+                            href={reportSettingsUrl}
+                            className="font-semibold text-sky-700 underline hover:text-sky-800"
+                        >
                             Meta general de reportes
                         </a>{' '}
-                        (no es la suma de metas por fila: ver indicador &quot;Σ metas fila&quot;). En vista{' '}
-                        <strong>Equipos</strong>, la meta por fila es la <strong>meta grupal</strong> del team;
-                        si está en 0, se usa la suma de cuotas del equipo.
+                        (no es la suma de metas por fila: ver indicador &quot;Σ
+                        metas fila&quot;). En vista <strong>Equipos</strong>, la
+                        meta por fila es la <strong>meta grupal</strong> del
+                        team; si está en 0, se usa la suma de cuotas del equipo.
                     </p>
                     <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
                         Vista
@@ -427,7 +480,9 @@ export default function Reports({
                         />
                     </label>
                     <div className="flex flex-col gap-1.5 xl:col-span-2">
-                        <span className="text-xs font-semibold text-slate-600">Hasta y acción</span>
+                        <span className="text-xs font-semibold text-slate-600">
+                            Hasta y acción
+                        </span>
                         <div className="flex gap-3">
                             <input
                                 type="date"
@@ -435,7 +490,10 @@ export default function Reports({
                                 defaultValue={filters.end_date ?? ''}
                                 className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-slate-300"
                             />
-                            <Button type="submit" className="shrink-0 rounded-xl px-5">
+                            <Button
+                                type="submit"
+                                className="shrink-0 rounded-xl px-5"
+                            >
                                 Aplicar filtros
                             </Button>
                         </div>
@@ -443,20 +501,52 @@ export default function Reports({
                 </form>
 
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-                    <MetricCard label="Ventas" value={summary.sold_amount} icon={TrendingUp} tone="emerald" />
-                    <MetricCard label="Meta general" value={summary.goal_amount} icon={Target} tone="sky" />
-                    <MetricCard label="Σ metas fila" value={summary.rows_goal_sum} icon={Target} tone="slate" subtitle="Suma de metas de cada fila" />
-                    <MetricCard label="Cobrado" value={summary.collected_amount} icon={Wallet} tone="slate" />
-                    <MetricCard label={`${viewLabel} (filas)`} value={summary.entities_count} icon={Users} tone="rose" raw />
+                    <MetricCard
+                        label="Ventas"
+                        value={summary.sold_amount}
+                        icon={TrendingUp}
+                        tone="emerald"
+                    />
+                    <MetricCard
+                        label="Meta general"
+                        value={summary.goal_amount}
+                        icon={Target}
+                        tone="sky"
+                    />
+                    <MetricCard
+                        label="Σ metas fila"
+                        value={summary.rows_goal_sum}
+                        icon={Target}
+                        tone="slate"
+                        subtitle="Suma de metas de cada fila"
+                    />
+                    <MetricCard
+                        label="Cobrado"
+                        value={summary.collected_amount}
+                        icon={Wallet}
+                        tone="slate"
+                    />
+                    <MetricCard
+                        label={`${viewLabel} (filas)`}
+                        value={summary.entities_count}
+                        icon={Users}
+                        tone="rose"
+                        raw
+                    />
                 </div>
 
                 <div className="grid gap-6 xl:grid-cols-[1.35fr_1fr]">
-                    <div className="rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm">
+                    <div className="rounded-3xl border border-border bg-card p-6 text-card-foreground shadow-sm">
                         <div className="mb-4 flex items-center gap-2">
                             <FolderKanban className="h-5 w-5 text-slate-500" />
                             <div>
-                                <h2 className="text-lg font-black text-slate-900">Ranking por ventas</h2>
-                                <p className="text-xs text-slate-500">Hasta 12 filas · color según % cumplimiento de meta por fila</p>
+                                <h2 className="text-lg font-black text-slate-900">
+                                    Ranking por ventas
+                                </h2>
+                                <p className="text-xs text-slate-500">
+                                    Hasta 12 filas · color según % cumplimiento
+                                    de meta por fila
+                                </p>
                             </div>
                         </div>
                         {topRows.length === 0 ? (
@@ -464,8 +554,20 @@ export default function Reports({
                         ) : (
                             <div className="h-[380px] w-full min-w-0">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={topRows} margin={{ top: 8, right: 8, left: 0, bottom: 48 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                    <BarChart
+                                        data={topRows}
+                                        margin={{
+                                            top: 8,
+                                            right: 8,
+                                            left: 0,
+                                            bottom: 48,
+                                        }}
+                                    >
+                                        <CartesianGrid
+                                            strokeDasharray="3 3"
+                                            vertical={false}
+                                            stroke="#e2e8f0"
+                                        />
                                         <XAxis
                                             dataKey="name"
                                             interval={0}
@@ -480,23 +582,43 @@ export default function Reports({
                                             axisLine={false}
                                             tickLine={false}
                                             tick={{ fontSize: 11 }}
-                                            tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))}
+                                            tickFormatter={(v) =>
+                                                v >= 1000
+                                                    ? `${Math.round(v / 1000)}k`
+                                                    : String(v)
+                                            }
                                         />
                                         <Tooltip
                                             cursor={{ fill: '#f8fafc' }}
-                                            contentStyle={{ borderRadius: '16px', border: '1px solid #e2e8f0' }}
+                                            contentStyle={{
+                                                borderRadius: '16px',
+                                                border: '1px solid #e2e8f0',
+                                            }}
                                             formatter={chartTooltipFormatter}
                                             labelFormatter={(_, payload) =>
-                                                payload?.[0]?.payload?.fullName != null
-                                                    ? String(payload[0].payload.fullName)
+                                                payload?.[0]?.payload
+                                                    ?.fullName != null
+                                                    ? String(
+                                                          payload[0].payload
+                                                              .fullName,
+                                                      )
                                                     : ''
                                             }
                                         />
-                                        <Bar dataKey="Ventas" radius={[8, 8, 0, 0]} maxBarSize={48}>
+                                        <Bar
+                                            dataKey="Ventas"
+                                            radius={[8, 8, 0, 0]}
+                                            maxBarSize={48}
+                                        >
                                             {topRows.map((entry) => (
                                                 <Cell
                                                     key={entry.fullName}
-                                                    fill={entry.pct >= 100 ? '#10b981' : entry.color ?? '#0f172a'}
+                                                    fill={
+                                                        entry.pct >= 100
+                                                            ? '#10b981'
+                                                            : (entry.color ??
+                                                              '#0f172a')
+                                                    }
                                                 />
                                             ))}
                                         </Bar>
@@ -506,25 +628,51 @@ export default function Reports({
                         )}
                     </div>
 
-                    <div className="rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm">
-                        <h2 className="text-lg font-black text-slate-900">Indicadores clave</h2>
-                        <p className="mt-1 text-xs text-slate-500">Calculados sobre el conjunto filtrado (tabla inferior).</p>
+                    <div className="rounded-3xl border border-border bg-card p-6 text-card-foreground shadow-sm">
+                        <h2 className="text-lg font-black text-slate-900">
+                            Indicadores clave
+                        </h2>
+                        <p className="mt-1 text-xs text-slate-500">
+                            Calculados sobre el conjunto filtrado (tabla
+                            inferior).
+                        </p>
                         <div className="mt-5 space-y-3 text-sm text-slate-600">
-                            <Insight label="Cumplimiento vs meta general" value={`${summary.pct}%`} />
-                            <Insight label="Recuperación (cobrado ÷ ventas)" value={`${summary.collection_pct}%`} />
-                            <Insight label="Ticket medio (ventas ÷ lotes)" value={formatPen(summary.avg_sale_per_lot)} />
-                            <Insight label="Lotes en el periodo" value={String(summary.lots_count)} />
-                            <Insight label="Rango de fechas" value={rangeLabel(filters.start_date, filters.end_date)} />
+                            <Insight
+                                label="Cumplimiento vs meta general"
+                                value={`${summary.pct}%`}
+                            />
+                            <Insight
+                                label="Recuperación (cobrado ÷ ventas)"
+                                value={`${summary.collection_pct}%`}
+                            />
+                            <Insight
+                                label="Ticket medio (ventas ÷ lotes)"
+                                value={formatPen(summary.avg_sale_per_lot)}
+                            />
+                            <Insight
+                                label="Lotes en el periodo"
+                                value={String(summary.lots_count)}
+                            />
+                            <Insight
+                                label="Rango de fechas"
+                                value={rangeLabel(
+                                    filters.start_date,
+                                    filters.end_date,
+                                )}
+                            />
                         </div>
                     </div>
                 </div>
 
                 <div className="overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm">
                     <div className="border-b border-slate-100 px-6 py-4">
-                        <h2 className="text-lg font-black text-slate-900">Detalle por {viewLabel.toLowerCase()}</h2>
+                        <h2 className="text-lg font-black text-slate-900">
+                            Detalle por {viewLabel.toLowerCase()}
+                        </h2>
                         <p className="mt-1 text-sm text-slate-500">
-                            Ventas, meta por fila, cumplimiento, cobranza y lotes. La fila Totales suma importes de la
-                            tabla (la meta general sigue siendo la del resumen superior).
+                            Ventas, meta por fila, cumplimiento, cobranza y
+                            lotes. La fila Totales suma importes de la tabla (la
+                            meta general sigue siendo la del resumen superior).
                         </p>
                     </div>
 
@@ -538,63 +686,116 @@ export default function Reports({
                                 <div className="overflow-x-auto">
                                     <table className="w-full min-w-[860px] text-left text-sm">
                                         <caption className="sr-only">
-                                            Reporte de ventas por {entityColumnLabel(view)} con montos en soles
+                                            Reporte de ventas por{' '}
+                                            {entityColumnLabel(view)} con montos
+                                            en soles
                                         </caption>
                                         <thead className="sticky top-0 z-10 bg-slate-50 shadow-sm">
                                             <tr>
-                                                <th scope="col" className="px-6 py-3 font-bold text-slate-500">
+                                                <th
+                                                    scope="col"
+                                                    className="px-6 py-3 font-bold text-slate-500"
+                                                >
                                                     {entityColumnLabel(view)}
                                                 </th>
-                                                <th scope="col" className="px-6 py-3 font-bold text-slate-500">
+                                                <th
+                                                    scope="col"
+                                                    className="px-6 py-3 font-bold text-slate-500"
+                                                >
                                                     Ventas
                                                 </th>
-                                                <th scope="col" className="px-6 py-3 font-bold text-slate-500">
+                                                <th
+                                                    scope="col"
+                                                    className="px-6 py-3 font-bold text-slate-500"
+                                                >
                                                     Meta fila
                                                 </th>
-                                                <th scope="col" className="px-6 py-3 font-bold text-slate-500">
+                                                <th
+                                                    scope="col"
+                                                    className="px-6 py-3 font-bold text-slate-500"
+                                                >
                                                     Cumplimiento
                                                 </th>
-                                                <th scope="col" className="px-6 py-3 font-bold text-slate-500">
+                                                <th
+                                                    scope="col"
+                                                    className="px-6 py-3 font-bold text-slate-500"
+                                                >
                                                     Cobrado
                                                 </th>
-                                                <th scope="col" className="px-6 py-3 font-bold text-slate-500">
+                                                <th
+                                                    scope="col"
+                                                    className="px-6 py-3 font-bold text-slate-500"
+                                                >
                                                     Lotes
                                                 </th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {rows.map((row) => (
-                                                <tr key={`${view}-${row.id}`} className="hover:bg-slate-50/70">
+                                                <tr
+                                                    key={`${view}-${row.id}`}
+                                                    className="hover:bg-slate-50/70"
+                                                >
                                                     <td className="px-6 py-4">
-                                                        <p className="font-black text-slate-900">{row.label}</p>
+                                                        <p className="font-black text-slate-900">
+                                                            {row.label}
+                                                        </p>
                                                         {row.team_name && (
-                                                            <p className="text-xs font-semibold text-slate-500">{row.team_name}</p>
+                                                            <p className="text-xs font-semibold text-slate-500">
+                                                                {row.team_name}
+                                                            </p>
                                                         )}
                                                     </td>
                                                     <td className="px-6 py-4 font-semibold text-slate-800">
-                                                        {formatPen(row.sold_amount)}
+                                                        {formatPen(
+                                                            row.sold_amount,
+                                                        )}
                                                     </td>
                                                     <td className="px-6 py-4 font-semibold text-slate-600">
-                                                        {formatPen(row.goal_amount)}
+                                                        {formatPen(
+                                                            row.goal_amount,
+                                                        )}
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <ProgressWithLabel pct={row.pct} />
+                                                        <ProgressWithLabel
+                                                            pct={row.pct}
+                                                        />
                                                     </td>
                                                     <td className="px-6 py-4 font-semibold text-emerald-700">
-                                                        {formatPen(row.collected_amount)}
+                                                        {formatPen(
+                                                            row.collected_amount,
+                                                        )}
                                                     </td>
-                                                    <td className="px-6 py-4 tabular-nums text-slate-600">{row.lots_count}</td>
+                                                    <td className="px-6 py-4 text-slate-600 tabular-nums">
+                                                        {row.lots_count}
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                         <tfoot>
                                             <tr className="border-t-2 border-slate-200 bg-slate-50 font-bold">
-                                                <td className="px-6 py-4 text-slate-800">Totales</td>
-                                                <td className="px-6 py-4 text-slate-900">{formatPen(tableTotals.sold)}</td>
-                                                <td className="px-6 py-4 text-slate-400">—</td>
-                                                <td className="px-6 py-4 text-slate-400">—</td>
-                                                <td className="px-6 py-4 text-emerald-800">{formatPen(tableTotals.collected)}</td>
-                                                <td className="px-6 py-4 tabular-nums text-slate-800">{tableTotals.lots}</td>
+                                                <td className="px-6 py-4 text-slate-800">
+                                                    Totales
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-900">
+                                                    {formatPen(
+                                                        tableTotals.sold,
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-400">
+                                                    —
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-400">
+                                                    —
+                                                </td>
+                                                <td className="px-6 py-4 text-emerald-800">
+                                                    {formatPen(
+                                                        tableTotals.collected,
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-800 tabular-nums">
+                                                    {tableTotals.lots}
+                                                </td>
                                             </tr>
                                         </tfoot>
                                     </table>
@@ -609,41 +810,79 @@ export default function Reports({
                                     >
                                         <div className="flex items-start justify-between gap-2">
                                             <div>
-                                                <h3 className="font-black text-slate-900">{row.label}</h3>
+                                                <h3 className="font-black text-slate-900">
+                                                    {row.label}
+                                                </h3>
                                                 {row.team_name && (
-                                                    <p className="text-xs font-semibold text-slate-500">{row.team_name}</p>
+                                                    <p className="text-xs font-semibold text-slate-500">
+                                                        {row.team_name}
+                                                    </p>
                                                 )}
                                             </div>
-                                            <span className={badgeTone(row.pct)}>{row.pct}%</span>
+                                            <span
+                                                className={badgeTone(row.pct)}
+                                            >
+                                                {row.pct}%
+                                            </span>
                                         </div>
                                         <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
                                             <div>
-                                                <dt className="text-slate-500">Ventas</dt>
-                                                <dd className="font-bold text-slate-800">{formatPen(row.sold_amount)}</dd>
+                                                <dt className="text-slate-500">
+                                                    Ventas
+                                                </dt>
+                                                <dd className="font-bold text-slate-800">
+                                                    {formatPen(row.sold_amount)}
+                                                </dd>
                                             </div>
                                             <div>
-                                                <dt className="text-slate-500">Meta</dt>
-                                                <dd className="font-semibold text-slate-600">{formatPen(row.goal_amount)}</dd>
+                                                <dt className="text-slate-500">
+                                                    Meta
+                                                </dt>
+                                                <dd className="font-semibold text-slate-600">
+                                                    {formatPen(row.goal_amount)}
+                                                </dd>
                                             </div>
                                             <div>
-                                                <dt className="text-slate-500">Cobrado</dt>
-                                                <dd className="font-bold text-emerald-700">{formatPen(row.collected_amount)}</dd>
+                                                <dt className="text-slate-500">
+                                                    Cobrado
+                                                </dt>
+                                                <dd className="font-bold text-emerald-700">
+                                                    {formatPen(
+                                                        row.collected_amount,
+                                                    )}
+                                                </dd>
                                             </div>
                                             <div className="col-span-2">
-                                                <dt className="text-slate-500">Lotes</dt>
-                                                <dd className="font-semibold text-slate-700">{row.lots_count}</dd>
+                                                <dt className="text-slate-500">
+                                                    Lotes
+                                                </dt>
+                                                <dd className="font-semibold text-slate-700">
+                                                    {row.lots_count}
+                                                </dd>
                                             </div>
                                         </dl>
                                         <div className="mt-3">
-                                            <ProgressWithLabel pct={row.pct} compact />
+                                            <ProgressWithLabel
+                                                pct={row.pct}
+                                                compact
+                                            />
                                         </div>
                                     </article>
                                 ))}
-                                <div className="rounded-2xl border border-border bg-card text-card-foreground p-4 font-bold text-slate-900">
-                                    <p className="text-xs uppercase text-slate-500">Totales</p>
-                                    <p className="mt-1 text-sm">Ventas: {formatPen(tableTotals.sold)}</p>
-                                    <p className="text-sm">Cobrado: {formatPen(tableTotals.collected)}</p>
-                                    <p className="text-sm">Lotes: {tableTotals.lots}</p>
+                                <div className="rounded-2xl border border-border bg-card p-4 font-bold text-card-foreground text-slate-900">
+                                    <p className="text-xs text-slate-500 uppercase">
+                                        Totales
+                                    </p>
+                                    <p className="mt-1 text-sm">
+                                        Ventas: {formatPen(tableTotals.sold)}
+                                    </p>
+                                    <p className="text-sm">
+                                        Cobrado:{' '}
+                                        {formatPen(tableTotals.collected)}
+                                    </p>
+                                    <p className="text-sm">
+                                        Lotes: {tableTotals.lots}
+                                    </p>
                                 </div>
                             </div>
                         </>
@@ -664,14 +903,29 @@ function GlobalProgressRing({ pct }: { pct: number }) {
 
     return (
         <div className="flex flex-col items-center gap-2 text-center">
-            <svg height={radius * 2} width={radius * 2} className="-rotate-90" aria-hidden>
-                <circle stroke="#1e293b" fill="transparent" strokeWidth={stroke} r={normalizedRadius} cx={radius} cy={radius} />
+            <svg
+                height={radius * 2}
+                width={radius * 2}
+                className="-rotate-90"
+                aria-hidden
+            >
+                <circle
+                    stroke="#1e293b"
+                    fill="transparent"
+                    strokeWidth={stroke}
+                    r={normalizedRadius}
+                    cx={radius}
+                    cy={radius}
+                />
                 <circle
                     stroke="#34d399"
                     fill="transparent"
                     strokeWidth={stroke}
                     strokeDasharray={`${circumference} ${circumference}`}
-                    style={{ strokeDashoffset: offset, transition: 'stroke-dashoffset 0.4s ease' }}
+                    style={{
+                        strokeDashoffset: offset,
+                        transition: 'stroke-dashoffset 0.4s ease',
+                    }}
                     strokeLinecap="round"
                     r={normalizedRadius}
                     cx={radius}
@@ -680,7 +934,9 @@ function GlobalProgressRing({ pct }: { pct: number }) {
             </svg>
             <div className="space-y-0.5">
                 <p className="text-2xl font-black text-white">{pct}%</p>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">vs meta general</p>
+                <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                    vs meta general
+                </p>
             </div>
         </div>
     );
@@ -702,15 +958,25 @@ function MetricCard({
     subtitle?: string;
 }) {
     const toneKey = tone === 'sky' ? 'sky' : tone;
-    const toneClasses = inmoproMetricTone[toneKey as keyof typeof inmoproMetricTone] ?? inmoproMetricTone.slate;
+    const toneClasses =
+        inmoproMetricTone[toneKey as keyof typeof inmoproMetricTone] ??
+        inmoproMetricTone.slate;
 
     return (
-        <div className="rounded-3xl border border-border bg-card text-card-foreground p-5 shadow-sm">
+        <div className="rounded-3xl border border-border bg-card p-5 text-card-foreground shadow-sm">
             <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
-                    {subtitle && <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{subtitle}</p>}
-                    <p className={`mt-2 break-words text-xl font-black tracking-tight md:text-2xl ${toneClasses.value}`}>
+                    <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
+                        {label}
+                    </p>
+                    {subtitle && (
+                        <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+                            {subtitle}
+                        </p>
+                    )}
+                    <p
+                        className={`mt-2 text-xl font-black tracking-tight break-words md:text-2xl ${toneClasses.value}`}
+                    >
                         {raw ? value.toLocaleString('es-PE') : formatPen(value)}
                     </p>
                 </div>
@@ -725,18 +991,37 @@ function MetricCard({
 function Insight({ label, value }: { label: string; value: string }) {
     return (
         <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
+            <p className="text-xs font-bold tracking-wide text-slate-500 uppercase">
+                {label}
+            </p>
             <p className="mt-1 font-black text-slate-900">{value}</p>
         </div>
     );
 }
 
-function ProgressWithLabel({ pct, compact = false }: { pct: number; compact?: boolean }) {
+function ProgressWithLabel({
+    pct,
+    compact = false,
+}: {
+    pct: number;
+    compact?: boolean;
+}) {
     const width = Math.min(Math.max(pct, 0), 100);
-    const barColor = pct >= 100 ? 'bg-emerald-500' : pct >= 60 ? 'bg-sky-500' : 'bg-amber-500';
+    const barColor =
+        pct >= 100
+            ? 'bg-emerald-500'
+            : pct >= 60
+              ? 'bg-sky-500'
+              : 'bg-amber-500';
 
     return (
-        <div className={compact ? 'space-y-1' : 'flex max-w-xs flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3'}>
+        <div
+            className={
+                compact
+                    ? 'space-y-1'
+                    : 'flex max-w-xs flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3'
+            }
+        >
             <div
                 className={`h-2 overflow-hidden rounded-full bg-slate-100 ${compact ? 'w-full' : 'w-full sm:w-28'}`}
                 role="progressbar"
@@ -745,9 +1030,16 @@ function ProgressWithLabel({ pct, compact = false }: { pct: number; compact?: bo
                 aria-valuemax={100}
                 aria-label={`Cumplimiento ${pct} por ciento`}
             >
-                <div className={`h-full rounded-full ${barColor}`} style={{ width: `${width}%` }} />
+                <div
+                    className={`h-full rounded-full ${barColor}`}
+                    style={{ width: `${width}%` }}
+                />
             </div>
-            <span className={`shrink-0 font-bold tabular-nums ${badgeTone(pct)}`}>{pct}%</span>
+            <span
+                className={`shrink-0 font-bold tabular-nums ${badgeTone(pct)}`}
+            >
+                {pct}%
+            </span>
         </div>
     );
 }
@@ -756,16 +1048,22 @@ function EmptyState() {
     return (
         <div className="flex min-h-44 items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center">
             <div>
-                <p className="font-bold text-slate-700">No hay datos para este filtro.</p>
+                <p className="font-bold text-slate-700">
+                    No hay datos para este filtro.
+                </p>
                 <p className="mt-1 text-sm text-slate-500">
-                    Amplía fechas, cambia de vista o quita filtros de proyecto, equipo o vendedor.
+                    Amplía fechas, cambia de vista o quita filtros de proyecto,
+                    equipo o vendedor.
                 </p>
             </div>
         </div>
     );
 }
 
-function rangeLabel(startDate?: string | null, endDate?: string | null): string {
+function rangeLabel(
+    startDate?: string | null,
+    endDate?: string | null,
+): string {
     if (!startDate && !endDate) {
         return 'Rango por defecto (mes en curso)';
     }

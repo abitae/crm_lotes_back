@@ -19,7 +19,7 @@ class UpdateOpenAiCazadorConfigRequest extends FormRequest
     {
         return [
             'enabled' => ['required', 'boolean'],
-            'model' => ['nullable', 'string', 'max:255'],
+            'model' => ['required', 'in:gpt-5.4'],
             'max_message_length' => ['required', 'integer', 'min:100', 'max:10000'],
             'rate_limit' => ['required', 'integer', 'min:1', 'max:120'],
             'knowledge_rate_limit' => ['required', 'integer', 'min:1', 'max:600'],

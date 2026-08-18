@@ -151,7 +151,7 @@ export function project360LabelBadgePreviewStyle(style: Project360LabelStyle): {
     display: string;
     alignItems: string;
     justifyContent: string;
-    boxSizing: string;
+    boxSizing: 'border-box';
 } {
     const borderPx =
         style.shape === 'none' || style.border_width <= 0

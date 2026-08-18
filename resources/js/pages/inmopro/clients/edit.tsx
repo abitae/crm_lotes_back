@@ -61,40 +61,75 @@ export default function ClientsEdit({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Editar ${client.name} - Inmopro`} />
             <div className="p-4">
-                <h2 className="mb-6 text-2xl font-black text-slate-800">Editar cliente</h2>
+                <h2 className="mb-6 text-2xl font-black text-slate-800">
+                    Editar cliente
+                </h2>
                 <form onSubmit={submit} className="max-w-2xl space-y-4">
-                    <InputError message={errors.duplicate_registration} className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" />
+                    <InputError
+                        message={
+                            (errors as Record<string, string>)
+                                .duplicate_registration
+                        }
+                        className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+                    />
                     <div>
                         <Label htmlFor="name">Nombre</Label>
-                        <Input id="name" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1" />
+                        <Input
+                            id="name"
+                            value={data.name}
+                            onChange={(e) => setData('name', e.target.value)}
+                            className="mt-1"
+                        />
                         <InputError message={errors.name} />
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
                         <div>
-                            <Label htmlFor="client_type_id">Tipo de cliente</Label>
+                            <Label htmlFor="client_type_id">
+                                Tipo de cliente
+                            </Label>
                             <select
                                 id="client_type_id"
                                 value={data.client_type_id}
-                                onChange={(e) => setData('client_type_id', Number(e.target.value))}
+                                onChange={(e) =>
+                                    setData(
+                                        'client_type_id',
+                                        Number(e.target.value),
+                                    )
+                                }
                                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                             >
                                 {clientTypes.map((clientType) => (
-                                    <option key={clientType.id} value={clientType.id}>{clientType.name}</option>
+                                    <option
+                                        key={clientType.id}
+                                        value={clientType.id}
+                                    >
+                                        {clientType.name}
+                                    </option>
                                 ))}
                             </select>
                             <InputError message={errors.client_type_id} />
                         </div>
                         <div>
-                            <Label htmlFor="advisor_id">Vendedor responsable</Label>
+                            <Label htmlFor="advisor_id">
+                                Vendedor responsable
+                            </Label>
                             <select
                                 id="advisor_id"
                                 value={data.advisor_id}
-                                onChange={(e) => setData('advisor_id', Number(e.target.value))}
+                                onChange={(e) =>
+                                    setData(
+                                        'advisor_id',
+                                        Number(e.target.value),
+                                    )
+                                }
                                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                             >
                                 {advisors.map((advisor) => (
                                     <option key={advisor.id} value={advisor.id}>
-                                        {advisor.name}{advisor.team ? ` · ${advisor.team.name}` : ''}
+                                        {advisor.name}
+                                        {advisor.team
+                                            ? ` · ${advisor.team.name}`
+                                            : ''}
                                     </option>
                                 ))}
                             </select>
@@ -104,33 +139,64 @@ export default function ClientsEdit({
                     <div className="grid gap-4 md:grid-cols-2">
                         <div>
                             <Label htmlFor="dni">DNI (opcional)</Label>
-                            <Input id="dni" value={data.dni} onChange={(e) => setData('dni', e.target.value)} className="mt-1" />
+                            <Input
+                                id="dni"
+                                value={data.dni}
+                                onChange={(e) => setData('dni', e.target.value)}
+                                className="mt-1"
+                            />
                             <InputError message={errors.dni} />
                         </div>
                         <div>
                             <Label htmlFor="phone">Teléfono</Label>
-                            <Input id="phone" value={data.phone} onChange={(e) => setData('phone', e.target.value)} className="mt-1" />
+                            <Input
+                                id="phone"
+                                value={data.phone}
+                                onChange={(e) =>
+                                    setData('phone', e.target.value)
+                                }
+                                className="mt-1"
+                            />
                             <InputError message={errors.phone} />
                         </div>
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
                         <div>
                             <Label htmlFor="email">Email</Label>
-                            <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} className="mt-1" />
+                            <Input
+                                id="email"
+                                type="email"
+                                value={data.email}
+                                onChange={(e) =>
+                                    setData('email', e.target.value)
+                                }
+                                className="mt-1"
+                            />
                             <InputError message={errors.email} />
                         </div>
                         <div>
-                            <Label htmlFor="city_id">Ciudad de procedencia</Label>
+                            <Label htmlFor="city_id">
+                                Ciudad de procedencia *
+                            </Label>
                             <select
                                 id="city_id"
                                 value={data.city_id}
-                                onChange={(e) => setData('city_id', e.target.value)}
+                                onChange={(e) =>
+                                    setData('city_id', e.target.value)
+                                }
                                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                                required
                             >
-                                <option value="">Sin ciudad</option>
+                                <option value="">Seleccionar…</option>
                                 {cities.map((city) => (
-                                    <option key={city.id} value={String(city.id)}>
-                                        {city.name}{city.department ? ` · ${city.department}` : ''}
+                                    <option
+                                        key={city.id}
+                                        value={String(city.id)}
+                                    >
+                                        {city.name}
+                                        {city.department
+                                            ? ` · ${city.department}`
+                                            : ''}
                                     </option>
                                 ))}
                             </select>
@@ -139,7 +205,14 @@ export default function ClientsEdit({
                     </div>
                     <div>
                         <Label htmlFor="referred_by">Referido por</Label>
-                        <Input id="referred_by" value={data.referred_by} onChange={(e) => setData('referred_by', e.target.value)} className="mt-1" />
+                        <Input
+                            id="referred_by"
+                            value={data.referred_by}
+                            onChange={(e) =>
+                                setData('referred_by', e.target.value)
+                            }
+                            className="mt-1"
+                        />
                     </div>
                     <Button type="submit" disabled={processing}>
                         Actualizar
