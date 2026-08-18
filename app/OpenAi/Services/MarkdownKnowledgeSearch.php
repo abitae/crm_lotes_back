@@ -2,19 +2,23 @@
 
 namespace App\OpenAi\Services;
 
+use App\Models\Inmopro\OpenAiCazadorKnowledgeChunk;
 use App\Models\Inmopro\OpenAiCazadorKnowledgeDocument;
 use Laravel\Ai\Embeddings;
 
 class MarkdownKnowledgeSearch
 {
     /**
-     * @return array{version: ?int, results: list<array{heading: ?string, content: string, score: float}>}
+     * @return array{version: ?int, versions: list<int>, documents_count: int, results: list<array{document_id: int, expert_name: string, version: int, heading: ?string, content: string, score: float}>}
      */
     public function search(string $query, int $limit = 6, ?OpenAiCazadorKnowledgeDocument $document = null): array
     {
-        $document ??= OpenAiCazadorKnowledgeDocument::active();
-        if ($document === null || trim($query) === '') {
-            return ['version' => null, 'results' => []];
+        $documents = $document !== null
+            ? collect([$document])
+            : OpenAiCazadorKnowledgeDocument::activeDocuments()->get();
+
+        if ($documents->isEmpty() || trim($query) === '') {
+            return ['version' => null, 'versions' => [], 'documents_count' => 0, 'results' => []];
         }
 
         $queryVector = Embeddings::for([trim($query)])
@@ -24,9 +28,14 @@ class MarkdownKnowledgeSearch
             ->generate(provider: 'openai', model: 'text-embedding-3-small')
             ->embeddings[0];
 
-        $results = $document->chunks()
+        $results = OpenAiCazadorKnowledgeChunk::query()
+            ->with('document:id,expert_name,version')
+            ->whereIn('document_id', $documents->pluck('id'))
             ->get()
             ->map(fn ($chunk) => [
+                'document_id' => $chunk->document_id,
+                'expert_name' => $chunk->document->expert_name,
+                'version' => $chunk->document->version,
                 'heading' => $chunk->heading,
                 'content' => $chunk->content,
                 'score' => $this->cosineSimilarity($queryVector, $chunk->embedding ?? []),
@@ -36,7 +45,14 @@ class MarkdownKnowledgeSearch
             ->values()
             ->all();
 
-        return ['version' => $document->version, 'results' => $results];
+        $versions = $documents->pluck('version')->sort()->values()->all();
+
+        return [
+            'version' => $documents->max('version'),
+            'versions' => $versions,
+            'documents_count' => $documents->count(),
+            'results' => $results,
+        ];
     }
 
     /**

@@ -29,6 +29,7 @@ import type { BreadcrumbItem } from '@/types';
 type Knowledge = {
     id: number;
     version: number;
+    expert_name: string;
     original_name: string;
     file_size: number;
     sha256: string;
@@ -46,6 +47,9 @@ type Preview = {
     matches: {
         version: number | null;
         results: Array<{
+            document_id: number;
+            expert_name: string;
+            version: number;
             heading: string | null;
             content: string;
             score: number;
@@ -63,7 +67,7 @@ type OpenAiCazadorSettingsProps = {
         has_openai_api_key: boolean;
         openai_api_key_source: 'database' | 'env' | 'none';
     };
-    knowledge: Knowledge | null;
+    knowledgeDocuments: Knowledge[];
     metrics: {
         runs: number;
         success_rate: number | null;
@@ -93,7 +97,7 @@ function formatBytes(bytes: number): string {
 
 export default function OpenAiCazadorSettings({
     config,
-    knowledge,
+    knowledgeDocuments,
     metrics,
 }: OpenAiCazadorSettingsProps) {
     const { data, setData, put, processing, errors } = useForm({
@@ -106,11 +110,17 @@ export default function OpenAiCazadorSettings({
         remove_openai_api_key: false,
     });
     const [file, setFile] = useState<File | null>(null);
+    const [expertName, setExpertName] = useState('');
     const [uploading, setUploading] = useState(false);
     const [query, setQuery] = useState('');
+    const [selectedDocumentId, setSelectedDocumentId] = useState<number>(0);
     const [testing, setTesting] = useState(false);
     const [preview, setPreview] = useState<Preview | null>(null);
     const [previewError, setPreviewError] = useState<string | null>(null);
+    const selectedKnowledge =
+        knowledgeDocuments.find(
+            (document) => document.id === selectedDocumentId,
+        ) ?? knowledgeDocuments.find((document) => document.status === 'ready');
 
     const apiKeySourceLabel =
         config.openai_api_key_source === 'database'
@@ -126,17 +136,24 @@ export default function OpenAiCazadorSettings({
 
     const uploadKnowledge = (event: FormEvent) => {
         event.preventDefault();
-        if (!file) return;
+        if (!file || !expertName.trim()) return;
         setUploading(true);
         router.post(
             '/inmopro/openai-cazador/knowledge',
-            { knowledge_file: file },
-            { forceFormData: true, onFinish: () => setUploading(false) },
+            { expert_name: expertName.trim(), knowledge_file: file },
+            {
+                forceFormData: true,
+                onSuccess: () => {
+                    setFile(null);
+                    setExpertName('');
+                },
+                onFinish: () => setUploading(false),
+            },
         );
     };
 
-    const testKnowledge = async () => {
-        if (!query.trim() || knowledge?.status !== 'ready') return;
+    const testKnowledge = async (knowledge: Knowledge) => {
+        if (!query.trim() || knowledge.status !== 'ready') return;
         setTesting(true);
         setPreviewError(null);
         setPreview(null);
@@ -166,7 +183,7 @@ export default function OpenAiCazadorSettings({
                     body.message ?? 'No se pudo ejecutar la prueba.',
                 );
             setPreview(body);
-            router.reload({ only: ['knowledge'] });
+            router.reload({ only: ['knowledgeDocuments'] });
         } catch (error) {
             setPreviewError(
                 error instanceof Error
@@ -396,10 +413,9 @@ export default function OpenAiCazadorSettings({
                             <CardHeader>
                                 <CardTitle>Conocimiento Markdown</CardTitle>
                                 <CardDescription>
-                                    Un archivo privado UTF-8 de hasta 1 MB.
-                                    Incluye identidad, propuesta de valor,
-                                    compra, financiamiento, beneficios,
-                                    objeciones, preguntas frecuentes y contacto.
+                                    Carga un archivo privado UTF-8 de hasta 1 MB
+                                    por cada experto en ventas. Varios expertos
+                                    pueden aportar conocimiento simultáneamente.
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
@@ -412,10 +428,26 @@ export default function OpenAiCazadorSettings({
                                     onSubmit={uploadKnowledge}
                                     className="space-y-2"
                                 >
+                                    <Label htmlFor="expert_name">
+                                        Experto o personaje
+                                    </Label>
+                                    <Input
+                                        id="expert_name"
+                                        value={expertName}
+                                        maxLength={120}
+                                        placeholder="Ej. Tim Villafuerte"
+                                        onChange={(event) =>
+                                            setExpertName(event.target.value)
+                                        }
+                                    />
+                                    <InputError
+                                        message={
+                                            (errors as Record<string, string>)
+                                                .expert_name
+                                        }
+                                    />
                                     <Label htmlFor="knowledge_file">
-                                        {knowledge
-                                            ? 'Reemplazar archivo'
-                                            : 'Cargar archivo'}
+                                        Archivo de conocimiento
                                     </Label>
                                     <Input
                                         id="knowledge_file"
@@ -435,7 +467,11 @@ export default function OpenAiCazadorSettings({
                                     />
                                     <Button
                                         type="submit"
-                                        disabled={!file || uploading}
+                                        disabled={
+                                            !file ||
+                                            !expertName.trim() ||
+                                            uploading
+                                        }
                                     >
                                         <Upload className="mr-2 size-4" />
                                         {uploading
@@ -444,150 +480,180 @@ export default function OpenAiCazadorSettings({
                                     </Button>
                                 </form>
 
-                                {knowledge ? (
-                                    <div className="space-y-3 rounded-lg border p-4 text-sm">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="flex gap-2">
-                                                <FileText className="mt-0.5 size-5 text-emerald-600" />
-                                                <div>
-                                                    <p className="font-semibold">
+                                {knowledgeDocuments.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {knowledgeDocuments.map((knowledge) => (
+                                            <div
+                                                key={knowledge.id}
+                                                className="space-y-3 rounded-lg border p-4 text-sm"
+                                            >
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex gap-2">
+                                                        <FileText className="mt-0.5 size-5 text-emerald-600" />
+                                                        <div>
+                                                            <p className="font-bold text-emerald-700">
+                                                                {
+                                                                    knowledge.expert_name
+                                                                }
+                                                            </p>
+                                                            <p className="font-semibold">
+                                                                {
+                                                                    knowledge.original_name
+                                                                }
+                                                            </p>
+                                                            <p className="text-xs text-slate-500">
+                                                                v
+                                                                {
+                                                                    knowledge.version
+                                                                }{' '}
+                                                                ·{' '}
+                                                                {formatBytes(
+                                                                    knowledge.file_size,
+                                                                )}{' '}
+                                                                ·{' '}
+                                                                {
+                                                                    knowledge.chunks_count
+                                                                }{' '}
+                                                                fragmentos
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold">
+                                                        {knowledge.status ===
+                                                        'processing'
+                                                            ? 'Procesando'
+                                                            : knowledge.status ===
+                                                                'ready'
+                                                              ? knowledge.is_active
+                                                                  ? 'Activo'
+                                                                  : 'Listo para activar'
+                                                              : 'Fallido'}
+                                                    </span>
+                                                </div>
+                                                <div className="grid gap-1 text-xs text-slate-500">
+                                                    <div>
+                                                        Hash:{' '}
+                                                        <span className="font-mono">
+                                                            {knowledge.sha256.slice(
+                                                                0,
+                                                                16,
+                                                            )}
+                                                            …
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        Responsable:{' '}
+                                                        {knowledge.uploaded_by ??
+                                                            'No disponible'}
+                                                    </div>
+                                                    <div>
+                                                        Prueba previa:{' '}
+                                                        {knowledge.evaluated_at
+                                                            ? 'realizada'
+                                                            : 'pendiente'}
+                                                    </div>
+                                                    <div>
+                                                        Actualizado:{' '}
+                                                        {knowledge.updated_at
+                                                            ? new Date(
+                                                                  knowledge.updated_at,
+                                                              ).toLocaleString(
+                                                                  'es-PE',
+                                                              )
+                                                            : '—'}
+                                                    </div>
+                                                </div>
+                                                {knowledge.error_message ? (
+                                                    <p className="rounded bg-red-50 p-2 text-xs text-red-700">
                                                         {
-                                                            knowledge.original_name
+                                                            knowledge.error_message
                                                         }
                                                     </p>
-                                                    <p className="text-xs text-slate-500">
-                                                        v{knowledge.version} ·{' '}
-                                                        {formatBytes(
-                                                            knowledge.file_size,
-                                                        )}{' '}
-                                                        ·{' '}
-                                                        {knowledge.chunks_count}{' '}
-                                                        fragmentos
-                                                    </p>
+                                                ) : null}
+                                                <div className="flex flex-wrap gap-2">
+                                                    <Button
+                                                        asChild
+                                                        variant="outline"
+                                                        size="sm"
+                                                    >
+                                                        <a
+                                                            href={
+                                                                '/inmopro/openai-cazador/knowledge/' +
+                                                                knowledge.id +
+                                                                '/download'
+                                                            }
+                                                        >
+                                                            <Download className="mr-2 size-4" />{' '}
+                                                            Descargar
+                                                        </a>
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        disabled={
+                                                            knowledge.status ===
+                                                            'processing'
+                                                        }
+                                                        onClick={() =>
+                                                            router.post(
+                                                                '/inmopro/openai-cazador/knowledge/' +
+                                                                    knowledge.id +
+                                                                    '/reindex',
+                                                            )
+                                                        }
+                                                    >
+                                                        <RefreshCw className="mr-2 size-4" />{' '}
+                                                        Reindexar
+                                                    </Button>
+                                                    {knowledge.status ===
+                                                    'ready' ? (
+                                                        <Button
+                                                            variant={
+                                                                knowledge.is_active
+                                                                    ? 'outline'
+                                                                    : 'default'
+                                                            }
+                                                            size="sm"
+                                                            disabled={
+                                                                !knowledge.is_active &&
+                                                                !knowledge.evaluated_at
+                                                            }
+                                                            onClick={() =>
+                                                                router.post(
+                                                                    '/inmopro/openai-cazador/knowledge/' +
+                                                                        knowledge.id +
+                                                                        '/activate',
+                                                                )
+                                                            }
+                                                        >
+                                                            <CheckCircle2 className="mr-2 size-4" />{' '}
+                                                            {knowledge.is_active
+                                                                ? 'Desactivar'
+                                                                : 'Activar conocimiento'}
+                                                        </Button>
+                                                    ) : null}
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            if (
+                                                                window.confirm(
+                                                                    '¿Eliminar este archivo y sus fragmentos?',
+                                                                )
+                                                            ) {
+                                                                router.delete(
+                                                                    '/inmopro/openai-cazador/knowledge/' +
+                                                                        knowledge.id,
+                                                                );
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Trash2 className="mr-2 size-4" />{' '}
+                                                        Eliminar
+                                                    </Button>
                                                 </div>
                                             </div>
-                                            <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold">
-                                                {knowledge.status ===
-                                                'processing'
-                                                    ? 'Procesando'
-                                                    : knowledge.status ===
-                                                        'ready'
-                                                      ? knowledge.is_active
-                                                          ? 'Activo'
-                                                          : 'Listo para activar'
-                                                      : 'Fallido'}
-                                            </span>
-                                        </div>
-                                        <div className="grid gap-1 text-xs text-slate-500">
-                                            <div>
-                                                Hash:{' '}
-                                                <span className="font-mono">
-                                                    {knowledge.sha256.slice(
-                                                        0,
-                                                        16,
-                                                    )}
-                                                    …
-                                                </span>
-                                            </div>
-                                            <div>
-                                                Responsable:{' '}
-                                                {knowledge.uploaded_by ??
-                                                    'No disponible'}
-                                            </div>
-                                            <div>
-                                                Prueba previa:{' '}
-                                                {knowledge.evaluated_at
-                                                    ? 'realizada'
-                                                    : 'pendiente'}
-                                            </div>
-                                            <div>
-                                                Actualizado:{' '}
-                                                {knowledge.updated_at
-                                                    ? new Date(
-                                                          knowledge.updated_at,
-                                                      ).toLocaleString('es-PE')
-                                                    : '—'}
-                                            </div>
-                                        </div>
-                                        {knowledge.error_message ? (
-                                            <p className="rounded bg-red-50 p-2 text-xs text-red-700">
-                                                {knowledge.error_message}
-                                            </p>
-                                        ) : null}
-                                        <div className="flex flex-wrap gap-2">
-                                            <Button
-                                                asChild
-                                                variant="outline"
-                                                size="sm"
-                                            >
-                                                <a
-                                                    href={
-                                                        '/inmopro/openai-cazador/knowledge/' +
-                                                        knowledge.id +
-                                                        '/download'
-                                                    }
-                                                >
-                                                    <Download className="mr-2 size-4" />{' '}
-                                                    Descargar
-                                                </a>
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                disabled={
-                                                    knowledge.status ===
-                                                    'processing'
-                                                }
-                                                onClick={() =>
-                                                    router.post(
-                                                        '/inmopro/openai-cazador/knowledge/' +
-                                                            knowledge.id +
-                                                            '/reindex',
-                                                    )
-                                                }
-                                            >
-                                                <RefreshCw className="mr-2 size-4" />{' '}
-                                                Reindexar
-                                            </Button>
-                                            {knowledge.status === 'ready' &&
-                                            !knowledge.is_active ? (
-                                                <Button
-                                                    size="sm"
-                                                    disabled={
-                                                        !knowledge.evaluated_at
-                                                    }
-                                                    onClick={() =>
-                                                        router.post(
-                                                            '/inmopro/openai-cazador/knowledge/' +
-                                                                knowledge.id +
-                                                                '/activate',
-                                                        )
-                                                    }
-                                                >
-                                                    <CheckCircle2 className="mr-2 size-4" />{' '}
-                                                    Activar versión
-                                                </Button>
-                                            ) : null}
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={() => {
-                                                    if (
-                                                        window.confirm(
-                                                            '¿Eliminar este archivo y sus fragmentos?',
-                                                        )
-                                                    ) {
-                                                        router.delete(
-                                                            '/inmopro/openai-cazador/knowledge/' +
-                                                                knowledge.id,
-                                                        );
-                                                    }
-                                                }}
-                                            >
-                                                <Trash2 className="mr-2 size-4" />{' '}
-                                                Eliminar
-                                            </Button>
-                                        </div>
+                                        ))}
                                     </div>
                                 ) : (
                                     <p className="text-sm text-slate-500">
@@ -608,6 +674,36 @@ export default function OpenAiCazadorSettings({
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-3">
+                                <div>
+                                    <Label htmlFor="preview_document">
+                                        Experto a probar
+                                    </Label>
+                                    <select
+                                        id="preview_document"
+                                        className="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                                        value={selectedKnowledge?.id ?? ''}
+                                        onChange={(event) =>
+                                            setSelectedDocumentId(
+                                                Number(event.target.value),
+                                            )
+                                        }
+                                    >
+                                        {knowledgeDocuments
+                                            .filter(
+                                                (document) =>
+                                                    document.status === 'ready',
+                                            )
+                                            .map((document) => (
+                                                <option
+                                                    key={document.id}
+                                                    value={document.id}
+                                                >
+                                                    {document.expert_name} ·{' '}
+                                                    {document.original_name}
+                                                </option>
+                                            ))}
+                                    </select>
+                                </div>
                                 <Input
                                     value={query}
                                     onChange={(event) =>
@@ -618,11 +714,17 @@ export default function OpenAiCazadorSettings({
                                 />
                                 <Button
                                     type="button"
-                                    onClick={() => void testKnowledge()}
+                                    onClick={() =>
+                                        selectedKnowledge
+                                            ? void testKnowledge(
+                                                  selectedKnowledge,
+                                              )
+                                            : undefined
+                                    }
                                     disabled={
                                         testing ||
                                         !query.trim() ||
-                                        knowledge?.status !== 'ready'
+                                        selectedKnowledge?.status !== 'ready'
                                     }
                                 >
                                     <Play className="mr-2 size-4" />{' '}
@@ -651,6 +753,8 @@ export default function OpenAiCazadorSettings({
                                                         className="rounded-lg border p-3"
                                                     >
                                                         <summary className="cursor-pointer text-sm font-semibold">
+                                                            {match.expert_name}{' '}
+                                                            ·{' '}
                                                             {match.heading ??
                                                                 'Sin título'}{' '}
                                                             · similitud{' '}

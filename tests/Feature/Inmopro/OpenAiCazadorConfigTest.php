@@ -133,6 +133,7 @@ class OpenAiCazadorConfigTest extends TestCase
 
         $this->actingAs($user)
             ->post(route('inmopro.openai-cazador.knowledge.upload'), [
+                'expert_name' => 'Tim Villafuerte',
                 'knowledge_file' => UploadedFile::fake()->createWithContent(
                     'conocimiento.md',
                     "# Empresa\nSomos una inmobiliaria orientada a familias.",
@@ -142,6 +143,7 @@ class OpenAiCazadorConfigTest extends TestCase
 
         $document = OpenAiCazadorKnowledgeDocument::query()->firstOrFail();
         $this->assertSame('processing', $document->status);
+        $this->assertSame('Tim Villafuerte', $document->expert_name);
         $this->assertSame($user->id, $document->uploaded_by);
         Storage::disk('local')->assertExists($document->storage_path);
         Queue::assertPushed(IndexCazadorKnowledge::class, fn ($job) => $job->documentId === $document->id);
@@ -156,12 +158,14 @@ class OpenAiCazadorConfigTest extends TestCase
 
         $this->actingAs($user)
             ->post(route('inmopro.openai-cazador.knowledge.upload'), [
+                'expert_name' => 'Experto inválido',
                 'knowledge_file' => UploadedFile::fake()->createWithContent('conocimiento.txt', '# Texto'),
             ])
             ->assertSessionHasErrors(['knowledge_file']);
 
         $this->actingAs($user)
             ->post(route('inmopro.openai-cazador.knowledge.upload'), [
+                'expert_name' => 'Experto inválido',
                 'knowledge_file' => UploadedFile::fake()->createWithContent('conocimiento.md', "# Empresa\n\xC3\x28"),
             ])
             ->assertSessionHasErrors(['knowledge_file']);
@@ -174,22 +178,51 @@ class OpenAiCazadorConfigTest extends TestCase
         Permission::findOrCreate('inmopro.openai-cazador.knowledge.activate', 'web');
         $user = User::factory()->create();
         $user->givePermissionTo('inmopro.openai-cazador.knowledge.activate');
-        $active = $this->knowledgeDocument(1, true);
-        $replacement = $this->knowledgeDocument(2, false);
+        $active = $this->knowledgeDocument(1, true, 'Tim Villafuerte');
+        $replacement = $this->knowledgeDocument(2, false, 'Alex Day');
         $replacement->update(['evaluated_at' => now()]);
 
         $this->actingAs($user)
             ->post(route('inmopro.openai-cazador.knowledge.activate', $replacement))
             ->assertRedirect();
 
-        $this->assertFalse($active->fresh()->is_active);
+        $this->assertTrue($active->fresh()->is_active);
         $this->assertTrue($replacement->fresh()->is_active);
     }
 
-    private function knowledgeDocument(int $version, bool $active): OpenAiCazadorKnowledgeDocument
+    public function test_admin_can_upload_multiple_expert_documents_while_others_are_processing(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+        Permission::findOrCreate('inmopro.openai-cazador.knowledge.upload', 'web');
+        $user = User::factory()->create();
+        $user->givePermissionTo('inmopro.openai-cazador.knowledge.upload');
+
+        foreach (['Tim Villafuerte', 'Alex Day'] as $expert) {
+            $this->actingAs($user)
+                ->post(route('inmopro.openai-cazador.knowledge.upload'), [
+                    'expert_name' => $expert,
+                    'knowledge_file' => UploadedFile::fake()->createWithContent(
+                        str($expert)->slug().'.md',
+                        "# Ventas\nConocimiento comercial de {$expert}.",
+                    ),
+                ])
+                ->assertSessionHasNoErrors();
+        }
+
+        $this->assertDatabaseCount('openai_cazador_knowledge_documents', 2);
+        $this->assertEqualsCanonicalizing(
+            ['Tim Villafuerte', 'Alex Day'],
+            OpenAiCazadorKnowledgeDocument::query()->pluck('expert_name')->all(),
+        );
+        Queue::assertPushed(IndexCazadorKnowledge::class, 2);
+    }
+
+    private function knowledgeDocument(int $version, bool $active, string $expertName = 'Conocimiento general'): OpenAiCazadorKnowledgeDocument
     {
         return OpenAiCazadorKnowledgeDocument::query()->create([
             'version' => $version,
+            'expert_name' => $expertName,
             'original_name' => "conocimiento-{$version}.md",
             'storage_path' => "openai-cazador/conocimiento-{$version}.md",
             'file_size' => 50,

@@ -10,7 +10,7 @@ use Stringable;
 class PreviewCazadorKnowledgeTool implements Tool
 {
     /**
-     * @param  array{version: ?int, results: list<array{heading: ?string, content: string, score: float}>}  $matches
+     * @param  array<string, mixed>  $matches
      */
     public function __construct(private array $matches) {}
 

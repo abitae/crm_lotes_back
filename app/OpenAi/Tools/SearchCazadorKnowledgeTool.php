@@ -14,7 +14,7 @@ class SearchCazadorKnowledgeTool implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Busca conocimiento comercial e institucional, preguntas frecuentes, procesos, beneficios y manejo de objeciones en el documento oficial de Cazador.';
+        return 'Busca conocimiento comercial, técnicas de venta y manejo de objeciones entre los documentos activos de expertos y de Cazador.';
     }
 
     public function handle(Request $request): Stringable|string

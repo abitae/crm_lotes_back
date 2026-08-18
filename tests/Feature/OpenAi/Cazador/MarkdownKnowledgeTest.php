@@ -78,6 +78,36 @@ class MarkdownKnowledgeTest extends TestCase
         $this->assertNotContains('No visible', collect($result['results'])->pluck('heading')->all());
     }
 
+    public function test_semantic_search_combines_all_active_expert_documents(): void
+    {
+        Embeddings::fake(fn ($prompt) => array_fill(0, count($prompt->inputs), array_fill(0, 1536, 1.0)));
+        $tim = $this->document(1, 'Tim Villafuerte');
+        $tim->update(['status' => 'ready', 'is_active' => true]);
+        $tim->chunks()->create([
+            'position' => 1,
+            'heading' => 'Cierre consultivo',
+            'content' => 'Pregunta y escucha antes de proponer.',
+            'embedding' => array_fill(0, 1536, 1.0),
+        ]);
+        $alex = $this->document(2, 'Alex Day');
+        $alex->update(['status' => 'ready', 'is_active' => true]);
+        $alex->chunks()->create([
+            'position' => 1,
+            'heading' => 'Manejo de objeciones',
+            'content' => 'Valida la preocupación antes de responder.',
+            'embedding' => array_fill(0, 1536, 1.0),
+        ]);
+
+        $result = app(MarkdownKnowledgeSearch::class)->search('¿Cómo cierro una venta?');
+
+        $this->assertSame(2, $result['documents_count']);
+        $this->assertSame([1, 2], $result['versions']);
+        $this->assertEqualsCanonicalizing(
+            ['Tim Villafuerte', 'Alex Day'],
+            collect($result['results'])->pluck('expert_name')->all(),
+        );
+    }
+
     public function test_failed_indexing_keeps_previous_version_active(): void
     {
         Storage::fake('local');
@@ -100,10 +130,11 @@ class MarkdownKnowledgeTest extends TestCase
         $this->assertFalse($replacement->fresh()->is_active);
     }
 
-    private function document(int $version): OpenAiCazadorKnowledgeDocument
+    private function document(int $version, string $expertName = 'Conocimiento general'): OpenAiCazadorKnowledgeDocument
     {
         return OpenAiCazadorKnowledgeDocument::query()->create([
             'version' => $version,
+            'expert_name' => $expertName,
             'original_name' => "conocimiento-v{$version}.md",
             'storage_path' => "openai-cazador/v{$version}.md",
             'file_size' => 100,

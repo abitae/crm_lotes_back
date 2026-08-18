@@ -3,6 +3,7 @@
 namespace App\Models\Inmopro;
 
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,7 +12,7 @@ class OpenAiCazadorKnowledgeDocument extends Model
 {
     protected $table = 'openai_cazador_knowledge_documents';
 
-    protected $fillable = ['version', 'original_name', 'storage_path', 'file_size', 'sha256', 'status', 'is_active', 'error_message', 'uploaded_by', 'indexed_at', 'evaluated_at', 'activated_at'];
+    protected $fillable = ['version', 'expert_name', 'original_name', 'storage_path', 'file_size', 'sha256', 'status', 'is_active', 'error_message', 'uploaded_by', 'indexed_at', 'evaluated_at', 'activated_at'];
 
     protected function casts(): array
     {
@@ -30,6 +31,14 @@ class OpenAiCazadorKnowledgeDocument extends Model
 
     public static function active(): ?self
     {
-        return self::query()->where('is_active', true)->where('status', 'ready')->latest('version')->first();
+        return self::activeDocuments()->latest('version')->first();
+    }
+
+    /**
+     * @return Builder<self>
+     */
+    public static function activeDocuments(): Builder
+    {
+        return self::query()->where('is_active', true)->where('status', 'ready');
     }
 }

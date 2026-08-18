@@ -62,17 +62,32 @@ class ChatController extends Controller
     {
         $latest = OpenAiCazadorKnowledgeDocument::query()->latest('version')->first();
         $active = OpenAiCazadorKnowledgeDocument::active();
+        $activeDocumentsCount = OpenAiCazadorKnowledgeDocument::activeDocuments()->count();
+        $processingDocumentsCount = OpenAiCazadorKnowledgeDocument::query()->where('status', 'processing')->count();
+        $status = $processingDocumentsCount > 0
+            ? 'processing'
+            : ($activeDocumentsCount > 0 ? 'ready' : ($latest?->status ?? 'missing'));
 
         return response()->json([
             'enabled' => (bool) config('openai_cazador.enabled'),
             'max_message_length' => (int) config('openai_cazador.max_message_length', 2000),
             'knowledge' => $latest ? [
                 'version' => $active?->version,
-                'status' => $latest->status,
-                'ready' => $active !== null,
-                'updating' => $latest->status === 'processing',
+                'status' => $status,
+                'ready' => $activeDocumentsCount > 0,
+                'updating' => $processingDocumentsCount > 0,
+                'active_documents_count' => $activeDocumentsCount,
+                'processing_documents_count' => $processingDocumentsCount,
                 'updated_at' => $active?->updated_at?->toIso8601String(),
-            ] : ['version' => null, 'status' => 'missing', 'ready' => false, 'updated_at' => null],
+            ] : [
+                'version' => null,
+                'status' => 'missing',
+                'ready' => false,
+                'updating' => false,
+                'active_documents_count' => 0,
+                'processing_documents_count' => 0,
+                'updated_at' => null,
+            ],
         ]);
     }
 

@@ -23,6 +23,7 @@ class UploadOpenAiCazadorKnowledgeRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'expert_name' => ['required', 'string', 'max:120'],
             'knowledge_file' => ['required', 'file', 'max:1024', 'extensions:md,markdown', 'mimetypes:text/plain,text/markdown,application/octet-stream'],
         ];
     }
@@ -30,6 +31,8 @@ class UploadOpenAiCazadorKnowledgeRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'expert_name.required' => 'Indica el nombre del experto o personaje.',
+            'expert_name.max' => 'El nombre del experto no puede superar 120 caracteres.',
             'knowledge_file.required' => 'Selecciona un archivo Markdown.',
             'knowledge_file.max' => 'El archivo no puede superar 1 MB.',
             'knowledge_file.extensions' => 'El archivo debe tener extensión .md o .markdown.',

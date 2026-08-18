@@ -29,7 +29,11 @@ class OpenAiCazadorConfigController extends Controller
     public function edit(): Response
     {
         $config = OpenAiCazadorConfig::current();
-        $knowledge = OpenAiCazadorKnowledgeDocument::query()->with('uploader')->latest('version')->first();
+        $knowledgeDocuments = OpenAiCazadorKnowledgeDocument::query()
+            ->with('uploader')
+            ->withCount('chunks')
+            ->latest('version')
+            ->get();
         $runs = OpenAiCazadorRun::query()->where('created_at', '>=', now()->subDay());
         $runCount = (clone $runs)->count();
 
@@ -43,9 +47,10 @@ class OpenAiCazadorConfigController extends Controller
                 'has_openai_api_key' => OpenAiCazadorConfigResolver::apiKeySource($config) !== 'none',
                 'openai_api_key_source' => OpenAiCazadorConfigResolver::apiKeySource($config),
             ],
-            'knowledge' => $knowledge ? [
+            'knowledgeDocuments' => $knowledgeDocuments->map(fn (OpenAiCazadorKnowledgeDocument $knowledge): array => [
                 'id' => $knowledge->id,
                 'version' => $knowledge->version,
+                'expert_name' => $knowledge->expert_name,
                 'original_name' => $knowledge->original_name,
                 'file_size' => $knowledge->file_size,
                 'sha256' => $knowledge->sha256,
@@ -55,8 +60,8 @@ class OpenAiCazadorConfigController extends Controller
                 'updated_at' => $knowledge->updated_at?->toIso8601String(),
                 'evaluated_at' => $knowledge->evaluated_at?->toIso8601String(),
                 'uploaded_by' => $knowledge->uploader?->name,
-                'chunks_count' => $knowledge->chunks()->count(),
-            ] : null,
+                'chunks_count' => $knowledge->chunks_count,
+            ])->all(),
             'metrics' => [
                 'runs' => $runCount,
                 'success_rate' => $runCount > 0 ? round(((clone $runs)->where('status', 'success')->count() / $runCount) * 100, 1) : null,
@@ -92,12 +97,6 @@ class OpenAiCazadorConfigController extends Controller
 
     public function uploadKnowledge(UploadOpenAiCazadorKnowledgeRequest $request, MarkdownKnowledgeIndexer $indexer): RedirectResponse
     {
-        if (OpenAiCazadorKnowledgeDocument::query()->where('status', 'processing')->exists()) {
-            throw ValidationException::withMessages([
-                'knowledge_file' => 'Ya existe una versión en procesamiento. Espera a que termine antes de cargar otra.',
-            ]);
-        }
-
         $file = $request->file('knowledge_file');
         $content = (string) $file->get();
         if (! mb_check_encoding($content, 'UTF-8')) {
@@ -116,6 +115,7 @@ class OpenAiCazadorConfigController extends Controller
 
         $document = OpenAiCazadorKnowledgeDocument::query()->create([
             'version' => $version,
+            'expert_name' => trim((string) $request->validated('expert_name')),
             'original_name' => $file->getClientOriginalName(),
             'storage_path' => $path,
             'file_size' => strlen($content),
@@ -126,7 +126,7 @@ class OpenAiCazadorConfigController extends Controller
 
         IndexCazadorKnowledge::dispatch($document->id);
 
-        return back()->with('success', 'El conocimiento se está indexando. La versión anterior seguirá activa hasta finalizar.');
+        return back()->with('success', 'El conocimiento del experto se está indexando. Los documentos activos seguirán disponibles.');
     }
 
     public function downloadKnowledge(OpenAiCazadorKnowledgeDocument $document): StreamedResponse
@@ -147,16 +147,13 @@ class OpenAiCazadorConfigController extends Controller
     public function reindexKnowledge(OpenAiCazadorKnowledgeDocument $document): RedirectResponse
     {
         abort_unless(Storage::disk('local')->exists($document->storage_path), 404);
-        abort_if(
-            OpenAiCazadorKnowledgeDocument::query()->where('status', 'processing')->exists(),
-            409,
-            'Ya existe una versión en procesamiento.',
-        );
+        abort_if($document->status === 'processing', 409, 'Este documento ya se está procesando.');
         $version = ((int) OpenAiCazadorKnowledgeDocument::query()->max('version')) + 1;
         $path = 'openai-cazador/knowledge/v'.$version.'-'.Str::uuid().'.md';
         Storage::disk('local')->copy($document->storage_path, $path);
         $replacement = OpenAiCazadorKnowledgeDocument::query()->create([
             'version' => $version,
+            'expert_name' => $document->expert_name,
             'original_name' => $document->original_name,
             'storage_path' => $path,
             'file_size' => $document->file_size,
@@ -172,14 +169,27 @@ class OpenAiCazadorConfigController extends Controller
     public function activateKnowledge(OpenAiCazadorKnowledgeDocument $document): RedirectResponse
     {
         abort_unless($document->status === 'ready', 422, 'Solo se puede activar una versión lista.');
-        abort_unless($document->evaluated_at !== null, 422, 'Prueba esta versión antes de activarla.');
+        if (! $document->is_active) {
+            abort_unless($document->evaluated_at !== null, 422, 'Prueba este documento antes de activarlo.');
+        }
 
-        DB::transaction(function () use ($document): void {
-            OpenAiCazadorKnowledgeDocument::query()->whereKeyNot($document->id)->update(['is_active' => false]);
-            $document->update(['is_active' => true, 'activated_at' => now()]);
+        $activating = ! $document->is_active;
+        DB::transaction(function () use ($document, $activating): void {
+            if ($activating) {
+                OpenAiCazadorKnowledgeDocument::query()
+                    ->whereKeyNot($document->id)
+                    ->where('expert_name', $document->expert_name)
+                    ->update(['is_active' => false]);
+            }
+            $document->update([
+                'is_active' => $activating,
+                'activated_at' => $activating ? now() : null,
+            ]);
         });
 
-        return back()->with('success', "Versión {$document->version} activada correctamente.");
+        $message = $activating ? 'activado' : 'desactivado';
+
+        return back()->with('success', "Conocimiento de {$document->expert_name} {$message} correctamente.");
     }
 
     public function previewKnowledge(Request $request, MarkdownKnowledgeSearch $search): JsonResponse
