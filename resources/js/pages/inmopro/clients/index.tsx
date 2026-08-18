@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { InmoproMetricCard } from '@/components/inmopro/metric-card';
 import Pagination, { type PaginationLink } from '@/components/pagination';
-import { formatDate } from '@/lib/date';
+import { formatDateTime } from '@/lib/date';
 import { clientsListingQuerySuffix } from '@/lib/inmopro-listing-query';
 import { confirmDelete } from '@/lib/swal';
 import { cn } from '@/lib/utils';
@@ -673,7 +673,7 @@ export default function ClientsIndex({
                                                     </td>
                                                     <td className="px-2 py-1.5 text-center tabular-nums text-slate-600">{client.lots_count ?? 0}</td>
                                                     <td className="hidden whitespace-nowrap px-2 py-1.5 text-slate-500 xl:table-cell">
-                                                        {formatDate(client.created_at)}
+                                                        {formatDateTime(client.created_at)}
                                                     </td>
                                                     <td className="px-1 py-1.5 text-right">
                                                         <div className="flex justify-end gap-0.5">
