@@ -3,37 +3,53 @@
 namespace App\Http\Controllers\Api\v1\Datero;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\v1\Datero\IndexClientRequest;
 use App\Http\Requests\Api\v1\Datero\StoreClientRequest;
 use App\Http\Requests\Api\v1\Datero\UpdateClientRequest;
 use App\Models\Inmopro\Client;
 use App\Models\Inmopro\Datero;
 use App\Services\Inmopro\RegisterClientForDateroAction;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ClientController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(IndexClientRequest $request): JsonResponse
     {
         /** @var Datero $datero */
         $datero = $request->attributes->get('datero');
 
         $clients = Client::query()
-            ->with('city')
+            ->select(['id', 'name', 'dni', 'phone'])
             ->where('registered_by_datero_id', $datero->id)
-            ->when($request->filled('search'), function ($query) use ($request) {
-                $term = (string) $request->input('search');
-                $query->where(function ($nestedQuery) use ($term) {
-                    $nestedQuery->where('name', 'like', "%{$term}%")
-                        ->orWhere('dni', 'like', "%{$term}%")
-                        ->orWhere('phone', 'like', "%{$term}%");
+            ->when($request->filled('search'), function (Builder $query) use ($request): void {
+                $term = trim((string) $request->input('search'));
+                $numericTerm = preg_replace('/\D+/', '', $term) ?? '';
+                $isNumericSearch = $numericTerm !== '' && preg_match('/[a-záéíóúñ]/iu', $term) !== 1;
+
+                $query->where(function (Builder $nestedQuery) use ($isNumericSearch, $numericTerm, $term): void {
+                    if ($isNumericSearch) {
+                        $nestedQuery->where('phone_normalized', 'like', $numericTerm.'%')
+                            ->orWhere('dni_normalized', 'like', $numericTerm.'%');
+
+                        return;
+                    }
+
+                    $nestedQuery->where('name', 'like', '%'.$term.'%');
                 });
             })
             ->orderBy('name')
-            ->get();
+            ->orderBy('id')
+            ->cursorPaginate((int) $request->integer('per_page', 50));
 
         return response()->json([
-            'data' => $clients->map(fn (Client $client) => $this->clientPayload($client))->all(),
+            'data' => $clients->getCollection()->map(fn (Client $client) => $this->clientListPayload($client))->all(),
+            'meta' => [
+                'next_cursor' => $clients->nextCursor()?->encode(),
+                'has_more' => $clients->hasMorePages(),
+                'per_page' => $clients->perPage(),
+            ],
         ]);
     }
 
@@ -88,6 +104,19 @@ class ClientController extends Controller
             ->whereKey($client->id)
             ->where('registered_by_datero_id', $datero->id)
             ->first();
+    }
+
+    /**
+     * @return array<string, int|string|null>
+     */
+    private function clientListPayload(Client $client): array
+    {
+        return [
+            'id' => $client->id,
+            'name' => $client->name,
+            'dni' => $client->dni,
+            'phone' => $client->phone,
+        ];
     }
 
     /**

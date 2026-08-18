@@ -8,6 +8,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Client extends Model
 {
+    protected static function booted(): void
+    {
+        static::saving(function (Client $client): void {
+            $client->phone_normalized = self::normalizeNumericSearchValue($client->phone);
+            $client->dni_normalized = self::normalizeNumericSearchValue($client->dni);
+        });
+    }
+
+    private static function normalizeNumericSearchValue(?string $value): ?string
+    {
+        $normalized = preg_replace('/\D+/', '', trim((string) $value)) ?? '';
+
+        return $normalized !== '' ? $normalized : null;
+    }
+
     /**
      * @var list<string>
      */

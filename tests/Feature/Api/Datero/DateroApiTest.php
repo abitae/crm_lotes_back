@@ -14,6 +14,7 @@ use Database\Seeders\Inmopro\CitySeeder;
 use Database\Seeders\Inmopro\ClientTypeSeeder;
 use Database\Seeders\Inmopro\TeamSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class DateroApiTest extends TestCase
@@ -384,6 +385,50 @@ class DateroApiTest extends TestCase
         $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson(route('api.v1.datero.me.show'))
             ->assertUnauthorized();
+    }
+
+    public function test_datero_index_cursor_paginates_more_than_two_thousand_clients(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $city = City::firstOrFail();
+        $datero = $this->makeDateroForAdvisor($advisor, $city, 'datero_massive', '44111999');
+        $dateroType = ClientType::query()->where('code', 'DATERO')->firstOrFail();
+        $now = now();
+
+        foreach (array_chunk(range(1, 2105), 500) as $numbers) {
+            DB::table('clients')->insert(array_map(fn (int $number): array => [
+                'name' => sprintf('Carga datero %04d', $number),
+                'dni' => sprintf('6%07d', $number),
+                'dni_normalized' => sprintf('6%07d', $number),
+                'phone' => sprintf('8%08d', $number),
+                'phone_normalized' => sprintf('8%08d', $number),
+                'client_type_id' => $dateroType->id,
+                'advisor_id' => $advisor->id,
+                'city_id' => $city->id,
+                'registered_by_datero_id' => $datero->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ], $numbers));
+        }
+
+        $token = $this->loginToken($datero);
+        $cursor = null;
+        $ids = [];
+
+        do {
+            $response = $this->withHeader('Authorization', 'Bearer '.$token)
+                ->getJson(route('api.v1.datero.clients.index', array_filter([
+                    'search' => 'Carga datero',
+                    'cursor' => $cursor,
+                ])))
+                ->assertOk();
+
+            $ids = [...$ids, ...collect($response->json('data'))->pluck('id')->all()];
+            $cursor = $response->json('meta.next_cursor');
+        } while ($response->json('meta.has_more'));
+
+        $this->assertCount(2105, $ids);
+        $this->assertCount(2105, array_unique($ids));
     }
 
     private function makeDateroForAdvisor(Advisor $advisor, City $city, string $username, string $dni, bool $isActive = true): Datero

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\v1\Cazador;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\v1\Cazador\IndexClientRequest;
 use App\Http\Requests\Api\v1\Cazador\StoreClientRequest;
 use App\Http\Requests\Api\v1\Cazador\UpdateClientRequest;
 use App\Models\Inmopro\Advisor;
@@ -11,39 +12,35 @@ use App\Models\Inmopro\ClientType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class ClientController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(IndexClientRequest $request): JsonResponse
     {
         /** @var Advisor $advisor */
         $advisor = $request->attributes->get('advisor');
 
-        $request->validate([
-            'search' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'client_type' => ['sometimes', 'nullable', 'string', Rule::in(['PROPIO', 'DATERO'])],
-        ]);
-
         $clients = $this->advisorVisibleClientsQuery($advisor)
-            ->with(['city', 'type'])
+            ->select(['id', 'name', 'dni', 'phone', 'client_type_id'])
+            ->with('type:id,code,name')
             ->when($request->filled('client_type'), function (Builder $query) use ($request): void {
                 $code = (string) $request->input('client_type');
-                $query->whereHas('type', fn ($typeQuery) => $typeQuery->where('code', $code));
+                $query->where('client_type_id', ClientType::query()->where('code', $code)->value('id'));
             })
             ->when($request->filled('search'), function (Builder $query) use ($request): void {
-                $term = (string) $request->input('search');
-                $query->where(function ($nestedQuery) use ($term): void {
-                    $nestedQuery->where('name', 'like', "%{$term}%")
-                        ->orWhere('dni', 'like', "%{$term}%")
-                        ->orWhere('phone', 'like', "%{$term}%");
-                });
+                $this->applySearch($query, (string) $request->input('search'));
             })
             ->orderBy('name')
-            ->get();
+            ->orderBy('id')
+            ->cursorPaginate((int) $request->integer('per_page', 50));
 
         return response()->json([
-            'data' => $clients->map(fn (Client $client) => $this->clientPayload($client))->all(),
+            'data' => $clients->getCollection()->map(fn (Client $client) => $this->clientListPayload($client))->all(),
+            'meta' => [
+                'next_cursor' => $clients->nextCursor()?->encode(),
+                'has_more' => $clients->hasMorePages(),
+                'per_page' => $clients->perPage(),
+            ],
         ]);
     }
 
@@ -104,7 +101,45 @@ class ClientController extends Controller
     {
         return Client::query()
             ->where('advisor_id', $advisor->id)
-            ->whereHas('type', fn ($query) => $query->whereIn('code', ['PROPIO', 'DATERO']));
+            ->whereIn('client_type_id', ClientType::query()->whereIn('code', ['PROPIO', 'DATERO'])->select('id'));
+    }
+
+    /**
+     * @param  Builder<Client>  $query
+     */
+    private function applySearch(Builder $query, string $term): void
+    {
+        $trimmedTerm = trim($term);
+        $numericTerm = preg_replace('/\D+/', '', $trimmedTerm) ?? '';
+        $isNumericSearch = $numericTerm !== '' && preg_match('/[a-záéíóúñ]/iu', $trimmedTerm) !== 1;
+
+        $query->where(function (Builder $nestedQuery) use ($isNumericSearch, $numericTerm, $trimmedTerm): void {
+            if ($isNumericSearch) {
+                $nestedQuery->where('phone_normalized', 'like', $numericTerm.'%')
+                    ->orWhere('dni_normalized', 'like', $numericTerm.'%');
+
+                return;
+            }
+
+            $nestedQuery->where('name', 'like', '%'.$trimmedTerm.'%');
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function clientListPayload(Client $client): array
+    {
+        return [
+            'id' => $client->id,
+            'name' => $client->name,
+            'dni' => $client->dni,
+            'phone' => $client->phone,
+            'client_type' => $client->type ? [
+                'code' => $client->type->code,
+                'name' => $client->type->name,
+            ] : null,
+        ];
     }
 
     private function ownedClient(Request $request, Client $client): ?Client

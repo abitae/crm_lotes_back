@@ -13,6 +13,7 @@ use Database\Seeders\Inmopro\CitySeeder;
 use Database\Seeders\Inmopro\ClientTypeSeeder;
 use Database\Seeders\Inmopro\TeamSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class CazadorClientsTest extends TestCase
@@ -564,6 +565,84 @@ class CazadorClientsTest extends TestCase
         $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
             ->getJson(route('api.v1.cazador.clients.show', $client))
             ->assertNotFound();
+    }
+
+    public function test_index_cursor_paginates_more_than_two_thousand_clients_without_duplicates(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+        $now = now();
+
+        foreach (array_chunk(range(1, 2105), 500) as $numbers) {
+            DB::table('clients')->insert(array_map(fn (int $number): array => [
+                'name' => sprintf('Carga masiva %04d', $number),
+                'dni' => sprintf('7%07d', $number),
+                'dni_normalized' => sprintf('7%07d', $number),
+                'phone' => sprintf('9%08d', $number),
+                'phone_normalized' => sprintf('9%08d', $number),
+                'client_type_id' => $ownType->id,
+                'advisor_id' => $advisor->id,
+                'city_id' => $city->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ], $numbers));
+        }
+
+        $token = $this->loginToken($advisor);
+        $cursor = null;
+        $ids = [];
+
+        do {
+            $response = $this->withHeader('Authorization', 'Bearer '.$token)
+                ->getJson(route('api.v1.cazador.clients.index', array_filter([
+                    'search' => 'Carga masiva',
+                    'cursor' => $cursor,
+                ])))
+                ->assertOk()
+                ->assertJsonPath('meta.per_page', 50);
+
+            $pageIds = collect($response->json('data'))->pluck('id')->all();
+            $this->assertLessThanOrEqual(50, count($pageIds));
+            $ids = [...$ids, ...$pageIds];
+            $cursor = $response->json('meta.next_cursor');
+        } while ($response->json('meta.has_more'));
+
+        $this->assertCount(2105, $ids);
+        $this->assertCount(2105, array_unique($ids));
+        $this->assertNull($cursor);
+    }
+
+    public function test_index_validates_pagination_and_returns_a_lightweight_numeric_search(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $client = Client::create([
+            'name' => 'Cliente búsqueda numérica',
+            'dni' => '44556677',
+            'phone' => '+(980) 123-456',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+        ]);
+        $token = $this->loginToken($advisor);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson(route('api.v1.cazador.clients.index', ['search' => '980-123', 'per_page' => 1]))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $client->id)
+            ->assertJsonMissingPath('data.0.lots')
+            ->assertJsonMissingPath('data.0.email')
+            ->assertJsonPath('meta.per_page', 1);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson(route('api.v1.cazador.clients.index', ['search' => 'x']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['search']);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson(route('api.v1.cazador.clients.index', ['cursor' => 'invalido', 'per_page' => 101]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['cursor', 'per_page']);
     }
 
     private function loginToken(Advisor $advisor): string
