@@ -23,6 +23,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LotTransferConfirmationController extends Controller
 {
@@ -54,12 +55,12 @@ class LotTransferConfirmationController extends Controller
             'advisors' => Advisor::query()->orderBy('name')->get(['id', 'name']),
             'lotStatuses' => LotStatus::query()
                 ->whereIn('code', self::QUEUE_STATUS_CODES)
-                ->orderByRaw("CASE code
+                ->orderByRaw('CASE code
                     WHEN ? THEN 1
                     WHEN ? THEN 2
                     WHEN ? THEN 3
                     ELSE 4
-                END", [
+                END', [
                     LotStatus::CODE_RESERVADO,
                     LotStatus::CODE_CUOTAS,
                     LotStatus::CODE_TRANSFERIDO,
@@ -113,21 +114,27 @@ class LotTransferConfirmationController extends Controller
 
         $storedPath = FileStorage::storeUploadedFile(
             $request->file('evidence_image'),
-            'inmopro/lot-transfer-confirmations',
+            'transfer-confirmations',
         );
 
-        DB::transaction(function () use ($lot, $request, $storedPath, $transferredStatusId) {
-            LotTransferConfirmation::create([
-                'lot_id' => $lot->id,
-                'status' => LotTransferConfirmation::STATUS_PENDING,
-                'evidence_path' => $storedPath,
-                'requested_by' => $request->user()->id,
-            ]);
+        try {
+            DB::transaction(function () use ($lot, $request, $storedPath, $transferredStatusId) {
+                LotTransferConfirmation::create([
+                    'lot_id' => $lot->id,
+                    'status' => LotTransferConfirmation::STATUS_PENDING,
+                    'evidence_path' => $storedPath,
+                    'requested_by' => $request->user()->id,
+                ]);
 
-            $lot->update([
-                'lot_status_id' => $transferredStatusId,
-            ]);
-        });
+                $lot->update([
+                    'lot_status_id' => $transferredStatusId,
+                ]);
+            });
+        } catch (\Throwable $exception) {
+            FileStorage::deleteIfExists($storedPath);
+
+            throw $exception;
+        }
 
         return redirect()->route('inmopro.lot-transfer-confirmations.index');
     }
@@ -169,6 +176,16 @@ class LotTransferConfirmationController extends Controller
         });
 
         return redirect()->route('inmopro.lot-transfer-confirmations.index');
+    }
+
+    public function evidence(LotTransferConfirmation $lot_transfer_confirmation): StreamedResponse
+    {
+        abort_unless(FileStorage::exists($lot_transfer_confirmation->evidence_path), 404);
+
+        return FileStorage::filesystem()->response(
+            $lot_transfer_confirmation->evidence_path,
+            basename($lot_transfer_confirmation->evidence_path),
+        );
     }
 
     public function reject(RejectLotTransferConfirmationRequest $request, LotTransferConfirmation $lot_transfer_confirmation): RedirectResponse

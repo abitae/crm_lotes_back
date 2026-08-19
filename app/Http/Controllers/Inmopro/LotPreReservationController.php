@@ -19,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LotPreReservationController extends Controller
 {
@@ -114,57 +115,65 @@ class LotPreReservationController extends Controller
 
         $storedPath = FileStorage::storeUploadedFile(
             $request->file('voucher_image'),
-            'inmopro/lot-pre-reservations',
+            'pre-reservations/inmopro',
         );
         $amounts = $this->distributedAmounts((float) $request->input('amount'), $lotIds->count());
 
-        $error = DB::transaction(function () use ($amounts, $client, $lotIds, $ownClientTypeId, $preReservationStatusId, $request, $storedPath): ?string {
-            $lockedLots = Lot::query()
-                ->with(['status', 'project'])
-                ->whereKey($lotIds)
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('id');
+        try {
+            $error = DB::transaction(function () use ($amounts, $client, $lotIds, $ownClientTypeId, $preReservationStatusId, $request, $storedPath): ?string {
+                $lockedLots = Lot::query()
+                    ->with(['status', 'project'])
+                    ->whereKey($lotIds)
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
 
-            foreach ($lotIds as $lotId) {
-                /** @var Lot|null $lot */
-                $lot = $lockedLots->get($lotId);
+                foreach ($lotIds as $lotId) {
+                    /** @var Lot|null $lot */
+                    $lot = $lockedLots->get($lotId);
 
-                if ($lot === null || ! $this->canRegisterPreReservation($lot)) {
-                    return 'La unidad debe estar libre y sin una pre-reserva activa.';
+                    if ($lot === null || ! $this->canRegisterPreReservation($lot)) {
+                        return 'La unidad debe estar libre y sin una pre-reserva activa.';
+                    }
                 }
-            }
 
-            $preReservationClient = $client ?? $this->createPreReservationClient($request, (int) $ownClientTypeId);
+                $preReservationClient = $client ?? $this->createPreReservationClient($request, (int) $ownClientTypeId);
 
-            foreach ($lotIds as $index => $lotId) {
-                /** @var Lot $lot */
-                $lot = $lockedLots->get($lotId);
+                foreach ($lotIds as $index => $lotId) {
+                    /** @var Lot $lot */
+                    $lot = $lockedLots->get($lotId);
 
-                LotPreReservation::create([
-                    'lot_id' => $lot->id,
-                    'client_id' => $preReservationClient->id,
-                    'advisor_id' => $request->integer('advisor_id'),
-                    'status' => 'PENDIENTE',
-                    'amount' => $amounts[$index],
-                    'voucher_path' => $storedPath,
-                    'payment_reference' => $request->input('payment_reference'),
-                    'notes' => $request->input('notes'),
-                ]);
+                    LotPreReservation::create([
+                        'lot_id' => $lot->id,
+                        'client_id' => $preReservationClient->id,
+                        'advisor_id' => $request->integer('advisor_id'),
+                        'status' => 'PENDIENTE',
+                        'amount' => $amounts[$index],
+                        'voucher_path' => $storedPath,
+                        'payment_reference' => $request->input('payment_reference'),
+                        'notes' => $request->input('notes'),
+                    ]);
 
-                $lot->update([
-                    'lot_status_id' => $preReservationStatusId,
-                    'client_id' => $preReservationClient->id,
-                    'advisor_id' => $request->integer('advisor_id'),
-                    'client_name' => $preReservationClient->name,
-                    'client_dni' => $preReservationClient->dni,
-                ]);
-            }
+                    $lot->update([
+                        'lot_status_id' => $preReservationStatusId,
+                        'client_id' => $preReservationClient->id,
+                        'advisor_id' => $request->integer('advisor_id'),
+                        'client_name' => $preReservationClient->name,
+                        'client_dni' => $preReservationClient->dni,
+                    ]);
+                }
 
-            return null;
-        });
+                return null;
+            });
+        } catch (\Throwable $exception) {
+            FileStorage::deleteIfExists($storedPath);
+
+            throw $exception;
+        }
 
         if ($error !== null) {
+            FileStorage::deleteIfExists($storedPath);
+
             return back()->withErrors([
                 'lot_ids' => $error,
             ]);
@@ -196,6 +205,16 @@ class LotPreReservationController extends Controller
         });
 
         return redirect()->route('inmopro.lot-pre-reservations.index');
+    }
+
+    public function voucher(LotPreReservation $lot_pre_reservation): StreamedResponse
+    {
+        abort_unless(FileStorage::exists($lot_pre_reservation->voucher_path), 404);
+
+        return FileStorage::filesystem()->response(
+            $lot_pre_reservation->voucher_path,
+            basename($lot_pre_reservation->voucher_path),
+        );
     }
 
     public function reject(RejectLotPreReservationRequest $request, LotPreReservation $lot_pre_reservation): RedirectResponse

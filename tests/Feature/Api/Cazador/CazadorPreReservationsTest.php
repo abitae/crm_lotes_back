@@ -7,7 +7,18 @@ use App\Models\Inmopro\City;
 use App\Models\Inmopro\Client;
 use App\Models\Inmopro\ClientType;
 use App\Models\Inmopro\Lot;
+use App\Models\Inmopro\LotPreReservation;
 use App\Models\Inmopro\LotStatus;
+use Database\Seeders\Inmopro\AdvisorLevelSeeder;
+use Database\Seeders\Inmopro\AdvisorSeeder;
+use Database\Seeders\Inmopro\CitySeeder;
+use Database\Seeders\Inmopro\ClientSeeder;
+use Database\Seeders\Inmopro\ClientTypeSeeder;
+use Database\Seeders\Inmopro\CommissionStatusSeeder;
+use Database\Seeders\Inmopro\LotSeeder;
+use Database\Seeders\Inmopro\LotStatusSeeder;
+use Database\Seeders\Inmopro\ProjectSeeder;
+use Database\Seeders\Inmopro\TeamSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -20,16 +31,16 @@ class CazadorPreReservationsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(\Database\Seeders\Inmopro\TeamSeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\ClientTypeSeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\AdvisorLevelSeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\LotStatusSeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\CommissionStatusSeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\ProjectSeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\CitySeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\AdvisorSeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\ClientSeeder::class);
-        $this->seed(\Database\Seeders\Inmopro\LotSeeder::class);
+        $this->seed(TeamSeeder::class);
+        $this->seed(ClientTypeSeeder::class);
+        $this->seed(AdvisorLevelSeeder::class);
+        $this->seed(LotStatusSeeder::class);
+        $this->seed(CommissionStatusSeeder::class);
+        $this->seed(ProjectSeeder::class);
+        $this->seed(CitySeeder::class);
+        $this->seed(AdvisorSeeder::class);
+        $this->seed(ClientSeeder::class);
+        $this->seed(LotSeeder::class);
     }
 
     public function test_advisor_can_create_pre_reservation_for_available_lot(): void
@@ -71,6 +82,38 @@ class CazadorPreReservationsTest extends TestCase
         ]);
     }
 
+    public function test_gcs_voucher_is_stored_once_and_returns_a_signed_url(): void
+    {
+        Storage::fake('gcs');
+        config([
+            'filesystems.default' => 'gcs',
+            'cazador.default_storage_disk' => 'gcs',
+            'filesystems.temporary_urls.sensitive_ttl_minutes' => 10,
+        ]);
+        Storage::disk('gcs')->buildTemporaryUrlsUsing(
+            fn (string $path, \DateTimeInterface $expiration): string => 'https://signed.test/'.$path.'?expires='.$expiration->getTimestamp(),
+        );
+
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $client = Client::where('client_type_id', $ownType->id)->firstOrFail();
+        $advisor = Advisor::findOrFail($client->advisor_id);
+        $lot = Lot::whereHas('status', fn ($query) => $query->where('code', 'LIBRE'))->firstOrFail();
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
+            ->post(route('api.v1.cazador.lots.pre-reservations.store', $lot), [
+                'client_id' => $client->id,
+                'project_id' => $lot->project_id,
+                'lot_id' => $lot->id,
+                'amount' => 1500,
+                'voucher_image' => UploadedFile::fake()->image('voucher.png'),
+            ])
+            ->assertCreated();
+
+        $path = LotPreReservation::query()->firstOrFail()->voucher_path;
+        Storage::disk('gcs')->assertExists($path);
+        $this->assertStringStartsWith('https://signed.test/pre-reservations/cazador/', $response->json('data.voucher_url'));
+    }
+
     public function test_advisor_cannot_create_pre_reservation_when_lot_in_body_does_not_match_route(): void
     {
         Storage::fake('public');
@@ -104,7 +147,10 @@ class CazadorPreReservationsTest extends TestCase
         $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
         $client = Client::where('client_type_id', $ownType->id)->firstOrFail();
         $advisor = Advisor::findOrFail($client->advisor_id);
-        $lot = Lot::whereHas('status', fn ($query) => $query->where('code', 'RESERVADO'))->firstOrFail();
+        $lot = Lot::firstOrFail();
+        $lot->update([
+            'lot_status_id' => LotStatus::where('code', 'RESERVADO')->firstOrFail()->id,
+        ]);
 
         $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
             ->withHeader('Accept', 'application/json')

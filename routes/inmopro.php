@@ -219,10 +219,12 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::resource('attention-tickets', AttentionTicketController::class)->parameters(['attention-tickets' => 'attention_ticket']);
         Route::get('lot-pre-reservations', [LotPreReservationController::class, 'index'])->name('lot-pre-reservations.index');
         Route::post('lot-pre-reservations', [LotPreReservationController::class, 'store'])->name('lot-pre-reservations.store');
+        Route::get('lot-pre-reservations/{lot_pre_reservation}/voucher', [LotPreReservationController::class, 'voucher'])->name('lot-pre-reservations.voucher');
         Route::post('lot-pre-reservations/{lot_pre_reservation}/approve', [LotPreReservationController::class, 'approve'])->name('lot-pre-reservations.approve');
         Route::post('lot-pre-reservations/{lot_pre_reservation}/reject', [LotPreReservationController::class, 'reject'])->name('lot-pre-reservations.reject');
         Route::get('lot-transfer-confirmations', [LotTransferConfirmationController::class, 'index'])->name('lot-transfer-confirmations.index');
         Route::get('lot-transfer-confirmations/export-excel', [LotTransferConfirmationController::class, 'exportExcel'])->name('lot-transfer-confirmations.export-excel');
+        Route::get('lot-transfer-confirmations/{lot_transfer_confirmation}/evidence', [LotTransferConfirmationController::class, 'evidence'])->name('lot-transfer-confirmations.evidence');
         Route::get('lots/{lot}/transfer-confirmation', [LotTransferConfirmationController::class, 'create'])->name('lots.transfer-confirmation');
         Route::post('lots/{lot}/transfer-confirmation', [LotTransferConfirmationController::class, 'store'])->name('lots.transfer-confirmation.store');
         Route::patch('lots/{lot}/transfer-queue-notes', [LotTransferConfirmationController::class, 'updateLotNotes'])->name('lots.transfer-queue-notes.update');

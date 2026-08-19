@@ -2,9 +2,11 @@
 
 namespace App\Support;
 
+use DateTimeInterface;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 class FileStorage
 {
@@ -18,7 +20,7 @@ class FileStorage
         return Storage::disk(static::disk());
     }
 
-    public static function url(?string $pathOrUrl): ?string
+    public static function url(?string $pathOrUrl, ?DateTimeInterface $expiration = null): ?string
     {
         if (! filled($pathOrUrl)) {
             return null;
@@ -31,7 +33,10 @@ class FileStorage
         $path = static::normalizePath($pathOrUrl);
 
         $url = static::disk() === 'gcs'
-            ? static::gcsPublicUrl($path)
+            ? static::filesystem()->temporaryUrl(
+                $path,
+                $expiration ?? now()->addMinutes((int) config('filesystems.temporary_urls.catalog_ttl_minutes', 60)),
+            )
             : static::filesystem()->url($path);
 
         if ($url === '') {
@@ -39,6 +44,14 @@ class FileStorage
         }
 
         return static::normalizePublicUrl($url);
+    }
+
+    public static function sensitiveUrl(?string $pathOrUrl): ?string
+    {
+        return static::url(
+            $pathOrUrl,
+            now()->addMinutes((int) config('filesystems.temporary_urls.sensitive_ttl_minutes', 10)),
+        );
     }
 
     public static function exists(?string $pathOrUrl): bool
@@ -68,7 +81,7 @@ class FileStorage
             $storedPath = $file->storeAs($directory, $fileName, static::disk());
 
             if ($storedPath === false) {
-                throw new \RuntimeException('No se pudo guardar el archivo.');
+                throw new RuntimeException('No se pudo guardar el archivo.');
             }
 
             return static::normalizePath($storedPath);
@@ -77,10 +90,33 @@ class FileStorage
         $storedPath = $file->store($directory, static::disk());
 
         if ($storedPath === false) {
-            throw new \RuntimeException('No se pudo guardar el archivo.');
+            throw new RuntimeException('No se pudo guardar el archivo.');
         }
 
         return static::normalizePath($storedPath);
+    }
+
+    public static function storeContent(string $path, string $contents): string
+    {
+        $path = static::normalizePath($path);
+
+        if (! static::filesystem()->put($path, $contents)) {
+            throw new RuntimeException('No se pudo guardar el archivo.');
+        }
+
+        return $path;
+    }
+
+    public static function copy(string $source, string $destination): string
+    {
+        $source = static::normalizePath($source);
+        $destination = static::normalizePath($destination);
+
+        if (! static::filesystem()->copy($source, $destination)) {
+            throw new RuntimeException('No se pudo copiar el archivo.');
+        }
+
+        return $destination;
     }
 
     /**
@@ -96,7 +132,9 @@ class FileStorage
             return static::normalizePath($stored);
         }
 
-        if (preg_match('#/storage/(.+)$#', $stored, $matches) === 1) {
+        $storedWithoutQuery = preg_split('/[?#]/', $stored, 2)[0] ?? $stored;
+
+        if (preg_match('#/storage/(.+)$#', $storedWithoutQuery, $matches) === 1) {
             return static::normalizePath($matches[1]);
         }
 
@@ -104,8 +142,8 @@ class FileStorage
         usort($prefixes, fn (string $a, string $b): int => strlen($b) <=> strlen($a));
 
         foreach ($prefixes as $prefix) {
-            if (str_starts_with($stored, $prefix)) {
-                return ltrim(substr($stored, strlen($prefix)), '/');
+            if (str_starts_with($storedWithoutQuery, $prefix)) {
+                return ltrim(substr($storedWithoutQuery, strlen($prefix)), '/');
             }
         }
 
@@ -119,7 +157,7 @@ class FileStorage
     {
         $prefixes = [];
 
-        foreach (['public', static::disk()] as $diskName) {
+        foreach (['public'] as $diskName) {
             try {
                 $url = Storage::disk($diskName)->url('');
                 if ($url !== '') {
@@ -136,41 +174,26 @@ class FileStorage
         }
 
         $custom = config('filesystems.disks.gcs.url');
+        $bucket = trim((string) config('filesystems.disks.gcs.bucket'), '/');
+        $pathPrefix = trim((string) config('filesystems.disks.gcs.path_prefix'), '/');
+        $gcsSuffix = implode('/', array_filter([$bucket, $pathPrefix])).'/';
+
+        if ($bucket !== '') {
+            $prefixes[] = 'https://storage.googleapis.com/'.$gcsSuffix;
+        }
+
         if (filled($custom)) {
             $base = rtrim(static::normalizePublicUrl((string) $custom), '/');
-            $bucket = (string) config('filesystems.disks.gcs.bucket', '');
             if ($bucket !== '' && ! str_contains($base, '/'.$bucket)) {
                 $base .= '/'.$bucket;
+            }
+            if ($pathPrefix !== '' && ! str_ends_with($base, '/'.$pathPrefix)) {
+                $base .= '/'.$pathPrefix;
             }
             $prefixes[] = $base.'/';
         }
 
         return array_values(array_unique($prefixes));
-    }
-
-    public static function gcsPublicUrl(string $path): string
-    {
-        $bucket = (string) config('filesystems.disks.gcs.bucket');
-        $prefix = trim((string) config('filesystems.disks.gcs.path_prefix', ''), '/');
-        $objectPath = $prefix !== '' ? $prefix.'/'.$path : $path;
-        $objectPath = ltrim(str_replace('\\', '/', $objectPath), '/');
-
-        $customBase = config('filesystems.disks.gcs.url');
-        if (filled($customBase)) {
-            $base = rtrim(static::normalizePublicUrl((string) $customBase), '/');
-
-            if ($bucket !== '' && (str_ends_with($base, '/'.$bucket) || str_contains($base, '/'.$bucket.'/'))) {
-                return $base.'/'.ltrim($objectPath, '/');
-            }
-
-            if ($bucket !== '') {
-                return $base.'/'.$bucket.'/'.ltrim($objectPath, '/');
-            }
-
-            return $base.'/'.ltrim($objectPath, '/');
-        }
-
-        return 'https://storage.googleapis.com/'.$bucket.'/'.ltrim($objectPath, '/');
     }
 
     public static function normalizePublicUrl(string $url): string

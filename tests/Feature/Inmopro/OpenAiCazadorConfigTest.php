@@ -33,7 +33,12 @@ class OpenAiCazadorConfigTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
-        config(['openai_cazador.enabled' => true]);
+        Storage::fake('gcs');
+        config([
+            'openai_cazador.enabled' => true,
+            'filesystems.default' => 'gcs',
+            'cazador.default_storage_disk' => 'gcs',
+        ]);
         OpenAiCazadorConfigResolver::forgetCache();
     }
 
@@ -125,7 +130,6 @@ class OpenAiCazadorConfigTest extends TestCase
 
     public function test_admin_can_upload_private_markdown_for_queued_indexing(): void
     {
-        Storage::fake('local');
         Queue::fake();
         Permission::findOrCreate('inmopro.openai-cazador.knowledge.upload', 'web');
         $user = User::factory()->create();
@@ -145,13 +149,12 @@ class OpenAiCazadorConfigTest extends TestCase
         $this->assertSame('processing', $document->status);
         $this->assertSame('Tim Villafuerte', $document->expert_name);
         $this->assertSame($user->id, $document->uploaded_by);
-        Storage::disk('local')->assertExists($document->storage_path);
+        Storage::disk('gcs')->assertExists($document->storage_path);
         Queue::assertPushed(IndexCazadorKnowledge::class, fn ($job) => $job->documentId === $document->id);
     }
 
     public function test_upload_rejects_non_markdown_and_invalid_utf8(): void
     {
-        Storage::fake('local');
         Permission::findOrCreate('inmopro.openai-cazador.knowledge.upload', 'web');
         $user = User::factory()->create();
         $user->givePermissionTo('inmopro.openai-cazador.knowledge.upload');
@@ -192,7 +195,6 @@ class OpenAiCazadorConfigTest extends TestCase
 
     public function test_admin_can_upload_multiple_expert_documents_while_others_are_processing(): void
     {
-        Storage::fake('local');
         Queue::fake();
         Permission::findOrCreate('inmopro.openai-cazador.knowledge.upload', 'web');
         $user = User::factory()->create();

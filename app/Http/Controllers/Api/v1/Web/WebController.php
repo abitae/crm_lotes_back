@@ -15,7 +15,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -75,7 +74,7 @@ class WebController extends Controller
     }
 
     /**
-     * Redirige al archivo en disco público ({APP_URL}/storage/...).
+     * Redirige a una URL temporal del disco configurado o transmite el archivo.
      */
     public function asset(Project $project, ProjectAsset $asset): RedirectResponse|StreamedResponse
     {

@@ -713,7 +713,7 @@ export default function LotPreReservationsIndex({
                                             <td className="px-2 py-1.5">
                                                 <div className="flex flex-wrap justify-end gap-1">
                                                     <a
-                                                        href={`/storage/${preReservation.voucher_path}`}
+                                                        href={`/inmopro/lot-pre-reservations/${preReservation.id}/voucher`}
                                                         target="_blank"
                                                         rel="noreferrer"
                                                         className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -1389,7 +1389,7 @@ export default function LotPreReservationsIndex({
                         <form onSubmit={approve} className="space-y-4">
                             <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                                 <img
-                                    src={`/storage/${selectedPreReservation.voucher_path}`}
+                                    src={`/inmopro/lot-pre-reservations/${selectedPreReservation.id}/voucher`}
                                     alt={`Voucher pre-reserva ${selectedPreReservation.id}`}
                                     className="max-h-[420px] w-full object-contain"
                                 />
@@ -1507,7 +1507,7 @@ export default function LotPreReservationsIndex({
                         <form onSubmit={reject} className="space-y-4">
                             <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                                 <img
-                                    src={`/storage/${selectedPreReservation.voucher_path}`}
+                                    src={`/inmopro/lot-pre-reservations/${selectedPreReservation.id}/voucher`}
                                     alt={`Voucher pre-reserva ${selectedPreReservation.id}`}
                                     className="max-h-[320px] w-full object-contain"
                                 />

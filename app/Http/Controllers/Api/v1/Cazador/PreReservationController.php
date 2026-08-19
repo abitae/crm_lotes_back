@@ -74,7 +74,7 @@ class PreReservationController extends Controller
         $preReservation = DB::transaction(function () use ($advisor, $client, $lot, $request, $preReservationStatusId) {
             $storedPath = FileStorage::storeUploadedFile(
                 $request->file('voucher_image'),
-                'cazador/pre-reservations',
+                'pre-reservations/cazador',
             );
 
             try {
@@ -120,7 +120,7 @@ class PreReservationController extends Controller
                     'block' => $lot->block,
                     'number' => $lot->number,
                 ],
-                'voucher_url' => asset('storage/'.$preReservation->voucher_path),
+                'voucher_url' => FileStorage::sensitiveUrl($preReservation->voucher_path),
             ],
         ], 201);
     }

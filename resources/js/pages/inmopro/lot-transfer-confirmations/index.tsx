@@ -624,7 +624,7 @@ export default function LotTransferConfirmationsIndex({
                                                     <div className="flex flex-nowrap justify-end gap-0.5">
                                                         {transfer ? (
                                                             <a
-                                                                href={`/storage/${transfer.evidence_path}`}
+                                                                href={`/inmopro/lot-transfer-confirmations/${transfer.id}/evidence`}
                                                                 target="_blank"
                                                                 rel="noreferrer"
                                                                 className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -778,7 +778,7 @@ export default function LotTransferConfirmationsIndex({
                             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
                                 <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
                                     <img
-                                        src={`/storage/${selectedTransfer.evidence_path}`}
+                                        src={`/inmopro/lot-transfer-confirmations/${selectedTransfer.id}/evidence`}
                                         alt={`Evidencia transferencia ${selectedTransfer.id}`}
                                         className="max-h-36 w-full object-contain sm:max-h-44"
                                     />
@@ -831,7 +831,7 @@ export default function LotTransferConfirmationsIndex({
                             {selectedTransfer ? (
                                 <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
                                     <img
-                                        src={`/storage/${selectedTransfer.evidence_path}`}
+                                        src={`/inmopro/lot-transfer-confirmations/${selectedTransfer.id}/evidence`}
                                         alt={`Evidencia transferencia ${selectedTransfer.id}`}
                                         className="max-h-28 w-full object-contain sm:max-h-36"
                                     />

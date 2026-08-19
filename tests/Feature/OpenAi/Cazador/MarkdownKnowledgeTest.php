@@ -110,11 +110,15 @@ class MarkdownKnowledgeTest extends TestCase
 
     public function test_failed_indexing_keeps_previous_version_active(): void
     {
-        Storage::fake('local');
+        Storage::fake('gcs');
+        config([
+            'filesystems.default' => 'gcs',
+            'cazador.default_storage_disk' => 'gcs',
+        ]);
         $active = $this->document(1);
         $active->update(['status' => 'ready', 'is_active' => true]);
         $replacement = $this->document(2);
-        Storage::disk('local')->put($replacement->storage_path, "# Empresa\nContenido nuevo.");
+        Storage::disk('gcs')->put($replacement->storage_path, "# Empresa\nContenido nuevo.");
         Embeddings::fake(fn () => throw new \RuntimeException('Proveedor no disponible'));
 
         try {

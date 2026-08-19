@@ -4,9 +4,9 @@ namespace App\Jobs\OpenAi;
 
 use App\Models\Inmopro\OpenAiCazadorKnowledgeDocument;
 use App\OpenAi\Services\MarkdownKnowledgeIndexer;
+use App\Support\FileStorage;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Storage;
 
 class IndexCazadorKnowledge implements ShouldQueue
 {
@@ -30,7 +30,7 @@ class IndexCazadorKnowledge implements ShouldQueue
         }
 
         try {
-            $markdown = (string) Storage::disk('local')->get($document->storage_path);
+            $markdown = (string) FileStorage::filesystem()->get($document->storage_path);
             $indexer->index($document, $markdown);
         } catch (\Throwable $exception) {
             $document->update([

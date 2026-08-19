@@ -12,12 +12,12 @@ use App\Models\Inmopro\OpenAiCazadorRun;
 use App\OpenAi\Agents\CazadorCatalogAssistant;
 use App\OpenAi\Services\MarkdownKnowledgeIndexer;
 use App\OpenAi\Services\MarkdownKnowledgeSearch;
+use App\Support\FileStorage;
 use App\Support\OpenAiCazadorConfigResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -110,19 +110,25 @@ class OpenAiCazadorConfigController extends Controller
         }
 
         $version = ((int) OpenAiCazadorKnowledgeDocument::query()->max('version')) + 1;
-        $path = 'openai-cazador/knowledge/v'.$version.'-'.Str::uuid().'.md';
-        Storage::disk('local')->put($path, $content);
+        $path = 'knowledge/openai-cazador/v'.$version.'-'.Str::uuid().'.md';
+        FileStorage::storeContent($path, $content);
 
-        $document = OpenAiCazadorKnowledgeDocument::query()->create([
-            'version' => $version,
-            'expert_name' => trim((string) $request->validated('expert_name')),
-            'original_name' => $file->getClientOriginalName(),
-            'storage_path' => $path,
-            'file_size' => strlen($content),
-            'sha256' => hash('sha256', $content),
-            'status' => 'processing',
-            'uploaded_by' => $request->user()?->id,
-        ]);
+        try {
+            $document = OpenAiCazadorKnowledgeDocument::query()->create([
+                'version' => $version,
+                'expert_name' => trim((string) $request->validated('expert_name')),
+                'original_name' => $file->getClientOriginalName(),
+                'storage_path' => $path,
+                'file_size' => strlen($content),
+                'sha256' => hash('sha256', $content),
+                'status' => 'processing',
+                'uploaded_by' => $request->user()?->id,
+            ]);
+        } catch (\Throwable $exception) {
+            FileStorage::deleteIfExists($path);
+
+            throw $exception;
+        }
 
         IndexCazadorKnowledge::dispatch($document->id);
 
@@ -131,14 +137,14 @@ class OpenAiCazadorConfigController extends Controller
 
     public function downloadKnowledge(OpenAiCazadorKnowledgeDocument $document): StreamedResponse
     {
-        abort_unless(Storage::disk('local')->exists($document->storage_path), 404);
+        abort_unless(FileStorage::exists($document->storage_path), 404);
 
-        return Storage::disk('local')->download($document->storage_path, $document->original_name);
+        return FileStorage::filesystem()->download($document->storage_path, $document->original_name);
     }
 
     public function destroyKnowledge(OpenAiCazadorKnowledgeDocument $document): RedirectResponse
     {
-        Storage::disk('local')->delete($document->storage_path);
+        FileStorage::deleteIfExists($document->storage_path);
         $document->delete();
 
         return back()->with('success', 'Archivo de conocimiento eliminado.');
@@ -146,21 +152,27 @@ class OpenAiCazadorConfigController extends Controller
 
     public function reindexKnowledge(OpenAiCazadorKnowledgeDocument $document): RedirectResponse
     {
-        abort_unless(Storage::disk('local')->exists($document->storage_path), 404);
+        abort_unless(FileStorage::exists($document->storage_path), 404);
         abort_if($document->status === 'processing', 409, 'Este documento ya se está procesando.');
         $version = ((int) OpenAiCazadorKnowledgeDocument::query()->max('version')) + 1;
-        $path = 'openai-cazador/knowledge/v'.$version.'-'.Str::uuid().'.md';
-        Storage::disk('local')->copy($document->storage_path, $path);
-        $replacement = OpenAiCazadorKnowledgeDocument::query()->create([
-            'version' => $version,
-            'expert_name' => $document->expert_name,
-            'original_name' => $document->original_name,
-            'storage_path' => $path,
-            'file_size' => $document->file_size,
-            'sha256' => $document->sha256,
-            'status' => 'processing',
-            'uploaded_by' => request()->user()?->id,
-        ]);
+        $path = 'knowledge/openai-cazador/v'.$version.'-'.Str::uuid().'.md';
+        FileStorage::copy($document->storage_path, $path);
+        try {
+            $replacement = OpenAiCazadorKnowledgeDocument::query()->create([
+                'version' => $version,
+                'expert_name' => $document->expert_name,
+                'original_name' => $document->original_name,
+                'storage_path' => $path,
+                'file_size' => $document->file_size,
+                'sha256' => $document->sha256,
+                'status' => 'processing',
+                'uploaded_by' => request()->user()?->id,
+            ]);
+        } catch (\Throwable $exception) {
+            FileStorage::deleteIfExists($path);
+
+            throw $exception;
+        }
         IndexCazadorKnowledge::dispatch($replacement->id);
 
         return back()->with('success', 'Reindexación iniciada.');

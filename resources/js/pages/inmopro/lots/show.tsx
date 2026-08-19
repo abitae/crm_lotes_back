@@ -210,7 +210,7 @@ export default function LotsShow({ lot, canConfirmTransfer }: { lot: Lot; canCon
                             ) : null}
                             <div className="mt-4">
                                 <a
-                                    href={`/storage/${lot.latest_transfer_confirmation.evidence_path}`}
+                                    href={`/inmopro/lot-transfer-confirmations/${lot.latest_transfer_confirmation.id}/evidence`}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-600 hover:underline"

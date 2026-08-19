@@ -7,6 +7,7 @@ use App\Services\Inmopro\ProjectAssetStorageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class ProjectAssetStorageTest extends TestCase
@@ -81,7 +82,7 @@ class ProjectAssetStorageTest extends TestCase
         Storage::disk('public')->assertExists($stored['file_path']);
     }
 
-    public function test_store_falls_back_to_public_disk_when_configured_disk_fails(): void
+    public function test_store_does_not_fall_back_to_public_disk_when_configured_disk_fails(): void
     {
         Storage::fake('public');
         config()->set('cazador.default_storage_disk', 'missing-gcs-disk');
@@ -96,8 +97,12 @@ class ProjectAssetStorageTest extends TestCase
         $service = app(ProjectAssetStorageService::class);
         $file = UploadedFile::fake()->image('fachada.png');
 
-        $stored = $service->store($project, $file, 'image');
+        $this->expectException(InvalidArgumentException::class);
 
-        Storage::disk('public')->assertExists($stored['file_path']);
+        try {
+            $service->store($project, $file, 'image');
+        } finally {
+            $this->assertSame([], Storage::disk('public')->allFiles());
+        }
     }
 }

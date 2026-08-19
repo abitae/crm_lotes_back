@@ -58,7 +58,7 @@ export type WebProjectType = {
 
 /**
  * Activo multimedia (imagen o vídeo) en listados del catálogo web.
- * `url` es la URL pública absoluta bajo /storage/...
+ * `url` es una URL absoluta y temporal generada por el backend.
  */
 export type WebProjectAsset = {
     id: number;

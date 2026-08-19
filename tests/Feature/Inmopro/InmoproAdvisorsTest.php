@@ -111,7 +111,7 @@ class InmoproAdvisorsTest extends TestCase
 
     public function test_store_advisor_with_profile_creates_profile_and_documents(): void
     {
-        Storage::fake('local');
+        Storage::fake('public');
 
         $user = User::factory()->create();
         $level = AdvisorLevel::first();
@@ -157,7 +157,7 @@ class InmoproAdvisorsTest extends TestCase
         $document = AdvisorProfileDocument::query()->where('advisor_profile_id', $profile->id)->firstOrFail();
         $this->assertSame('CV', $document->title);
         $this->assertSame('cv.pdf', $document->file_name);
-        Storage::disk('local')->assertExists($document->file_path);
+        Storage::disk('public')->assertExists($document->file_path);
     }
 
     public function test_authenticated_users_can_update_advisor(): void
@@ -194,7 +194,7 @@ class InmoproAdvisorsTest extends TestCase
 
     public function test_update_advisor_updates_profile_and_appends_documents(): void
     {
-        Storage::fake('local');
+        Storage::fake('public');
 
         $user = User::factory()->create();
         $advisor = Advisor::firstOrFail();
@@ -240,7 +240,7 @@ class InmoproAdvisorsTest extends TestCase
 
         $document = AdvisorProfileDocument::query()->where('advisor_profile_id', $profile->id)->firstOrFail();
         $this->assertSame('Certificado', $document->title);
-        Storage::disk('local')->assertExists($document->file_path);
+        Storage::disk('public')->assertExists($document->file_path);
     }
 
     public function test_store_advisor_rejects_invalid_cci(): void

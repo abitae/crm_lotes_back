@@ -31,48 +31,51 @@ class FileStorageTest extends TestCase
         $this->assertSame($url, FileStorage::url($url));
     }
 
-    public function test_gcs_public_url_includes_bucket_and_path_prefix(): void
+    public function test_path_from_stored_extracts_relative_path_from_signed_gcs_url(): void
     {
         config([
-            'cazador.default_storage_disk' => 'gcs',
-            'filesystems.disks.gcs.bucket' => 'storage_abitae',
+            'filesystems.disks.gcs.bucket' => 'bucket-test',
             'filesystems.disks.gcs.path_prefix' => 'lotes',
-            'filesystems.disks.gcs.url' => null,
         ]);
 
         $this->assertSame(
-            'https://storage.googleapis.com/storage_abitae/lotes/branding/logo.png',
-            FileStorage::url('branding/logo.png'),
+            'projects/1/portada.jpg',
+            FileStorage::pathFromStored('https://storage.googleapis.com/bucket-test/lotes/projects/1/portada.jpg?X-Goog-Signature=abc'),
         );
     }
 
-    public function test_gcs_public_url_adds_bucket_when_custom_base_is_api_host(): void
+    public function test_gcs_url_is_temporary_and_normalizes_path(): void
     {
+        Storage::fake('gcs');
         config([
             'cazador.default_storage_disk' => 'gcs',
-            'filesystems.disks.gcs.bucket' => 'storage_abitae',
-            'filesystems.disks.gcs.path_prefix' => 'lotes',
-            'filesystems.disks.gcs.url' => 'https://storage.googleapis.com',
+            'filesystems.temporary_urls.catalog_ttl_minutes' => 60,
         ]);
-
-        $this->assertSame(
-            'https://storage.googleapis.com/storage_abitae/lotes/branding/favicon.png',
-            FileStorage::url('branding/favicon.png'),
+        Storage::disk('gcs')->buildTemporaryUrlsUsing(
+            fn (string $path, \DateTimeInterface $expiration): string => 'https://signed.test/'.$path.'?expires='.$expiration->getTimestamp(),
         );
+
+        $url = FileStorage::url('branding\\logo.png');
+        parse_str((string) parse_url((string) $url, PHP_URL_QUERY), $query);
+
+        $this->assertStringStartsWith('https://signed.test/branding/logo.png?expires=', (string) $url);
+        $this->assertEqualsWithDelta(now()->addMinutes(60)->timestamp, (int) $query['expires'], 5);
     }
 
-    public function test_url_normalizes_windows_path_separators(): void
+    public function test_sensitive_gcs_url_uses_shorter_ttl(): void
     {
+        Storage::fake('gcs');
         config([
             'cazador.default_storage_disk' => 'gcs',
-            'filesystems.disks.gcs.bucket' => 'storage_abitae',
-            'filesystems.disks.gcs.path_prefix' => 'lotes',
-            'filesystems.disks.gcs.url' => null,
+            'filesystems.temporary_urls.sensitive_ttl_minutes' => 10,
         ]);
-
-        $this->assertSame(
-            'https://storage.googleapis.com/storage_abitae/lotes/branding/logo.png',
-            FileStorage::url('branding\\logo.png'),
+        Storage::disk('gcs')->buildTemporaryUrlsUsing(
+            fn (string $path, \DateTimeInterface $expiration): string => 'https://signed.test/'.$path.'?'.$expiration->getTimestamp(),
         );
+
+        $url = FileStorage::sensitiveUrl('pre-reservations/voucher.png');
+        $expires = (int) substr((string) $url, strrpos((string) $url, '?') + 1);
+
+        $this->assertEqualsWithDelta(now()->addMinutes(10)->timestamp, $expires, 5);
     }
 }
