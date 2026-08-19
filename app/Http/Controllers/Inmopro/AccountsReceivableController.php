@@ -7,9 +7,9 @@ use App\Http\Requests\Inmopro\StoreLotInstallmentRequest;
 use App\Http\Requests\Inmopro\StoreLotPaymentRequest;
 use App\Models\Inmopro\CashAccount;
 use App\Models\Inmopro\Lot;
-use App\Models\Inmopro\LotInstallment;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
+use App\Models\Inmopro\Team;
 use App\Services\Inmopro\ReceivableService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,6 +24,8 @@ class AccountsReceivableController extends Controller
 
     public function index(Request $request): Response
     {
+        $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
+        $endDate = $request->input('end_date', now()->endOfMonth()->toDateString());
         $statusLibre = LotStatus::where('code', 'LIBRE')->first();
         $statusPreReserva = LotStatus::where('code', 'PRERESERVA')->first();
         $query = Lot::with([
@@ -39,6 +41,13 @@ class AccountsReceivableController extends Controller
         if ($request->filled('project_id')) {
             $query->where('project_id', $request->integer('project_id'));
         }
+
+        if ($request->filled('team_id')) {
+            $query->whereHas('advisor', fn ($builder) => $builder->where('team_id', $request->integer('team_id')));
+        }
+
+        $query->whereDate('contract_date', '>=', $startDate)
+            ->whereDate('contract_date', '<=', $endDate);
 
         if ($request->filled('lot_status_id')) {
             $query->where('lot_status_id', $request->integer('lot_status_id'));
@@ -92,23 +101,28 @@ class AccountsReceivableController extends Controller
 
         $portfolioLots = clone $query;
         $lotsCollection = $portfolioLots->get();
-        $overdueInstallments = LotInstallment::query()->where('status', 'VENCIDA')->count();
+        $overdueInstallments = (int) $lotsCollection->sum(fn (Lot $lot) => $lot->installments->where('status', 'VENCIDA')->count());
         $totalScheduled = (float) $lotsCollection->sum(fn (Lot $lot) => $lot->installments->sum('amount'));
         $totalCollected = (float) $lotsCollection->sum(fn (Lot $lot) => $lot->payments->sum('amount'));
 
         return Inertia::render('inmopro/accounts-receivable', [
             'lots' => $lots,
             'projects' => Project::query()->orderBy('name')->get(),
+            'teams' => Team::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'lotStatuses' => LotStatus::orderBy('sort_order')->get(['id', 'name', 'code', 'color']),
             'cashAccounts' => CashAccount::where('is_active', true)->orderBy('name')->get(),
             'summary' => [
-                'portfolio' => (float) $lotsCollection->sum('price'),
+                'portfolio' => (float) $lotsCollection->sum(fn (Lot $lot) => (float) ($lot->sale_price ?? $lot->price)),
                 'scheduled' => $totalScheduled,
                 'collected' => $totalCollected,
                 'pending' => max(0, $totalScheduled - $totalCollected),
                 'overdueInstallments' => $overdueInstallments,
             ],
-            'filters' => $request->only('project_id', 'lot_status_id', 'status', 'search'),
+            'filters' => [
+                ...$request->only('project_id', 'team_id', 'lot_status_id', 'status', 'search'),
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ],
         ]);
     }
 

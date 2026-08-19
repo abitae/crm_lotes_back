@@ -21,10 +21,12 @@ type Lot = {
     financial_metrics: { list_price: number; sale_price: number | null; acquisition_cost: number | null; expenses_total: number; commissions_total: number; net_profit: number | null; profit_margin: number | null };
 };
 type Project = { id: number; name: string };
+type Team = { id: number; name: string };
 
 export default function Financial({
     lots,
     projects,
+    teams,
     totalValue,
     totalCollected,
     totalPending,
@@ -34,12 +36,13 @@ export default function Financial({
 }: {
     lots: { data: Lot[]; links: PaginationLink[]; total: number };
     projects: Project[];
+    teams: Team[];
     totalValue: number;
     totalCollected: number;
     totalPending: number;
     totalExpenses: number;
     totalCommissions: number;
-    filters: { project_id?: string; search?: string };
+    filters: { project_id?: string; team_id?: string; start_date?: string; end_date?: string; search?: string };
 }) {
     const collectionRate = totalValue > 0 ? Math.round((totalCollected / totalValue) * 100) : 0;
     const pendingRate = totalValue > 0 ? Math.round((totalPending / totalValue) * 100) : 0;
@@ -55,6 +58,9 @@ export default function Financial({
 
         router.get('/inmopro/financial', {
             project_id: (formData.get('project_id') as string) || undefined,
+            team_id: (formData.get('team_id') as string) || undefined,
+            start_date: (formData.get('start_date') as string) || undefined,
+            end_date: (formData.get('end_date') as string) || undefined,
             search: (formData.get('search') as string) || undefined,
         });
     };
@@ -109,7 +115,7 @@ export default function Financial({
 
                 <form
                     onSubmit={handleFilter}
-                    className="grid grid-cols-1 gap-3 rounded-3xl border border-border bg-card text-card-foreground p-4 shadow-sm sm:p-6 md:grid-cols-3"
+                    className="grid grid-cols-1 gap-3 rounded-3xl border border-border bg-card text-card-foreground p-4 shadow-sm sm:p-6 md:grid-cols-2 xl:grid-cols-6"
                 >
                     <select
                         name="project_id"
@@ -123,6 +129,18 @@ export default function Financial({
                             </option>
                         ))}
                     </select>
+                    <select name="team_id" defaultValue={filters.team_id} className={inmoproUi.input}>
+                        <option value="">Todos los grupos</option>
+                        {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+                    </select>
+                    <label className="space-y-1 text-[10px] font-bold uppercase text-slate-500">
+                        Fecha desde
+                        <input type="date" name="start_date" defaultValue={filters.start_date} className={inmoproUi.input} />
+                    </label>
+                    <label className="space-y-1 text-[10px] font-bold uppercase text-slate-500">
+                        Fecha hasta
+                        <input type="date" name="end_date" defaultValue={filters.end_date} className={inmoproUi.input} />
+                    </label>
                     <div className="relative">
                         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                         <input

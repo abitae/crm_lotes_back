@@ -10,6 +10,7 @@ use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotExpense;
 use App\Models\Inmopro\LotPreReservation;
 use App\Models\Inmopro\LotStatus;
+use App\Models\Inmopro\Team;
 use App\Models\User;
 use App\Services\Inmopro\CommissionService;
 use Database\Seeders\Inmopro\AdvisorLevelSeeder;
@@ -125,5 +126,34 @@ class LotFinancialControlTest extends TestCase
         $this->assertDatabaseHas('lot_expenses', [
             'lot_id' => $lot->id, 'category' => 'OTRO', 'concept' => 'Trámite municipal', 'amount' => 250,
         ]);
+    }
+
+    public function test_financial_page_filters_by_contract_dates_project_and_team(): void
+    {
+        $user = User::factory()->create();
+        $user->givePermissionTo(Permission::findOrCreate('inmopro.financial', 'web'));
+        $team = Team::factory()->create(['is_active' => true]);
+        $advisor = Advisor::query()->firstOrFail();
+        $advisor->update(['team_id' => $team->id]);
+        $lot = Lot::query()->firstOrFail();
+        $lot->update([
+            'lot_status_id' => LotStatus::where('code', 'RESERVADO')->value('id'),
+            'advisor_id' => $advisor->id,
+            'sale_price' => 30000,
+            'contract_date' => '2026-08-10',
+        ]);
+
+        $this->actingAs($user)->get(route('inmopro.financial.index', [
+            'project_id' => $lot->project_id,
+            'team_id' => $team->id,
+            'start_date' => '2026-08-01',
+            'end_date' => '2026-08-15',
+        ]))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('lots.total', 1)
+            ->where('lots.data.0.id', $lot->id)
+            ->where('filters.project_id', (string) $lot->project_id)
+            ->where('filters.team_id', (string) $team->id)
+            ->where('filters.start_date', '2026-08-01')
+            ->where('filters.end_date', '2026-08-15'));
     }
 }

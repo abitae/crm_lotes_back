@@ -49,7 +49,11 @@ class InmoproCommissionsTest extends TestCase
         $response->assertInertia(fn ($page) => $page
             ->component('inmopro/commissions')
             ->has('commissions')
-            ->has('commissionStatuses'));
+            ->has('commissionStatuses')
+            ->has('projects')
+            ->has('teams')
+            ->where('filters.start_date', now()->startOfMonth()->toDateString())
+            ->where('filters.end_date', now()->endOfMonth()->toDateString()));
     }
 
     public function test_authenticated_users_can_mark_commission_as_paid(): void

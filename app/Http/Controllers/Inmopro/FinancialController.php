@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
+use App\Models\Inmopro\Team;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -25,6 +26,15 @@ class FinancialController extends Controller
         if ($request->filled('project_id')) {
             $query->where('project_id', $request->input('project_id'));
         }
+        if ($request->filled('team_id')) {
+            $query->whereHas('advisor', fn ($advisorQuery) => $advisorQuery->where('team_id', $request->integer('team_id')));
+        }
+        if ($request->filled('start_date')) {
+            $query->whereDate('contract_date', '>=', $request->input('start_date'));
+        }
+        if ($request->filled('end_date')) {
+            $query->whereDate('contract_date', '<=', $request->input('end_date'));
+        }
         if ($request->filled('search')) {
             $term = $request->input('search');
             $query->where(function ($q) use ($term) {
@@ -40,6 +50,9 @@ class FinancialController extends Controller
         $filterParams = array_filter([
             'project_id' => $request->input('project_id'),
             'search' => $request->input('search'),
+            'team_id' => $request->input('team_id'),
+            'start_date' => $request->input('start_date'),
+            'end_date' => $request->input('end_date'),
         ], fn ($value) => $value !== null && $value !== '');
 
         $lots = $query
@@ -51,10 +64,12 @@ class FinancialController extends Controller
             $lot->setAttribute('financial_metrics', $lot->financialMetrics());
         });
         $projects = Project::query()->orderBy('name')->get();
+        $teams = Team::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']);
 
         return Inertia::render('inmopro/financial', [
             'lots' => $lots,
             'projects' => $projects,
+            'teams' => $teams,
             'totalValue' => $totalValue,
             'totalCollected' => $totalCollected,
             'totalPending' => $totalPending,
@@ -63,6 +78,9 @@ class FinancialController extends Controller
             'filters' => [
                 'project_id' => $request->input('project_id'),
                 'search' => $request->input('search'),
+                'team_id' => $request->input('team_id'),
+                'start_date' => $request->input('start_date'),
+                'end_date' => $request->input('end_date'),
             ],
         ]);
     }

@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Inmopro;
 
+use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\CashAccount;
+use App\Models\Inmopro\Client;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
 use App\Models\User;
@@ -31,6 +33,19 @@ class InmoproAccountsReceivableTest extends TestCase
         $this->seed(AdvisorSeeder::class);
         $this->seed(ClientSeeder::class);
         $this->seed(LotSeeder::class);
+
+        $lot = Lot::query()->first();
+        $client = Client::query()->first();
+        $advisor = Advisor::query()->first();
+        $lot?->update([
+            'lot_status_id' => LotStatus::query()->where('code', LotStatus::CODE_RESERVADO)->value('id'),
+            'client_id' => $client?->id,
+            'advisor_id' => $advisor?->id,
+            'client_name' => $client?->name,
+            'client_dni' => $client?->dni,
+            'contract_date' => now()->toDateString(),
+            'sale_price' => $lot?->price,
+        ]);
     }
 
     public function test_authenticated_users_can_visit_accounts_receivable_index(): void
@@ -41,7 +56,12 @@ class InmoproAccountsReceivableTest extends TestCase
         $response = $this->get(route('inmopro.accounts-receivable.index'));
 
         $response->assertOk();
-        $response->assertInertia(fn ($page) => $page->component('inmopro/accounts-receivable')->has('lots'));
+        $response->assertInertia(fn ($page) => $page
+            ->component('inmopro/accounts-receivable')
+            ->has('lots')
+            ->where('filters.start_date', now()->startOfMonth()->toDateString())
+            ->where('filters.end_date', now()->endOfMonth()->toDateString())
+            ->has('teams'));
     }
 
     public function test_authenticated_users_can_create_installment_and_payment(): void

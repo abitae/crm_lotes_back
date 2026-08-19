@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Inmopro;
 use App\Http\Controllers\Controller;
 use App\Models\Inmopro\Commission;
 use App\Models\Inmopro\CommissionStatus;
+use App\Models\Inmopro\Project;
+use App\Models\Inmopro\Team;
 use App\Services\Inmopro\CommissionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,23 +21,24 @@ class CommissionController extends Controller
 
     public function index(Request $request): Response
     {
+        $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
+        $endDate = $request->input('end_date', now()->endOfMonth()->toDateString());
         $query = Commission::with(['lot.project', 'advisor.level', 'status']);
 
-        if ($request->filled('start_date')) {
-            $query->where('date', '>=', $request->input('start_date'));
+        $query->whereDate('date', '>=', $startDate)->whereDate('date', '<=', $endDate);
+        if ($request->filled('project_id')) {
+            $query->whereHas('lot', fn ($lotQuery) => $lotQuery->where('project_id', $request->integer('project_id')));
         }
-        if ($request->filled('end_date')) {
-            $query->where('date', '<=', $request->input('end_date'));
+        if ($request->filled('team_id')) {
+            $query->whereHas('advisor', fn ($advisorQuery) => $advisorQuery->where('team_id', $request->integer('team_id')));
         }
         if ($request->filled('search')) {
             $term = $request->input('search');
             $query->whereHas('advisor', fn ($q) => $q->where('name', 'like', "%{$term}%"));
         }
 
+        $totalCommissions = (clone $query)->sum('amount');
         $commissions = $query->orderBy('date', 'desc')->paginate(20)->withQueryString();
-        $totalCommissions = Commission::when($request->filled('start_date'), fn ($q) => $q->where('date', '>=', $request->input('start_date')))
-            ->when($request->filled('end_date'), fn ($q) => $q->where('date', '<=', $request->input('end_date')))
-            ->sum('amount');
         $pendingStatus = CommissionStatus::where('code', 'PENDIENTE')->first();
         $paidStatus = CommissionStatus::where('code', 'PAGADO')->first();
 
@@ -43,7 +46,13 @@ class CommissionController extends Controller
             'commissions' => $commissions,
             'totalCommissions' => $totalCommissions,
             'commissionStatuses' => CommissionStatus::orderBy('sort_order')->get(),
-            'filters' => $request->only('start_date', 'end_date', 'search'),
+            'projects' => Project::query()->orderBy('name')->get(['id', 'name']),
+            'teams' => Team::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
+            'filters' => [
+                ...$request->only('project_id', 'team_id', 'search'),
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ],
         ]);
     }
 

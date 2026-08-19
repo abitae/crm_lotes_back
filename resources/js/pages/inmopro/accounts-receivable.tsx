@@ -18,6 +18,7 @@ import type { BreadcrumbItem } from '@/types';
 
 type CashAccount = { id: number; name: string; type: string };
 type Project = { id: number; name: string };
+type Team = { id: number; name: string };
 type Installment = {
     id: number;
     sequence: number;
@@ -63,6 +64,7 @@ type LotItem = {
 export default function AccountsReceivable({
     lots,
     projects,
+    teams,
     lotStatuses,
     cashAccounts,
     summary,
@@ -70,10 +72,11 @@ export default function AccountsReceivable({
 }: {
     lots: { data: LotItem[]; links: PaginationLink[] };
     projects: Project[];
+    teams: Team[];
     lotStatuses: LotStatusOption[];
     cashAccounts: CashAccount[];
     summary: { portfolio: number; collected: number; pending: number; overdueInstallments: number };
-    filters: { project_id?: string; lot_status_id?: string; status?: string; search?: string };
+    filters: { project_id?: string; team_id?: string; start_date?: string; end_date?: string; lot_status_id?: string; status?: string; search?: string };
 }) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
@@ -91,6 +94,9 @@ export default function AccountsReceivable({
 
         router.get('/inmopro/accounts-receivable', {
             project_id: (formData.get('project_id') as string) || undefined,
+            team_id: (formData.get('team_id') as string) || undefined,
+            start_date: (formData.get('start_date') as string) || undefined,
+            end_date: (formData.get('end_date') as string) || undefined,
             lot_status_id: (formData.get('lot_status_id') as string) || undefined,
             search: (formData.get('search') as string) || undefined,
         });
@@ -109,7 +115,7 @@ export default function AccountsReceivable({
 
                 <form
                     onSubmit={handleFilter}
-                    className="grid gap-3 rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm md:grid-cols-2 lg:grid-cols-4"
+                    className="grid gap-3 rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm md:grid-cols-2 xl:grid-cols-7"
                 >
                     <select
                         name="project_id"
@@ -123,6 +129,12 @@ export default function AccountsReceivable({
                             </option>
                         ))}
                     </select>
+                    <select name="team_id" defaultValue={filters.team_id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none">
+                        <option value="">Todos los grupos</option>
+                        {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+                    </select>
+                    <label className="space-y-1 text-[10px] font-bold uppercase text-slate-500">Fecha desde<input type="date" name="start_date" defaultValue={filters.start_date} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none" /></label>
+                    <label className="space-y-1 text-[10px] font-bold uppercase text-slate-500">Fecha hasta<input type="date" name="end_date" defaultValue={filters.end_date} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none" /></label>
                     <select
                         name="lot_status_id"
                         defaultValue={filters.lot_status_id}

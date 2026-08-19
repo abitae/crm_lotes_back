@@ -16,15 +16,20 @@ type Commission = {
     advisor?: { name: string; level?: { name: string } };
     status?: { code: string; name: string };
 };
+type FilterOption = { id: number; name: string };
 
 export default function Commissions({
     commissions,
     totalCommissions,
+    projects,
+    teams,
     filters,
 }: {
     commissions: { data: Commission[]; links: PaginationLink[] };
     totalCommissions: number;
-    filters: { start_date?: string; end_date?: string; search?: string };
+    projects: FilterOption[];
+    teams: FilterOption[];
+    filters: { project_id?: string; team_id?: string; start_date?: string; end_date?: string; search?: string };
 }) {
     const pendingCount = commissions.data.filter((commission) => commission.status?.code === 'PENDIENTE').length;
     const paidCount = commissions.data.filter((commission) => commission.status?.code === 'PAGADO').length;
@@ -41,6 +46,8 @@ export default function Commissions({
         router.get('/inmopro/commissions', {
             start_date: (formData.get('start_date') as string) || undefined,
             end_date: (formData.get('end_date') as string) || undefined,
+            project_id: (formData.get('project_id') as string) || undefined,
+            team_id: (formData.get('team_id') as string) || undefined,
             search: (formData.get('search') as string) || undefined,
         });
     };
@@ -84,9 +91,11 @@ export default function Commissions({
 
                 <form
                     onSubmit={handleFilter}
-                    className="grid gap-3 rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm md:grid-cols-4"
+                    className="grid gap-3 rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm md:grid-cols-2 xl:grid-cols-6"
                 >
-                    <div className="relative">
+                    <label className="space-y-1 text-[10px] font-bold uppercase text-slate-500">
+                        Fecha desde
+                        <div className="relative">
                         <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                         <input
                             type="date"
@@ -94,8 +103,11 @@ export default function Commissions({
                             defaultValue={filters.start_date}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm font-semibold text-slate-700 outline-none"
                         />
-                    </div>
-                    <div className="relative">
+                        </div>
+                    </label>
+                    <label className="space-y-1 text-[10px] font-bold uppercase text-slate-500">
+                        Fecha hasta
+                        <div className="relative">
                         <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                         <input
                             type="date"
@@ -103,7 +115,16 @@ export default function Commissions({
                             defaultValue={filters.end_date}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm font-semibold text-slate-700 outline-none"
                         />
-                    </div>
+                        </div>
+                    </label>
+                    <select name="project_id" defaultValue={filters.project_id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none">
+                        <option value="">Todos los proyectos</option>
+                        {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                    </select>
+                    <select name="team_id" defaultValue={filters.team_id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none">
+                        <option value="">Todos los grupos</option>
+                        {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+                    </select>
                     <div className="relative">
                         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                         <input
@@ -213,4 +234,3 @@ export default function Commissions({
         </AppLayout>
     );
 }
-
