@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 import AppLogoIcon from '@/components/app-logo-icon';
 
 type SharedBranding = {
@@ -15,9 +16,21 @@ type Props = {
  */
 export default function AppBrandingLogo({ iconClassName, imageClassName }: Props) {
     const { brandingLogoUrl } = usePage<SharedBranding>().props;
+    const [failed, setFailed] = useState(false);
 
-    if (brandingLogoUrl) {
-        return <img src={brandingLogoUrl} alt="" className={imageClassName} />;
+    useEffect(() => {
+        setFailed(false);
+    }, [brandingLogoUrl]);
+
+    if (brandingLogoUrl && !failed) {
+        return (
+            <img
+                src={brandingLogoUrl}
+                alt=""
+                className={imageClassName}
+                onError={() => setFailed(true)}
+            />
+        );
     }
 
     return <AppLogoIcon className={iconClassName} />;

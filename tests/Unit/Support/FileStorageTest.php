@@ -26,6 +26,8 @@ class FileStorageTest extends TestCase
 
     public function test_url_returns_absolute_urls_unchanged(): void
     {
+        config(['cazador.default_storage_disk' => 'public']);
+
         $url = 'https://storage.googleapis.com/bucket/file.jpg';
 
         $this->assertSame($url, FileStorage::url($url));
@@ -60,6 +62,24 @@ class FileStorageTest extends TestCase
 
         $this->assertStringStartsWith('https://signed.test/branding/logo.png?expires=', (string) $url);
         $this->assertEqualsWithDelta(now()->addMinutes(60)->timestamp, (int) $query['expires'], 5);
+    }
+
+    public function test_gcs_resigns_absolute_bucket_urls(): void
+    {
+        Storage::fake('gcs');
+        config([
+            'cazador.default_storage_disk' => 'gcs',
+            'filesystems.disks.gcs.bucket' => 'bucket-test',
+            'filesystems.disks.gcs.path_prefix' => 'lotes',
+            'filesystems.temporary_urls.catalog_ttl_minutes' => 60,
+        ]);
+        Storage::disk('gcs')->buildTemporaryUrlsUsing(
+            fn (string $path, \DateTimeInterface $expiration): string => 'https://signed.test/'.$path.'?expires='.$expiration->getTimestamp(),
+        );
+
+        $url = FileStorage::url('https://storage.googleapis.com/bucket-test/lotes/branding/logo.png');
+
+        $this->assertStringStartsWith('https://signed.test/branding/logo.png?expires=', (string) $url);
     }
 
     public function test_sensitive_gcs_url_uses_shorter_ttl(): void

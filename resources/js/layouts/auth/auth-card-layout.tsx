@@ -26,10 +26,10 @@ export default function AuthCardLayout({
                     href={home()}
                     className="flex items-center gap-2 self-center font-medium"
                 >
-                    <div className="flex h-9 w-9 items-center justify-center">
+                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden">
                         <AppBrandingLogo
-                            iconClassName="size-9 fill-current text-black dark:text-white"
-                            imageClassName="size-9 object-contain"
+                            iconClassName="size-16 fill-current text-black dark:text-white"
+                            imageClassName="h-16 w-16 object-contain"
                         />
                     </div>
                 </Link>

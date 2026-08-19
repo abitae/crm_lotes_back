@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 import AppLogoIcon from '@/components/app-logo-icon';
 
 type Shared = {
@@ -11,6 +12,11 @@ type Shared = {
 export default function AppLogo() {
     const { name, brandingLogoUrl, brandingTagline, brandingPrimaryColor } = usePage<Shared>().props;
     const accent = brandingPrimaryColor ?? '#059669';
+    const [logoFailed, setLogoFailed] = useState(false);
+
+    useEffect(() => {
+        setLogoFailed(false);
+    }, [brandingLogoUrl]);
 
     return (
         <>
@@ -18,8 +24,13 @@ export default function AppLogo() {
                 className="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-md text-white dark:text-black"
                 style={{ backgroundColor: accent }}
             >
-                {brandingLogoUrl ? (
-                    <img src={brandingLogoUrl} alt="" className="size-full bg-white object-contain p-0.5 dark:bg-slate-950" />
+                {brandingLogoUrl && !logoFailed ? (
+                    <img
+                        src={brandingLogoUrl}
+                        alt=""
+                        className="size-full bg-white object-contain p-0.5 dark:bg-slate-950"
+                        onError={() => setLogoFailed(true)}
+                    />
                 ) : (
                     <AppLogoIcon className="size-5 fill-current" />
                 )}

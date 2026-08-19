@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Cache;
 
 class AppBrandingResolver
 {
-    private const string CACHE_KEY = 'app_branding.snapshot';
+    private const string CACHE_KEY = 'app_branding.snapshot.v2';
 
     private const string DEFAULT_PRIMARY_HEX = '#059669';
 
@@ -22,6 +22,59 @@ class AppBrandingResolver
      */
     public static function snapshot(): array
     {
+        $cached = self::cachedRow();
+
+        return [
+            'display_name' => $cached['display_name'],
+            'logo_url' => self::publicUrl($cached['logo_path']),
+            'tagline' => $cached['tagline'],
+            'primary_color' => $cached['primary_color'],
+            'favicon_url' => self::publicUrl($cached['favicon_path']),
+        ];
+    }
+
+    public static function resolvedDisplayName(): string
+    {
+        return self::cachedRow()['display_name'];
+    }
+
+    public static function logoUrl(): ?string
+    {
+        return self::publicUrl(self::cachedRow()['logo_path']);
+    }
+
+    public static function tagline(): ?string
+    {
+        return self::cachedRow()['tagline'];
+    }
+
+    public static function primaryColorHex(): string
+    {
+        return self::cachedRow()['primary_color'] ?? self::DEFAULT_PRIMARY_HEX;
+    }
+
+    public static function faviconUrl(): ?string
+    {
+        return self::publicUrl(self::cachedRow()['favicon_path']);
+    }
+
+    public static function forgetCache(): void
+    {
+        Cache::forget(self::CACHE_KEY);
+        Cache::forget('app_branding.snapshot');
+    }
+
+    /**
+     * @return array{
+     *     display_name: string,
+     *     logo_path: ?string,
+     *     tagline: ?string,
+     *     primary_color: ?string,
+     *     favicon_path: ?string
+     * }
+     */
+    private static function cachedRow(): array
+    {
         return Cache::rememberForever(self::CACHE_KEY, function (): array {
             $row = AppBranding::query()->first();
 
@@ -29,60 +82,33 @@ class AppBrandingResolver
                 ? (string) $row->display_name
                 : (string) config('app.name');
 
-            $logoUrl = null;
-            if (filled($row?->logo_path)) {
-                $logoUrl = FileStorage::url((string) $row->logo_path);
-            }
-
-            $tagline = filled($row?->tagline) ? (string) $row->tagline : null;
-
             $primaryColor = null;
             if (is_string($row?->primary_color) && preg_match('/^#[0-9A-Fa-f]{6}$/', $row->primary_color)) {
                 $primaryColor = $row->primary_color;
             }
 
-            $faviconUrl = null;
-            if (filled($row?->favicon_path)) {
-                $faviconUrl = FileStorage::url((string) $row->favicon_path);
-            }
-
             return [
                 'display_name' => $displayName,
-                'logo_url' => $logoUrl,
-                'tagline' => $tagline,
+                'logo_path' => filled($row?->logo_path) ? (string) $row->logo_path : null,
+                'tagline' => filled($row?->tagline) ? (string) $row->tagline : null,
                 'primary_color' => $primaryColor,
-                'favicon_url' => $faviconUrl,
+                'favicon_path' => filled($row?->favicon_path) ? (string) $row->favicon_path : null,
             ];
         });
     }
 
-    public static function resolvedDisplayName(): string
+    private static function publicUrl(?string $path): ?string
     {
-        return self::snapshot()['display_name'];
-    }
+        if (! filled($path)) {
+            return null;
+        }
 
-    public static function logoUrl(): ?string
-    {
-        return self::snapshot()['logo_url'];
-    }
+        try {
+            $url = FileStorage::url($path);
 
-    public static function tagline(): ?string
-    {
-        return self::snapshot()['tagline'];
-    }
-
-    public static function primaryColorHex(): string
-    {
-        return self::snapshot()['primary_color'] ?? self::DEFAULT_PRIMARY_HEX;
-    }
-
-    public static function faviconUrl(): ?string
-    {
-        return self::snapshot()['favicon_url'];
-    }
-
-    public static function forgetCache(): void
-    {
-        Cache::forget(self::CACHE_KEY);
+            return filled($url) ? $url : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

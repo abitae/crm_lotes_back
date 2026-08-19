@@ -27,7 +27,16 @@ class FileStorage
         }
 
         if (static::isAbsoluteUrl($pathOrUrl)) {
-            return static::normalizePublicUrl($pathOrUrl);
+            if (static::disk() !== 'gcs') {
+                return static::normalizePublicUrl($pathOrUrl);
+            }
+
+            $relative = static::pathFromStored($pathOrUrl);
+            if ($relative === null) {
+                return static::normalizePublicUrl($pathOrUrl);
+            }
+
+            $pathOrUrl = $relative;
         }
 
         $path = static::normalizePath($pathOrUrl);
