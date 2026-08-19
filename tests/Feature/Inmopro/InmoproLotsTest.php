@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Inmopro;
 
+use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\Client;
 use App\Models\Inmopro\Commission;
 use App\Models\Inmopro\Lot;
@@ -16,6 +17,7 @@ use Database\Seeders\Inmopro\LotSeeder;
 use Database\Seeders\Inmopro\LotStatusSeeder;
 use Database\Seeders\Inmopro\ProjectSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class InmoproLotsTest extends TestCase
@@ -32,6 +34,32 @@ class InmoproLotsTest extends TestCase
         $this->seed(AdvisorSeeder::class);
         $this->seed(ClientSeeder::class);
         $this->seed(LotSeeder::class);
+
+        $reservedStatusId = LotStatus::query()->where('code', LotStatus::CODE_RESERVADO)->value('id');
+        $transferredStatusId = LotStatus::query()->where('code', LotStatus::CODE_TRANSFERIDO)->value('id');
+        $advisor = Advisor::query()->first();
+        $client = Client::query()->first();
+        $lots = Lot::query()->limit(3)->get();
+
+        foreach ($lots->take(2) as $lot) {
+            $lot->update([
+                'lot_status_id' => $reservedStatusId,
+                'advisor_id' => $advisor?->id,
+                'client_id' => $client?->id,
+                'client_name' => $client?->name,
+                'client_dni' => $client?->dni,
+                'sale_price' => $lot->price,
+            ]);
+        }
+
+        $lots->get(2)?->update([
+            'lot_status_id' => $transferredStatusId,
+            'advisor_id' => $advisor?->id,
+            'client_id' => $client?->id,
+            'client_name' => $client?->name,
+            'client_dni' => $client?->dni,
+            'sale_price' => $lots->get(2)?->price,
+        ]);
     }
 
     public function test_guests_cannot_visit_lots_index(): void
@@ -299,6 +327,7 @@ class InmoproLotsTest extends TestCase
     public function test_updating_lot_recalculates_remaining_balance_and_normalizes_dates(): void
     {
         $user = User::factory()->create();
+        $user->givePermissionTo(Permission::findOrCreate('inmopro.lots.financial.update', 'web'));
         $transferredId = LotStatus::where('code', LotStatus::CODE_TRANSFERIDO)->value('id');
         $lot = Lot::query()
             ->when($transferredId, fn ($q) => $q->where('lot_status_id', '!=', $transferredId))
@@ -311,6 +340,7 @@ class InmoproLotsTest extends TestCase
             'client_id' => $lot->client_id,
             'advisor_id' => $lot->advisor_id,
             'price' => 10000,
+            'sale_price' => 10000,
             'advance' => 2500,
             'remaining_balance' => 999999,
             'payment_limit_date' => '2026-03-21T14:30:00-05:00',
@@ -401,6 +431,7 @@ class InmoproLotsTest extends TestCase
     public function test_bulk_update_project_lots_persists_multiple_rows(): void
     {
         $user = User::factory()->create();
+        $user->givePermissionTo(Permission::findOrCreate('inmopro.lots.financial.update', 'web'));
         $this->actingAs($user);
 
         $project = Project::query()->firstOrFail();
@@ -425,6 +456,7 @@ class InmoproLotsTest extends TestCase
             'number' => $lot->number,
             'area' => $lot->area,
             'price' => 50000 + $lot->id,
+            'sale_price' => 50000 + $lot->id,
             'advance' => 1000,
             'remaining_balance' => 49000 + $lot->id,
             'payment_limit_date' => null,

@@ -18,6 +18,9 @@ class Lot extends Model
         'number',
         'area',
         'price',
+        'list_price',
+        'sale_price',
+        'acquisition_cost',
         'lot_status_id',
         'client_id',
         'advisor_id',
@@ -42,6 +45,9 @@ class Lot extends Model
         return [
             'area' => 'decimal:2',
             'price' => 'decimal:2',
+            'list_price' => 'decimal:2',
+            'sale_price' => 'decimal:2',
+            'acquisition_cost' => 'decimal:2',
             'advance' => 'decimal:2',
             'remaining_balance' => 'decimal:2',
             'payment_limit_date' => 'date',
@@ -144,6 +150,33 @@ class Lot extends Model
     public function transferConfirmations(): HasMany
     {
         return $this->hasMany(LotTransferConfirmation::class, 'lot_id')->latest();
+    }
+
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(LotExpense::class)->latest('expense_date');
+    }
+
+    public function financialMetrics(): array
+    {
+        $salePrice = $this->sale_price !== null ? (float) $this->sale_price : null;
+        $listPrice = (float) ($this->list_price ?? $this->price ?? 0);
+        $expenses = (float) ($this->expenses_sum_amount ?? $this->expenses()->sum('amount'));
+        $commissions = (float) ($this->commissions_sum_amount ?? $this->commissions()->sum('amount'));
+        $profit = $salePrice !== null && $this->acquisition_cost !== null
+            ? round($salePrice - (float) $this->acquisition_cost - $expenses - $commissions, 2)
+            : null;
+
+        return [
+            'list_price' => $listPrice,
+            'sale_price' => $salePrice,
+            'acquisition_cost' => $this->acquisition_cost !== null ? (float) $this->acquisition_cost : null,
+            'price_variance' => $salePrice !== null ? round($salePrice - $listPrice, 2) : null,
+            'expenses_total' => round($expenses, 2),
+            'commissions_total' => round($commissions, 2),
+            'net_profit' => $profit,
+            'profit_margin' => $profit !== null && $salePrice > 0 ? round(($profit / $salePrice) * 100, 2) : null,
+        ];
     }
 
     /**

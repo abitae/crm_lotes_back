@@ -17,6 +17,8 @@ class FinancialController extends Controller
         $statusLibre = LotStatus::where('code', 'LIBRE')->first();
         $statusPreReserva = LotStatus::where('code', 'PRERESERVA')->first();
         $query = Lot::with(['project', 'client', 'status'])
+            ->withSum('expenses', 'amount')
+            ->withSum('commissions', 'amount')
             ->when($statusLibre, fn ($q) => $q->where('lot_status_id', '!=', $statusLibre->id))
             ->when($statusPreReserva, fn ($q) => $q->where('lot_status_id', '!=', $statusPreReserva->id));
 
@@ -32,7 +34,7 @@ class FinancialController extends Controller
             });
         }
 
-        $totalValue = (clone $query)->sum('price');
+        $totalValue = (clone $query)->sum('sale_price');
         $totalCollected = (clone $query)->sum('advance');
         $totalPending = $totalValue - $totalCollected;
         $filterParams = array_filter([
@@ -45,6 +47,9 @@ class FinancialController extends Controller
             ->orderByDesc('updated_at')
             ->paginate(20)
             ->appends($filterParams);
+        $lots->getCollection()->each(function (Lot $lot): void {
+            $lot->setAttribute('financial_metrics', $lot->financialMetrics());
+        });
         $projects = Project::query()->orderBy('name')->get();
 
         return Inertia::render('inmopro/financial', [
@@ -53,6 +58,8 @@ class FinancialController extends Controller
             'totalValue' => $totalValue,
             'totalCollected' => $totalCollected,
             'totalPending' => $totalPending,
+            'totalExpenses' => (clone $query)->get()->sum(fn (Lot $lot) => (float) ($lot->expenses_sum_amount ?? 0)),
+            'totalCommissions' => (clone $query)->get()->sum(fn (Lot $lot) => (float) ($lot->commissions_sum_amount ?? 0)),
             'filters' => [
                 'project_id' => $request->input('project_id'),
                 'search' => $request->input('search'),

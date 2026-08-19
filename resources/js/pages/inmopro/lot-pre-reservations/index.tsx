@@ -54,6 +54,7 @@ type PreReservation = {
         block: string;
         number: string;
         price?: string | number | null;
+        list_price?: string | number | null;
         advance?: string | number | null;
         remaining_balance?: string | number | null;
         project?: { name: string } | null;
@@ -180,6 +181,7 @@ export default function LotPreReservationsIndex({
     });
     const approveForm = useForm({
         review_notes: '',
+        sale_price: '',
     });
     const rejectForm = useForm({
         rejection_reason: '',
@@ -437,6 +439,7 @@ export default function LotPreReservationsIndex({
 
     const openApproveDialog = (preReservation: PreReservation) => {
         approveForm.reset();
+        approveForm.setData('sale_price', String(preReservation.lot?.list_price ?? preReservation.lot?.price ?? ''));
         approveForm.clearErrors();
         setSelectedPreReservation(preReservation);
         setApproveOpen(true);
@@ -1149,6 +1152,26 @@ export default function LotPreReservationsIndex({
                         </div>
 
                         <div className="grid gap-3 md:grid-cols-2">
+                            <div className="space-y-2">
+                                <label
+                                    htmlFor="pre_reservation_sale_price"
+                                    className="text-sm font-medium text-slate-700"
+                                >
+                                    Precio real de venta (S/)
+                                </label>
+                                <Input
+                                    id="pre_reservation_sale_price"
+                                    type="number"
+                                    min="0.01"
+                                    step="0.01"
+                                    value={approveForm.data.sale_price}
+                                    onChange={(event) => approveForm.setData('sale_price', event.target.value)}
+                                />
+                                <p className="text-xs text-slate-500">
+                                    Precio de lista: {formatLotMoney(selectedPreReservation.lot?.list_price ?? selectedPreReservation.lot?.price)}
+                                </p>
+                                <InputError message={approveForm.errors.sale_price} />
+                            </div>
                             <div className="space-y-2">
                                 <label
                                     htmlFor="register_pre_reservation_amount"

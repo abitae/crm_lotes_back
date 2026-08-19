@@ -12,6 +12,21 @@ class UpdateLotRequest extends FormRequest
      */
     public function authorize(): bool
     {
+        $lot = $this->route('lot');
+
+        $salePriceChanged = $this->has('sale_price') && $lot
+            && ($this->input('sale_price') === null
+                ? $lot->sale_price !== null
+                : (float) $this->input('sale_price') !== (float) $lot->sale_price);
+        $acquisitionCostChanged = $this->has('acquisition_cost') && $lot
+            && ($this->input('acquisition_cost') === null
+                ? $lot->acquisition_cost !== null
+                : (float) $this->input('acquisition_cost') !== (float) $lot->acquisition_cost);
+
+        if ($salePriceChanged || $acquisitionCostChanged) {
+            return $this->user()?->can('inmopro.lots.financial.update') ?? false;
+        }
+
         return true;
     }
 
@@ -39,6 +54,9 @@ class UpdateLotRequest extends FormRequest
             'number' => ['sometimes', 'string', 'max:20', 'regex:/^[A-Za-z0-9]+$/'],
             'area' => ['nullable', 'numeric', 'min:0'],
             'price' => ['nullable', 'numeric', 'min:0'],
+            'list_price' => ['nullable', 'numeric', 'min:0'],
+            'sale_price' => ['nullable', 'numeric', 'gt:0'],
+            'acquisition_cost' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }

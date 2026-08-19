@@ -1,7 +1,11 @@
-import { Head, Link } from '@inertiajs/react';
-import { CheckCircle2, Image, MapPin, Pencil } from 'lucide-react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { CheckCircle2, Image, MapPin, Pencil, Trash2 } from 'lucide-react';
+import type { FormEvent } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import InputError from '@/components/input-error';
 import { formatDate, formatDateTime } from '@/lib/date';
 import type { BreadcrumbItem } from '@/types';
 
@@ -11,6 +15,9 @@ type Lot = {
     number: string;
     area?: string;
     price?: string;
+    list_price?: string;
+    sale_price?: string;
+    acquisition_cost?: string;
     client_name?: string;
     client_dni?: string;
     advance?: string;
@@ -35,9 +42,13 @@ type Lot = {
         requester?: { name: string } | null;
         reviewer?: { name: string } | null;
     } | null;
+    expenses?: Array<{ id: number; category: string; concept: string; amount: string; expense_date: string; notes?: string | null; creator?: { name: string } }>;
 };
 
-export default function LotsShow({ lot, canConfirmTransfer }: { lot: Lot; canConfirmTransfer: boolean }) {
+type FinancialMetrics = { list_price: number; sale_price: number | null; acquisition_cost: number | null; price_variance: number | null; expenses_total: number; commissions_total: number; net_profit: number | null; profit_margin: number | null };
+
+export default function LotsShow({ lot, financialMetrics, canConfirmTransfer, canManageExpenses }: { lot: Lot; financialMetrics: FinancialMetrics; canConfirmTransfer: boolean; canManageFinancials: boolean; canManageExpenses: boolean }) {
+    const expenseForm = useForm({ category: 'TRANSFERENCIA', concept: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), notes: '' });
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
         { title: 'Inventario', href: '/inmopro/lots' },
@@ -46,6 +57,10 @@ export default function LotsShow({ lot, canConfirmTransfer }: { lot: Lot; canCon
 
     const formatMoney = (v: string | undefined) => (v != null && v !== '' ? Number(v).toLocaleString('es') : '—');
     const transferQueueUrl = `/inmopro/lot-transfer-confirmations?search=${encodeURIComponent(`${lot.block}-${lot.number}`)}`;
+    const submitExpense = (event: FormEvent) => {
+        event.preventDefault();
+        expenseForm.post(`/inmopro/lots/${lot.id}/expenses`, { onSuccess: () => expenseForm.reset('concept', 'amount', 'notes') });
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -105,8 +120,8 @@ export default function LotsShow({ lot, canConfirmTransfer }: { lot: Lot; canCon
                                     <dd className="font-medium">{lot.area ?? '—'}</dd>
                                 </div>
                                 <div>
-                                    <dt className="text-sm text-slate-500">Precio</dt>
-                                    <dd className="font-medium">{formatMoney(lot.price)}</dd>
+                                    <dt className="text-sm text-slate-500">Precio de lista</dt>
+                                    <dd className="font-medium">S/ {financialMetrics.list_price.toLocaleString('es-PE')}</dd>
                                 </div>
                             </dl>
                         </div>
@@ -139,6 +154,40 @@ export default function LotsShow({ lot, canConfirmTransfer }: { lot: Lot; canCon
                                 </div>
                             </dl>
                         </div>
+                    </div>
+                    <div className="mt-6 border-t border-slate-200 pt-6">
+                        <h3 className="mb-3 font-bold text-slate-700">Control de costos y ganancia</h3>
+                        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <div><dt className="text-sm text-slate-500">Precio real de venta</dt><dd className="font-medium">{financialMetrics.sale_price === null ? 'Pendiente' : `S/ ${financialMetrics.sale_price.toLocaleString('es-PE')}`}</dd></div>
+                            <div><dt className="text-sm text-slate-500">Costo base</dt><dd className="font-medium">{financialMetrics.acquisition_cost === null ? 'Pendiente' : `S/ ${financialMetrics.acquisition_cost.toLocaleString('es-PE')}`}</dd></div>
+                            <div><dt className="text-sm text-slate-500">Gastos</dt><dd className="font-medium">S/ {financialMetrics.expenses_total.toLocaleString('es-PE')}</dd></div>
+                            <div><dt className="text-sm text-slate-500">Comisiones</dt><dd className="font-medium">S/ {financialMetrics.commissions_total.toLocaleString('es-PE')}</dd></div>
+                            <div><dt className="text-sm text-slate-500">Variación vs. lista</dt><dd className="font-medium">{financialMetrics.price_variance === null ? '—' : `S/ ${financialMetrics.price_variance.toLocaleString('es-PE')}`}</dd></div>
+                            <div><dt className="text-sm text-slate-500">Ganancia neta</dt><dd className="font-bold text-emerald-700">{financialMetrics.net_profit === null ? 'Pendiente de costo base' : `S/ ${financialMetrics.net_profit.toLocaleString('es-PE')}`}</dd></div>
+                            <div><dt className="text-sm text-slate-500">Margen</dt><dd className="font-medium">{financialMetrics.profit_margin === null ? '—' : `${financialMetrics.profit_margin}%`}</dd></div>
+                        </dl>
+                    </div>
+                    <div className="mt-6 border-t border-slate-200 pt-6">
+                        <h3 className="mb-3 font-bold text-slate-700">Movimientos de gasto</h3>
+                        <div className="space-y-2">
+                            {(lot.expenses ?? []).map((expense) => (
+                                <div key={expense.id} className="flex items-center justify-between rounded-lg border p-3 text-sm">
+                                    <div><span className="font-semibold">{expense.concept}</span> · {expense.category} · {formatDate(expense.expense_date)}<div className="text-xs text-slate-500">{expense.notes}</div></div>
+                                    <div className="flex items-center gap-2"><span className="font-semibold">S/ {Number(expense.amount).toLocaleString('es-PE')}</span>{canManageExpenses ? <button type="button" aria-label="Eliminar gasto" onClick={() => router.delete(`/inmopro/lots/${lot.id}/expenses/${expense.id}`)}><Trash2 className="h-4 w-4 text-red-600" /></button> : null}</div>
+                                </div>
+                            ))}
+                            {(lot.expenses ?? []).length === 0 ? <p className="text-sm text-slate-500">No hay gastos registrados.</p> : null}
+                        </div>
+                        {canManageExpenses ? (
+                            <form onSubmit={submitExpense} className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
+                                <div><Label>Categoría</Label><select value={expenseForm.data.category} onChange={(e) => expenseForm.setData('category', e.target.value)} className="mt-1 w-full rounded-lg border bg-white px-3 py-2"><option value="TRANSFERENCIA">Transferencia</option><option value="OTRO">Otro</option></select></div>
+                                <div><Label>Concepto</Label><Input value={expenseForm.data.concept} onChange={(e) => expenseForm.setData('concept', e.target.value)} /><InputError message={expenseForm.errors.concept} /></div>
+                                <div><Label>Monto</Label><Input type="number" min="0.01" step="0.01" value={expenseForm.data.amount} onChange={(e) => expenseForm.setData('amount', e.target.value)} /><InputError message={expenseForm.errors.amount} /></div>
+                                <div><Label>Fecha</Label><Input type="date" value={expenseForm.data.expense_date} onChange={(e) => expenseForm.setData('expense_date', e.target.value)} /><InputError message={expenseForm.errors.expense_date} /></div>
+                                <div className="sm:col-span-2"><Label>Observaciones</Label><Input value={expenseForm.data.notes} onChange={(e) => expenseForm.setData('notes', e.target.value)} /></div>
+                                <Button type="submit" disabled={expenseForm.processing}>Agregar gasto</Button>
+                            </form>
+                        ) : null}
                     </div>
                     <div className="mt-6 border-t border-slate-200 pt-6">
                         <h3 className="mb-3 font-bold text-slate-700">Asignaciones (solo si se reserva)</h3>

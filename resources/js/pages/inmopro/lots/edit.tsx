@@ -14,6 +14,9 @@ type Lot = {
     number: string;
     area?: string;
     price?: string;
+    list_price?: string;
+    sale_price?: string;
+    acquisition_cost?: string;
     lot_status_id: number;
     client_id?: number;
     advisor_id?: number;
@@ -44,6 +47,9 @@ type LotEditForm = {
     contract_date: string;
     contract_number: string;
     observations: string;
+    list_price: string;
+    sale_price: string;
+    acquisition_cost: string;
 };
 
 export default function LotsEdit({ lot, lotStatuses, clients, advisors, projects }: {
@@ -67,6 +73,9 @@ export default function LotsEdit({ lot, lotStatuses, clients, advisors, projects
             contract_date: toIsoDate(lot.contract_date) || todayIsoDate(),
             contract_number: lot.contract_number ?? '',
             observations: lot.observations ?? '',
+            list_price: lot.list_price ?? lot.price ?? '',
+            sale_price: lot.sale_price ?? '',
+            acquisition_cost: lot.acquisition_cost ?? '',
         });
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -87,6 +96,9 @@ export default function LotsEdit({ lot, lotStatuses, clients, advisors, projects
             contract_date: formData.contract_date || null,
             client_name: formData.client_name || null,
             client_dni: formData.client_dni || null,
+            list_price: formData.list_price ? Number(formData.list_price) : null,
+            sale_price: formData.sale_price ? Number(formData.sale_price) : null,
+            acquisition_cost: formData.acquisition_cost ? Number(formData.acquisition_cost) : null,
         }));
         put('/inmopro/lots/' + lot.id);
     };
@@ -97,6 +109,23 @@ export default function LotsEdit({ lot, lotStatuses, clients, advisors, projects
             <div className="p-4">
                 <h2 className="mb-6 text-2xl font-black text-slate-800">Editar Lote {lot.block}-{lot.number}</h2>
                 <form onSubmit={submit} className="max-w-2xl space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-3">
+                        <div>
+                            <Label htmlFor="list_price">Precio de lista</Label>
+                            <Input id="list_price" type="number" min={0} step="0.01" value={data.list_price} onChange={(e) => setData('list_price', e.target.value)} className="mt-1" />
+                            <InputError message={errors.list_price} />
+                        </div>
+                        <div>
+                            <Label htmlFor="sale_price">Precio real de venta</Label>
+                            <Input id="sale_price" type="number" min="0.01" step="0.01" value={data.sale_price} onChange={(e) => setData('sale_price', e.target.value)} className="mt-1" />
+                            <InputError message={errors.sale_price} />
+                        </div>
+                        <div>
+                            <Label htmlFor="acquisition_cost">Costo base</Label>
+                            <Input id="acquisition_cost" type="number" min={0} step="0.01" value={data.acquisition_cost} onChange={(e) => setData('acquisition_cost', e.target.value)} className="mt-1" />
+                            <InputError message={errors.acquisition_cost} />
+                        </div>
+                    </div>
                     <div>
                         <Label htmlFor="lot_status_id">Estado (Estados de lote)</Label>
                         <select id="lot_status_id" value={data.lot_status_id} onChange={(e) => setData('lot_status_id', e.target.value)} className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2">

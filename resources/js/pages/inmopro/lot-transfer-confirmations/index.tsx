@@ -174,8 +174,10 @@ export default function LotTransferConfirmationsIndex({
     const [registerPreview, setRegisterPreview] = useState<string | null>(null);
     const registerForm = useForm<{
         evidence_image: File | null;
+        expenses: Array<{ category: string; concept: string; amount: string; expense_date: string; notes: string }>;
     }>({
         evidence_image: null,
+        expenses: [],
     });
     const approveForm = useForm({
         review_notes: '',
@@ -743,6 +745,24 @@ export default function LotTransferConfirmationsIndex({
                                         />
                                     </div>
                                 ) : null}
+                                <div className="rounded-lg border border-slate-200 p-3">
+                                    <div className="mb-2 flex items-center justify-between">
+                                        <p className="text-xs font-semibold text-slate-800">Gastos de la transferencia</p>
+                                        <Button type="button" size="sm" variant="outline" onClick={() => registerForm.setData('expenses', [...registerForm.data.expenses, { category: 'TRANSFERENCIA', concept: '', amount: '', expense_date: todayIsoDate(), notes: '' }])}>Agregar gasto</Button>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {registerForm.data.expenses.map((expense, index) => (
+                                            <div key={index} className="grid gap-2 rounded-md bg-slate-50 p-2 sm:grid-cols-2">
+                                                <select value={expense.category} onChange={(e) => registerForm.setData('expenses', registerForm.data.expenses.map((item, position) => position === index ? { ...item, category: e.target.value } : item))} className="rounded-md border bg-white px-2 py-1.5 text-xs"><option value="TRANSFERENCIA">Transferencia</option><option value="OTRO">Otro</option></select>
+                                                <Input placeholder="Concepto" value={expense.concept} onChange={(e) => registerForm.setData('expenses', registerForm.data.expenses.map((item, position) => position === index ? { ...item, concept: e.target.value } : item))} />
+                                                <Input type="number" min="0.01" step="0.01" placeholder="Monto" value={expense.amount} onChange={(e) => registerForm.setData('expenses', registerForm.data.expenses.map((item, position) => position === index ? { ...item, amount: e.target.value } : item))} />
+                                                <Input type="date" value={expense.expense_date} onChange={(e) => registerForm.setData('expenses', registerForm.data.expenses.map((item, position) => position === index ? { ...item, expense_date: e.target.value } : item))} />
+                                                <Input className="sm:col-span-2" placeholder="Observaciones (opcional)" value={expense.notes} onChange={(e) => registerForm.setData('expenses', registerForm.data.expenses.map((item, position) => position === index ? { ...item, notes: e.target.value } : item))} />
+                                                <button type="button" className="text-left text-xs font-semibold text-red-600" onClick={() => registerForm.setData('expenses', registerForm.data.expenses.filter((_, position) => position !== index))}>Quitar</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
 
                             <DialogFooter className="shrink-0 gap-2 border-t border-slate-100 pt-2">

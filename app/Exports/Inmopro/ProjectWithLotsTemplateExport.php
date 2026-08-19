@@ -20,7 +20,9 @@ class ProjectWithLotsTemplateExport implements FromArray, WithTitle
                 'MZ',
                 'LOTE',
                 'AREA',
-                'MONTO',
+                'PRECIO DE LISTA',
+                'PRECIO REAL DE VENTA',
+                'COSTO BASE',
                 'ADELANTO - SEPARACION',
                 'MONTO RESTANTE',
                 'FACTURACIÓN',
@@ -32,9 +34,9 @@ class ProjectWithLotsTemplateExport implements FromArray, WithTitle
                 'NRO DE CONTRATO',
                 'PROYECTO',
             ],
-            [1, '', '', 'A', '1A', 91.92, 25900, '', 25900, '', '', '', 'LIBRE', '', '', '', 'Villa Norte - Mito'],
-            [2, 'Cliente de ejemplo', '987654321', 'A', '1B', 95.73, 26900, 1000, 25900, '', '12345678', '2026-05-30', 'RESERVADO', 'YAPE + EFECTIVO', '2026-05-07', 'CT-001', 'Villa Norte - Mito'],
-            [3, '', '', 'B', '1', 120.83, 33900, '', 33900, '', '', '', 'LIBRE', '', '', '', 'Villa Norte - Mito'],
+            [1, '', '', 'A', '1A', 91.92, 25900, '', 18000, '', 25900, '', '', '', 'LIBRE', '', '', '', 'Villa Norte - Mito'],
+            [2, 'Cliente de ejemplo', '987654321', 'A', '1B', 95.73, 26900, 26500, 18500, 1000, 25500, '', '12345678', '2026-05-30', 'RESERVADO', 'YAPE + EFECTIVO', '2026-05-07', 'CT-001', 'Villa Norte - Mito'],
+            [3, '', '', 'B', '1', 120.83, 33900, '', 22000, '', 33900, '', '', '', 'LIBRE', '', '', '', 'Villa Norte - Mito'],
         ];
     }
 

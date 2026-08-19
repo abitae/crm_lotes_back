@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Inmopro;
 
+use App\Models\Inmopro\LotExpense;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreLotTransferConfirmationRequest extends FormRequest
 {
@@ -19,6 +21,12 @@ class StoreLotTransferConfirmationRequest extends FormRequest
     {
         return [
             'evidence_image' => ['required', 'image', 'max:5120'],
+            'expenses' => ['nullable', 'array'],
+            'expenses.*.category' => ['required', Rule::in([LotExpense::CATEGORY_TRANSFER, LotExpense::CATEGORY_OTHER])],
+            'expenses.*.concept' => ['required', 'string', 'max:255'],
+            'expenses.*.amount' => ['required', 'numeric', 'gt:0'],
+            'expenses.*.expense_date' => ['required', 'date'],
+            'expenses.*.notes' => ['nullable', 'string', 'max:1000'],
         ];
     }
 

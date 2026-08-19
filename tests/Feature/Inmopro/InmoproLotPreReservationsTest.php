@@ -81,6 +81,7 @@ class InmoproLotPreReservationsTest extends TestCase
         $this->actingAs($user)
             ->post(route('inmopro.lot-pre-reservations.approve', $preReservation), [
                 'review_notes' => 'Voucher validado y monto conforme.',
+                'sale_price' => 32000,
             ])
             ->assertRedirect(route('inmopro.lot-pre-reservations.index'));
 
@@ -93,6 +94,7 @@ class InmoproLotPreReservationsTest extends TestCase
         $this->assertDatabaseHas('lots', [
             'id' => $lot->id,
             'lot_status_id' => $reservedStatus->id,
+            'sale_price' => 32000,
         ]);
     }
 

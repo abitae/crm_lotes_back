@@ -34,6 +34,7 @@ class LotPersistService
      */
     public function update(Lot $lot, array $validated): void
     {
+        $originalSalePrice = $lot->sale_price;
         $validated = $this->normalizeLotDateFields($validated);
         $this->guardTransferStatusChange($validated, $lot);
         $this->validateTransferToTransferred($validated, $lot);
@@ -101,6 +102,10 @@ class LotPersistService
         $lot->fill($validated);
         $lot->save();
 
+        if ($lot->wasChanged('sale_price') && $originalSalePrice !== null && $lot->commissions()->exists()) {
+            $this->commissionService->recalculateForLot($lot);
+        }
+
         if ($transitionedToTransferred && ! $lot->commissions()->exists()) {
             $this->commissionService->createCommissionsForTransferredLot($lot->fresh());
         }
@@ -112,6 +117,12 @@ class LotPersistService
      */
     public function normalizeLotFields(array $validated, ?Lot $lot = null): array
     {
+        if (array_key_exists('list_price', $validated)) {
+            $validated['price'] = $validated['list_price'];
+        } elseif (array_key_exists('price', $validated)) {
+            $validated['list_price'] = $validated['price'];
+        }
+
         if (array_key_exists('number', $validated) && $validated['number'] !== null) {
             $validated['number'] = mb_strtoupper(trim((string) $validated['number']));
         }
@@ -120,9 +131,13 @@ class LotPersistService
             return $this->applyTransferredFinancialSettlement($validated, $lot);
         }
 
-        $price = array_key_exists('price', $validated) && $validated['price'] !== null
-            ? (float) $validated['price']
-            : null;
+        $price = array_key_exists('sale_price', $validated) && $validated['sale_price'] !== null
+            ? (float) $validated['sale_price']
+            : ($lot?->sale_price !== null
+                ? (float) $lot->sale_price
+                : (array_key_exists('price', $validated) && $validated['price'] !== null
+                    ? (float) $validated['price']
+                    : ($lot?->price !== null ? (float) $lot->price : null)));
         $advance = array_key_exists('advance', $validated) && $validated['advance'] !== null
             ? (float) $validated['advance']
             : null;
@@ -262,9 +277,11 @@ class LotPersistService
      */
     private function applyTransferredFinancialSettlement(array $validated, ?Lot $lot = null): array
     {
-        $price = array_key_exists('price', $validated) && $validated['price'] !== null
-            ? (float) $validated['price']
-            : ($lot !== null && $lot->price !== null ? (float) $lot->price : null);
+        $price = array_key_exists('sale_price', $validated) && $validated['sale_price'] !== null
+            ? (float) $validated['sale_price']
+            : ($lot !== null && ($lot->sale_price !== null || $lot->price !== null)
+                ? (float) ($lot->sale_price ?? $lot->price)
+                : null);
 
         if ($price === null) {
             $validated['remaining_balance'] = null;
@@ -272,7 +289,7 @@ class LotPersistService
             return $validated;
         }
 
-        $validated['price'] = $price;
+        $validated['sale_price'] = $price;
         $validated['advance'] = $price;
         $validated['remaining_balance'] = 0.0;
 

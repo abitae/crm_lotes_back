@@ -482,6 +482,8 @@ class InmoproLotTransferConfirmationsTest extends TestCase
             'client_name' => $client->name,
             'client_dni' => $client->dni,
             'price' => 10000,
+            'list_price' => 10000,
+            'sale_price' => 10000,
             'contract_date' => now()->toDateString(),
         ]);
 

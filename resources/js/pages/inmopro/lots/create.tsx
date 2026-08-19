@@ -18,6 +18,7 @@ type LotCreateForm = {
     number: string;
     area: string;
     price: string;
+    acquisition_cost: string;
     lot_status_id: number | string;
     client_id: number | '';
     advisor_id: number | '';
@@ -48,6 +49,7 @@ export default function LotsCreate({ projects, project, lotStatuses, clients, ad
             number: '',
             area: '',
             price: '',
+            acquisition_cost: '',
             lot_status_id: defaultStatus,
             client_id: '' as number | '',
             advisor_id: '' as number | '',
@@ -79,6 +81,7 @@ export default function LotsCreate({ projects, project, lotStatuses, clients, ad
             advisor_id: formData.advisor_id === '' ? null : Number(formData.advisor_id),
             area: formData.area ? Number(formData.area) : null,
             price: formData.price ? Number(formData.price) : null,
+            acquisition_cost: formData.acquisition_cost ? Number(formData.acquisition_cost) : null,
             advance: formData.advance ? Number(formData.advance) : null,
             remaining_balance: formData.remaining_balance ? Number(formData.remaining_balance) : null,
             payment_limit_date: formData.payment_limit_date || null,
@@ -130,9 +133,14 @@ export default function LotsCreate({ projects, project, lotStatuses, clients, ad
                             <InputError message={errors.area} />
                         </div>
                         <div>
-                            <Label htmlFor="price">Precio</Label>
+                            <Label htmlFor="price">Precio de lista</Label>
                             <Input id="price" type="number" min={0} value={data.price} onChange={(e) => setData('price', e.target.value)} className="mt-1" />
                             <InputError message={errors.price} />
+                        </div>
+                        <div>
+                            <Label htmlFor="acquisition_cost">Costo base</Label>
+                            <Input id="acquisition_cost" type="number" min={0} step="0.01" value={data.acquisition_cost} onChange={(e) => setData('acquisition_cost', e.target.value)} className="mt-1" />
+                            <InputError message={errors.acquisition_cost} />
                         </div>
                     </div>
                     <div className="border-t border-slate-200 pt-4">

@@ -201,6 +201,9 @@ class LotPreReservationController extends Controller
                 'advisor_id' => $lot_pre_reservation->advisor_id,
                 'client_name' => $lot_pre_reservation->client?->name,
                 'client_dni' => $lot_pre_reservation->client?->dni,
+                'sale_price' => $request->input('sale_price'),
+                'remaining_balance' => max(0, (float) $request->input('sale_price') - (float) $lot_pre_reservation->amount),
+                'advance' => $lot_pre_reservation->amount,
             ]);
         });
 

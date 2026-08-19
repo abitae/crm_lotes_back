@@ -29,7 +29,7 @@ class CommissionService
 
         $directRate = (float) $advisor->level->direct_rate;
         $pyramidRate = (float) $advisor->level->pyramid_rate;
-        $price = (float) $lot->price;
+        $price = (float) ($lot->sale_price ?? $lot->price);
 
         Commission::create([
             'lot_id' => $lot->id,
@@ -52,6 +52,17 @@ class CommissionService
                 'date' => $lot->contract_date ?? now()->toDateString(),
             ]);
         }
+    }
+
+    public function recalculateForLot(Lot $lot): void
+    {
+        $price = (float) ($lot->sale_price ?? $lot->price);
+
+        $lot->commissions()->get()->each(function (Commission $commission) use ($price): void {
+            $commission->update([
+                'amount' => round($price * ((float) $commission->percentage / 100), 2),
+            ]);
+        });
     }
 
     /**

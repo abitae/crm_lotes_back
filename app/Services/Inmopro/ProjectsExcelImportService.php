@@ -34,7 +34,9 @@ class ProjectsExcelImportService
         'block' => ['MZ', 'MANZANA'],
         'number' => ['LOTE', 'NRO LOTE', 'NUMERO LOTE'],
         'area' => ['AREA'],
-        'price' => ['MONTO', 'PRECIO'],
+        'price' => ['MONTO', 'PRECIO', 'PRECIO LISTA', 'PRECIO DE LISTA'],
+        'sale_price' => ['PRECIO VENTA', 'PRECIO REAL DE VENTA'],
+        'acquisition_cost' => ['COSTO BASE', 'COSTO ADQUISICION'],
         'advance' => ['ADELANTO - SEPARACION', 'ADELANTO', 'SEPARACION'],
         'remaining_balance' => ['MONTO RESTANTE', 'SALDO RESTANTE', 'SALDO'],
         'billing' => ['FACTURACION', 'FACTURACION '],
@@ -60,6 +62,8 @@ class ProjectsExcelImportService
         'number' => 'LOTE',
         'area' => 'AREA',
         'price' => 'MONTO',
+        'sale_price' => 'PRECIO VENTA',
+        'acquisition_cost' => 'COSTO BASE',
         'advance' => 'ADELANTO - SEPARACION',
         'remaining_balance' => 'MONTO RESTANTE',
         'billing' => 'FACTURACION',
@@ -183,6 +187,8 @@ class ProjectsExcelImportService
             $number = $this->normalizeLotNumberByField($cells, $headerMap, 'number');
             $area = $this->parseDecimalByField($cells, $headerMap, 'area');
             $price = $this->parseDecimalByField($cells, $headerMap, 'price');
+            $salePrice = $this->parseDecimalByField($cells, $headerMap, 'sale_price');
+            $acquisitionCost = $this->parseDecimalByField($cells, $headerMap, 'acquisition_cost');
             $advance = $this->parseDecimalByField($cells, $headerMap, 'advance');
             $remainingBalance = $this->parseDecimalByField($cells, $headerMap, 'remaining_balance');
             $clientName = $this->cellStringByField($cells, $headerMap, 'client_name');
@@ -303,6 +309,9 @@ class ProjectsExcelImportService
                 'number' => $number,
                 'area' => $area,
                 'price' => $price,
+                'list_price' => $price,
+                'sale_price' => $salePrice ?? (in_array($statusCode, ['RESERVADO', 'CUOTAS', 'TRANSFERIDO'], true) ? $price : null),
+                'acquisition_cost' => $acquisitionCost,
                 'client_name' => $clientName,
                 'client_phone' => $clientPhone,
                 'client_dni' => $clientDni,
@@ -317,6 +326,9 @@ class ProjectsExcelImportService
                     'number' => $number,
                     'area' => $area,
                     'price' => $price,
+                    'list_price' => $price,
+                    'sale_price' => $salePrice ?? (in_array($statusCode, ['RESERVADO', 'CUOTAS', 'TRANSFERIDO'], true) ? $price : null),
+                    'acquisition_cost' => $acquisitionCost,
                     'lot_status_id' => $lotStatusId,
                     'client_name' => $clientName,
                     'client_phone' => $clientPhone,

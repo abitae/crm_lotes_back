@@ -11,7 +11,11 @@ class BulkUpdateProjectLotsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $changesSalePrice = collect($this->input('lots', []))->contains(
+            fn ($lot) => array_key_exists('sale_price', $lot) || array_key_exists('acquisition_cost', $lot)
+        );
+
+        return ! $changesSalePrice || ($this->user()?->can('inmopro.lots.financial.update') ?? false);
     }
 
     /**
@@ -47,6 +51,9 @@ class BulkUpdateProjectLotsRequest extends FormRequest
             'lots.*.number' => ['sometimes', 'string', 'max:20', 'regex:/^[A-Za-z0-9]+$/'],
             'lots.*.area' => ['nullable', 'numeric', 'min:0'],
             'lots.*.price' => ['nullable', 'numeric', 'min:0'],
+            'lots.*.list_price' => ['nullable', 'numeric', 'min:0'],
+            'lots.*.sale_price' => ['nullable', 'numeric', 'gt:0'],
+            'lots.*.acquisition_cost' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 

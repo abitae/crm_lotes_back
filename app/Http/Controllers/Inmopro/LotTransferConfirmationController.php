@@ -119,12 +119,20 @@ class LotTransferConfirmationController extends Controller
 
         try {
             DB::transaction(function () use ($lot, $request, $storedPath, $transferredStatusId) {
-                LotTransferConfirmation::create([
+                $confirmation = LotTransferConfirmation::create([
                     'lot_id' => $lot->id,
                     'status' => LotTransferConfirmation::STATUS_PENDING,
                     'evidence_path' => $storedPath,
                     'requested_by' => $request->user()->id,
                 ]);
+
+                foreach ($request->validated('expenses', []) as $expense) {
+                    $lot->expenses()->create([
+                        ...$expense,
+                        'lot_transfer_confirmation_id' => $confirmation->id,
+                        'created_by' => $request->user()->id,
+                    ]);
+                }
 
                 $lot->update([
                     'lot_status_id' => $transferredStatusId,
@@ -166,7 +174,7 @@ class LotTransferConfirmationController extends Controller
             }
 
             $lot_transfer_confirmation->lot->update([
-                'advance' => $lot_transfer_confirmation->lot->price,
+                'advance' => $lot_transfer_confirmation->lot->sale_price ?? $lot_transfer_confirmation->lot->price,
                 'remaining_balance' => 0,
             ]);
 
@@ -323,6 +331,7 @@ class LotTransferConfirmationController extends Controller
     private function canRegisterTransfer(Lot $lot): bool
     {
         return $lot->status?->code === LotStatus::CODE_RESERVADO
+            && ($lot->sale_price !== null || $lot->price !== null)
             && $lot->latestTransferConfirmation?->status !== LotTransferConfirmation::STATUS_PENDING;
     }
 }

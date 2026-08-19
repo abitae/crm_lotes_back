@@ -12,11 +12,13 @@ type Lot = {
     block: string;
     number: string;
     price: string;
+    sale_price?: string | null;
     advance?: string;
     remaining_balance?: string;
     contract_date?: string;
     client?: { name: string; dni: string };
     project?: { name: string; location: string };
+    financial_metrics: { list_price: number; sale_price: number | null; acquisition_cost: number | null; expenses_total: number; commissions_total: number; net_profit: number | null; profit_margin: number | null };
 };
 type Project = { id: number; name: string };
 
@@ -26,6 +28,8 @@ export default function Financial({
     totalValue,
     totalCollected,
     totalPending,
+    totalExpenses,
+    totalCommissions,
     filters,
 }: {
     lots: { data: Lot[]; links: PaginationLink[]; total: number };
@@ -33,6 +37,8 @@ export default function Financial({
     totalValue: number;
     totalCollected: number;
     totalPending: number;
+    totalExpenses: number;
+    totalCommissions: number;
     filters: { project_id?: string; search?: string };
 }) {
     const collectionRate = totalValue > 0 ? Math.round((totalCollected / totalValue) * 100) : 0;
@@ -61,7 +67,7 @@ export default function Financial({
                     <div>
                         <h1 className={inmoproUi.pageTitle}>Control financiero</h1>
                         <p className={inmoproUi.pageSubtitle}>
-                            Seguimiento de ventas, cobranza y saldo pendiente por lote.
+                            Seguimiento de ventas, costos, gastos, ganancias y cobranza por lote.
                         </p>
                     </div>
                     <Link
@@ -79,6 +85,10 @@ export default function Financial({
                         <InmoproMetricCard icon={DollarSign} label="Cobrado" value={`S/ ${totalCollected.toLocaleString()}`} tone="emerald" />
                         <InmoproMetricCard icon={AlertTriangle} label="Pendiente" value={`S/ ${totalPending.toLocaleString()}`} tone="amber" />
                         <InmoproMetricCard icon={WalletCards} label="Operaciones" value={String(lots.total)} tone="slate" />
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <InmoproMetricCard icon={AlertTriangle} label="Gastos" value={`S/ ${totalExpenses.toLocaleString()}`} tone="amber" />
+                        <InmoproMetricCard icon={WalletCards} label="Comisiones" value={`S/ ${totalCommissions.toLocaleString()}`} tone="slate" />
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -144,11 +154,12 @@ export default function Financial({
                                     <th className="px-2 py-2 text-left">Proyecto</th>
                                     <th className="px-2 py-2 text-right">Montos</th>
                                     <th className="px-2 py-2 text-right">Avance</th>
+                                    <th className="px-2 py-2 text-right">Resultado</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${inmoproUi.divide}`}>
                                 {lots.data.map((lot) => {
-                                    const price = Number(lot.price);
+                                    const price = Number(lot.sale_price ?? lot.price);
                                     const collected = Number(lot.advance ?? 0);
                                     const progress = price > 0 ? Math.round((collected / price) * 100) : 0;
 
@@ -156,7 +167,7 @@ export default function Financial({
                                         <tr key={lot.id} className={`align-top ${inmoproUi.tableRowHover}`}>
                                             <td className="px-2 py-1.5">
                                                 <p className="font-semibold text-slate-900">
-                                                    {lot.block}-{lot.number}
+                                                    <Link href={`/inmopro/lots/${lot.id}`} className="hover:text-emerald-700 hover:underline">{lot.block}-{lot.number}</Link>
                                                 </p>
                                                 <p className="text-[10px] text-slate-500">
                                                     {lot.contract_date ? formatDate(lot.contract_date) : 'Sin contrato'}
@@ -184,6 +195,13 @@ export default function Financial({
                                                 <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
                                                     {progress}%
                                                 </span>
+                                            </td>
+                                            <td className="px-2 py-1.5 text-right tabular-nums">
+                                                {lot.financial_metrics.net_profit === null ? (
+                                                    <span className="text-[10px] text-amber-700">Costo base pendiente</span>
+                                                ) : (
+                                                    <><div className="font-semibold text-emerald-700">S/ {lot.financial_metrics.net_profit.toLocaleString()}</div><div className="text-[10px] text-slate-500">{lot.financial_metrics.profit_margin}% margen</div></>
+                                                )}
                                             </td>
                                         </tr>
                                     );

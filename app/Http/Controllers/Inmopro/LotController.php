@@ -152,13 +152,17 @@ class LotController extends Controller
             'client',
             'advisor',
             'commissions',
+            'expenses.creator',
             'latestTransferConfirmation.requester',
             'latestTransferConfirmation.reviewer',
         ]);
 
         return Inertia::render('inmopro/lots/show', [
             'lot' => $lot,
+            'financialMetrics' => $lot->financialMetrics(),
             'canConfirmTransfer' => request()->user()?->can('inmopro.lots.transfer-confirmation') ?? false,
+            'canManageFinancials' => request()->user()?->can('inmopro.lots.financial.update') ?? false,
+            'canManageExpenses' => request()->user()?->can('inmopro.lots.expenses.store') ?? false,
         ]);
     }
 

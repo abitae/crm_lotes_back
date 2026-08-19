@@ -8,7 +8,7 @@ class LotGoalAttributedAmount
 {
     public function forLot(Lot $lot): float
     {
-        $price = (float) ($lot->price ?? 0);
+        $price = (float) ($lot->sale_price ?? $lot->price ?? 0);
         $percentage = (int) ($lot->project?->projectType?->percentage_meta ?? 100);
 
         if ($percentage < 0) {

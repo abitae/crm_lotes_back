@@ -5,6 +5,7 @@ namespace App\Models\Inmopro;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LotTransferConfirmation extends Model
 {
@@ -61,5 +62,10 @@ class LotTransferConfirmation extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(LotExpense::class);
     }
 }

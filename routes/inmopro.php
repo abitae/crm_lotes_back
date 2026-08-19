@@ -25,6 +25,7 @@ use App\Http\Controllers\Inmopro\DateroController;
 use App\Http\Controllers\Inmopro\FinancialController;
 use App\Http\Controllers\Inmopro\LotAiFollowUpSuggestionController;
 use App\Http\Controllers\Inmopro\LotController;
+use App\Http\Controllers\Inmopro\LotExpenseController;
 use App\Http\Controllers\Inmopro\LotPreReservationController;
 use App\Http\Controllers\Inmopro\LotStatusController;
 use App\Http\Controllers\Inmopro\LotTransferConfirmationController;
@@ -121,6 +122,9 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
             ->middleware('throttle:ai')
             ->name('lots.ai-follow-up-suggestion');
         Route::resource('lots', LotController::class);
+        Route::post('lots/{lot}/expenses', [LotExpenseController::class, 'store'])->name('lots.expenses.store');
+        Route::put('lots/{lot}/expenses/{expense}', [LotExpenseController::class, 'update'])->name('lots.expenses.update');
+        Route::delete('lots/{lot}/expenses/{expense}', [LotExpenseController::class, 'destroy'])->name('lots.expenses.destroy');
         Route::get('clients/search', [ClientController::class, 'search'])->name('clients.search');
         Route::get('clients/excel-template', [ClientController::class, 'excelTemplate'])->name('clients.excel-template');
         Route::get('clients/export-excel', [ClientController::class, 'exportExcel'])->name('clients.export-excel');
