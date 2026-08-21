@@ -150,7 +150,10 @@ class OpenAiCazadorConfigTest extends TestCase
         $this->assertSame('Tim Villafuerte', $document->expert_name);
         $this->assertSame($user->id, $document->uploaded_by);
         Storage::disk('gcs')->assertExists($document->storage_path);
-        Queue::assertPushed(IndexCazadorKnowledge::class, fn ($job) => $job->documentId === $document->id);
+        Queue::assertPushed(
+            IndexCazadorKnowledge::class,
+            fn ($job) => $job->documentId === $document->id && $job->connection === 'background',
+        );
     }
 
     public function test_upload_rejects_non_markdown_and_invalid_utf8(): void
@@ -216,6 +219,10 @@ class OpenAiCazadorConfigTest extends TestCase
         $this->assertEqualsCanonicalizing(
             ['Tim Villafuerte', 'Alex Day'],
             OpenAiCazadorKnowledgeDocument::query()->pluck('expert_name')->all(),
+        );
+        Queue::assertPushed(
+            IndexCazadorKnowledge::class,
+            fn ($job) => $job->connection === 'background',
         );
         Queue::assertPushed(IndexCazadorKnowledge::class, 2);
     }

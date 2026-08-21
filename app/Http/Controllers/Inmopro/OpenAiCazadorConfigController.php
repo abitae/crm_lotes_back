@@ -130,7 +130,7 @@ class OpenAiCazadorConfigController extends Controller
             throw $exception;
         }
 
-        IndexCazadorKnowledge::dispatch($document->id);
+        IndexCazadorKnowledge::dispatch($document->id)->onConnection('background');
 
         return back()->with('success', 'El conocimiento del experto se está indexando. Los documentos activos seguirán disponibles.');
     }
@@ -173,7 +173,7 @@ class OpenAiCazadorConfigController extends Controller
 
             throw $exception;
         }
-        IndexCazadorKnowledge::dispatch($replacement->id);
+        IndexCazadorKnowledge::dispatch($replacement->id)->onConnection('background');
 
         return back()->with('success', 'Reindexación iniciada.');
     }
