@@ -8,6 +8,54 @@ use Laravel\Ai\Embeddings;
 
 class MarkdownKnowledgeSearch
 {
+    public const int TITLE_LIMIT = 20;
+
+    /**
+     * Títulos (encabezados Markdown) de los documentos activos, únicos y en orden de aparición.
+     *
+     * @return list<string>
+     */
+    public function listTitles(int $limit = self::TITLE_LIMIT): array
+    {
+        $documents = OpenAiCazadorKnowledgeDocument::activeDocuments()
+            ->orderBy('version')
+            ->get(['id']);
+
+        if ($documents->isEmpty()) {
+            return [];
+        }
+
+        $orderedIds = $documents->pluck('id')->all();
+        $headings = OpenAiCazadorKnowledgeChunk::query()
+            ->whereIn('document_id', $orderedIds)
+            ->whereNotNull('heading')
+            ->where('heading', '!=', '')
+            ->orderBy('document_id')
+            ->orderBy('position')
+            ->get(['document_id', 'position', 'heading']);
+
+        $byDocument = $headings->groupBy(fn (OpenAiCazadorKnowledgeChunk $chunk): int => (int) $chunk->document_id);
+        $unique = [];
+        $seen = [];
+
+        foreach ($orderedIds as $documentId) {
+            foreach ($byDocument->get($documentId, collect()) as $chunk) {
+                $title = trim((string) $chunk->heading);
+                $key = mb_strtolower($title);
+                if ($title === '' || isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $unique[] = $title;
+                if (count($unique) >= max(1, $limit)) {
+                    return $unique;
+                }
+            }
+        }
+
+        return $unique;
+    }
+
     /**
      * @return array{version: ?int, versions: list<int>, documents_count: int, results: list<array{document_id: int, expert_name: string, version: int, heading: ?string, content: string, score: float}>}
      */

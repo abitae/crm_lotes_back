@@ -5,6 +5,7 @@ namespace App\OpenAi\Http\Controllers\Api\v1\Cazador;
 use App\Http\Controllers\Controller;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\Project;
+use App\OpenAi\Services\MarkdownKnowledgeSearch;
 use App\OpenAi\Services\ProjectKnowledgeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,7 +14,15 @@ class KnowledgeController extends Controller
 {
     public function __construct(
         private ProjectKnowledgeService $knowledge,
+        private MarkdownKnowledgeSearch $markdownKnowledge,
     ) {}
+
+    public function indexTopics(): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->markdownKnowledge->listTitles(),
+        ]);
+    }
 
     public function indexProjects(): JsonResponse
     {

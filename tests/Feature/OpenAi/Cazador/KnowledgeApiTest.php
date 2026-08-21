@@ -5,6 +5,7 @@ namespace Tests\Feature\OpenAi\Cazador;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
+use App\Models\Inmopro\OpenAiCazadorKnowledgeDocument;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\ProjectAsset;
 use Database\Seeders\Inmopro\AdvisorLevelSeeder;
@@ -162,6 +163,32 @@ class KnowledgeApiTest extends TestCase
             ->assertOk();
 
         $this->assertCount($total, $response->json('data'));
+    }
+
+    public function test_advisor_can_list_knowledge_titles(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $document = OpenAiCazadorKnowledgeDocument::query()->create([
+            'version' => 1,
+            'expert_name' => 'Alex Day',
+            'original_name' => 'ventas.md',
+            'storage_path' => 'openai-cazador/v1.md',
+            'file_size' => 100,
+            'sha256' => hash('sha256', 'ventas'),
+            'status' => 'ready',
+            'is_active' => true,
+        ]);
+        $document->chunks()->create([
+            'position' => 1,
+            'heading' => 'Manejo de objeciones',
+            'content' => 'Valida la preocupación antes de responder.',
+            'embedding' => [],
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$this->loginToken($advisor))
+            ->getJson(route('api.v1.cazador.openai.knowledge.topics.index'))
+            ->assertOk()
+            ->assertJsonPath('data.0', 'Manejo de objeciones');
     }
 
     public function test_knowledge_returns_service_unavailable_when_module_disabled(): void

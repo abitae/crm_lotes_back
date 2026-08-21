@@ -78,6 +78,38 @@ class MarkdownKnowledgeTest extends TestCase
         $this->assertNotContains('No visible', collect($result['results'])->pluck('heading')->all());
     }
 
+    public function test_list_titles_returns_unique_active_headings_in_order(): void
+    {
+        $tim = $this->document(1, 'Tim Villafuerte');
+        $tim->update(['status' => 'ready', 'is_active' => true]);
+        $tim->chunks()->createMany([
+            ['position' => 1, 'heading' => 'Cierre consultivo', 'content' => 'Pregunta y escucha.', 'embedding' => []],
+            ['position' => 2, 'heading' => 'Cierre consultivo', 'content' => 'Continúa el mismo tema.', 'embedding' => []],
+            ['position' => 3, 'heading' => 'Financiamiento', 'content' => 'Explica cuotas.', 'embedding' => []],
+        ]);
+        $alex = $this->document(2, 'Alex Day');
+        $alex->update(['status' => 'ready', 'is_active' => true]);
+        $alex->chunks()->create([
+            'position' => 1,
+            'heading' => 'Manejo de objeciones',
+            'content' => 'Valida la preocupación.',
+            'embedding' => [],
+        ]);
+        $inactive = $this->document(3, 'Borrador');
+        $inactive->update(['status' => 'ready', 'is_active' => false]);
+        $inactive->chunks()->create([
+            'position' => 1,
+            'heading' => 'No visible',
+            'content' => 'Documento inactivo.',
+            'embedding' => [],
+        ]);
+
+        $this->assertSame(
+            ['Cierre consultivo', 'Financiamiento', 'Manejo de objeciones'],
+            app(MarkdownKnowledgeSearch::class)->listTitles(),
+        );
+    }
+
     public function test_semantic_search_combines_all_active_expert_documents(): void
     {
         Embeddings::fake(fn ($prompt) => array_fill(0, count($prompt->inputs), array_fill(0, 1536, 1.0)));

@@ -13,6 +13,8 @@ Route::prefix('v1/cazador/openai')
 
         Route::middleware('openai.cazador')->group(function (): void {
             Route::middleware('throttle:ai-cazador-knowledge')->group(function (): void {
+                Route::get('knowledge/topics', [KnowledgeController::class, 'indexTopics'])
+                    ->name('knowledge.topics.index');
                 Route::get('knowledge/projects', [KnowledgeController::class, 'indexProjects'])
                     ->name('knowledge.projects.index');
                 Route::get('knowledge/projects/{project}', [KnowledgeController::class, 'showProject'])
