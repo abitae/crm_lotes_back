@@ -9,12 +9,14 @@ use App\Models\Inmopro\Client;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotPreReservation;
 use App\Models\Inmopro\LotStatus;
+use App\Services\Inmopro\ClientCrmService;
 use App\Support\FileStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
 class PreReservationController extends Controller
 {
+    public function __construct(private ClientCrmService $clientCrmService) {}
     public function store(StorePreReservationRequest $request, Lot $lot): JsonResponse
     {
         /** @var Advisor $advisor */
@@ -104,6 +106,18 @@ class PreReservationController extends Controller
                 throw $e;
             }
         });
+
+        $this->clientCrmService->logEvent(
+            $client,
+            'pre_reservation.created',
+            ClientCrmService::SOURCE_CAZADOR,
+            $advisor,
+            meta: [
+                'pre_reservation_id' => $preReservation->id,
+                'lot_id' => $lot->id,
+                'project_id' => $lot->project_id,
+            ],
+        );
 
         return response()->json([
             'message' => 'Pre-reserva registrada y pendiente de aprobación.',

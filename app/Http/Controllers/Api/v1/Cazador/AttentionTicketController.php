@@ -8,11 +8,13 @@ use App\Http\Requests\Api\v1\Cazador\StoreAttentionTicketRequest;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\AttentionTicket;
 use App\Models\Inmopro\Client;
+use App\Services\Inmopro\ClientCrmService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AttentionTicketController extends Controller
 {
+    public function __construct(private ClientCrmService $clientCrmService) {}
     public function index(Request $request): JsonResponse
     {
         /** @var Advisor $advisor */
@@ -58,6 +60,14 @@ class AttentionTicketController extends Controller
             'scheduled_at' => null,
         ])->load(['client', 'project', 'type']);
 
+        $this->clientCrmService->logEvent(
+            $client,
+            'ticket.created',
+            ClientCrmService::SOURCE_CAZADOR,
+            $advisor,
+            meta: ['ticket_id' => $ticket->id],
+        );
+
         return response()->json([
             'message' => 'Ticket de atención registrado.',
             'data' => $this->ticketPayload($ticket),
@@ -92,6 +102,18 @@ class AttentionTicketController extends Controller
             'status' => 'cancelado',
             'notes' => $notes,
         ]);
+
+        if ($ticket->client) {
+            /** @var Advisor $advisor */
+            $advisor = $request->attributes->get('advisor');
+            $this->clientCrmService->logEvent(
+                $ticket->client,
+                'ticket.cancelled',
+                ClientCrmService::SOURCE_CAZADOR,
+                $advisor,
+                meta: ['ticket_id' => $ticket->id],
+            );
+        }
 
         return response()->json([
             'message' => 'Ticket cancelado correctamente.',

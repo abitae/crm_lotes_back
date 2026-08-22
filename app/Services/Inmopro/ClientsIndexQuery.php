@@ -25,6 +25,8 @@ class ClientsIndexQuery
         'per_page',
         'search',
         'client_type_id',
+        'client_status_id',
+        'tag_id',
         'city_id',
         'advisor_id',
         'created_from',
@@ -91,6 +93,11 @@ class ClientsIndexQuery
                 });
             })
             ->when($request->filled('client_type_id'), fn (Builder $builder) => $builder->where('client_type_id', $request->integer('client_type_id')))
+            ->when($request->filled('client_status_id'), fn (Builder $builder) => $builder->where('client_status_id', $request->integer('client_status_id')))
+            ->when($request->filled('tag_id'), function (Builder $builder) use ($request): void {
+                $tagId = $request->integer('tag_id');
+                $builder->whereHas('tags', fn (Builder $tagQuery) => $tagQuery->where('client_tags.id', $tagId));
+            })
             ->when($request->filled('city_id'), fn (Builder $builder) => $builder->where('city_id', $request->integer('city_id')))
             ->when($request->filled('advisor_id'), fn (Builder $builder) => $builder->where('advisor_id', $request->integer('advisor_id')));
 
@@ -133,6 +140,8 @@ class ClientsIndexQuery
         $filters = $request->only([
             'search',
             'client_type_id',
+            'client_status_id',
+            'tag_id',
             'city_id',
             'advisor_id',
             'created_from',

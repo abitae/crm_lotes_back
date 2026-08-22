@@ -24,6 +24,8 @@ type Client = {
     created_at?: string;
     lots_count?: number;
     type?: { name: string; color?: string };
+    status?: { name: string; color?: string | null } | null;
+    tags?: Array<{ id: number; name: string; color?: string | null }>;
     city?: { name: string; department?: string | null };
     advisor?: { name: string; team?: { name: string } | null };
 };
@@ -35,6 +37,8 @@ type Option = {
 type ClientFilters = {
     search?: string;
     client_type_id?: string | number;
+    client_status_id?: string | number;
+    tag_id?: string | number;
     city_id?: string | number;
     advisor_id?: string | number;
     created_from?: string;
@@ -48,6 +52,8 @@ type ClientFilters = {
 const CLIENT_FILTER_KEYS = [
     'search',
     'client_type_id',
+    'client_status_id',
+    'tag_id',
     'city_id',
     'advisor_id',
     'created_from',
@@ -205,6 +211,8 @@ export default function ClientsIndex({
     clients,
     filters,
     clientTypes,
+    clientStatuses,
+    clientTags,
     cities,
     advisors,
     perPageOptions,
@@ -212,6 +220,8 @@ export default function ClientsIndex({
     clients: { data: Client[]; links: PaginationLink[]; total?: number; per_page?: number };
     filters: ClientFilters;
     clientTypes: Option[];
+    clientStatuses: Option[];
+    clientTags: Option[];
     cities: Option[];
     advisors: Option[];
     perPageOptions: number[];
@@ -306,6 +316,8 @@ export default function ClientsIndex({
     const hasActiveFilters = Boolean(
         filters.search
         || filters.client_type_id
+        || filters.client_status_id
+        || filters.tag_id
         || filters.city_id
         || filters.advisor_id
         || filters.last_action_kind,
@@ -419,6 +431,34 @@ export default function ClientsIndex({
                                             <option value="">Todos</option>
                                             {clientTypes.map((clientType) => (
                                                 <option key={clientType.id} value={clientType.id}>{clientType.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="lg:col-span-2">
+                                        <Label htmlFor="client_status_id" className={FILTER_LABEL_CLASS}>Estado CRM</Label>
+                                        <select
+                                            id="client_status_id"
+                                            name="client_status_id"
+                                            defaultValue={filters.client_status_id ? String(filters.client_status_id) : ''}
+                                            className={FILTER_FIELD_CLASS}
+                                        >
+                                            <option value="">Todos</option>
+                                            {clientStatuses.map((status) => (
+                                                <option key={status.id} value={status.id}>{status.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="lg:col-span-2">
+                                        <Label htmlFor="tag_id" className={FILTER_LABEL_CLASS}>Etiqueta</Label>
+                                        <select
+                                            id="tag_id"
+                                            name="tag_id"
+                                            defaultValue={filters.tag_id ? String(filters.tag_id) : ''}
+                                            className={FILTER_FIELD_CLASS}
+                                        >
+                                            <option value="">Todas</option>
+                                            {clientTags.map((tag) => (
+                                                <option key={tag.id} value={tag.id}>{tag.name}</option>
                                             ))}
                                         </select>
                                     </div>
@@ -627,8 +667,10 @@ export default function ClientsIndex({
                                             <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
                                                 <th className="px-2 py-1.5 text-left font-semibold">Cliente</th>
                                                 <th className="hidden px-2 py-1.5 text-left font-semibold sm:table-cell">Tipo</th>
+                                                <th className="hidden px-2 py-1.5 text-left font-semibold md:table-cell">Estado</th>
+                                                <th className="hidden px-2 py-1.5 text-left font-semibold lg:table-cell">Etiquetas</th>
                                                 <th className="px-2 py-1.5 text-left font-semibold">Contacto</th>
-                                                <th className="hidden px-2 py-1.5 text-left font-semibold lg:table-cell">Ciudad</th>
+                                                <th className="hidden px-2 py-1.5 text-left font-semibold xl:table-cell">Ciudad</th>
                                                 <th className="hidden px-2 py-1.5 text-left font-semibold md:table-cell">Asesor</th>
                                                 <th className="px-2 py-1.5 text-center font-semibold">Lotes</th>
                                                 <th className="hidden px-2 py-1.5 text-left font-semibold xl:table-cell">Registro</th>
@@ -651,11 +693,40 @@ export default function ClientsIndex({
                                                             {client.type?.name ?? 'Sin tipo'}
                                                         </span>
                                                     </td>
+                                                    <td className="hidden px-2 py-1.5 md:table-cell">
+                                                        {client.status ? (
+                                                            <span
+                                                                className="inline-flex max-w-[7rem] truncate rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+                                                                style={{ backgroundColor: client.status.color ?? '#64748b' }}
+                                                            >
+                                                                {client.status.name}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[11px] text-slate-400">Sin estado</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="hidden px-2 py-1.5 lg:table-cell">
+                                                        <div className="flex max-w-[10rem] flex-wrap gap-1">
+                                                            {(client.tags ?? []).length === 0 ? (
+                                                                <span className="text-[11px] text-slate-400">—</span>
+                                                            ) : (
+                                                                (client.tags ?? []).slice(0, 3).map((tag) => (
+                                                                    <span
+                                                                        key={tag.id}
+                                                                        className="rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white"
+                                                                        style={{ backgroundColor: tag.color ?? '#64748b' }}
+                                                                    >
+                                                                        {tag.name}
+                                                                    </span>
+                                                                ))
+                                                            )}
+                                                        </div>
+                                                    </td>
                                                     <td className="max-w-[9rem] px-2 py-1.5 sm:max-w-none">
                                                         <p className="truncate text-slate-700">{client.phone || '—'}</p>
                                                         <p className="truncate text-[11px] text-slate-500">{client.email ?? '—'}</p>
                                                     </td>
-                                                    <td className="hidden max-w-[10rem] px-2 py-1.5 lg:table-cell">
+                                                    <td className="hidden max-w-[10rem] px-2 py-1.5 xl:table-cell">
                                                         <p className="truncate text-slate-700">
                                                             {client.city?.name ?? 'Sin ciudad'}
                                                         </p>

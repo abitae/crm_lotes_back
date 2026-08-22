@@ -29,6 +29,9 @@ class StoreAdvisorReminderRequest extends FormRequest
             'title' => ['required', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'remind_at' => ['required', 'date'],
+            'client_status_id' => ['sometimes', 'nullable', 'exists:client_statuses,id'],
+            'tag_ids' => ['sometimes', 'array'],
+            'tag_ids.*' => ['integer', 'exists:client_tags,id'],
         ];
     }
 }

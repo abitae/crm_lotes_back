@@ -8,11 +8,16 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Inmopro\ImportClientsConfirmRequest;
 use App\Http\Requests\Inmopro\ImportClientsPreviewRequest;
 use App\Http\Requests\Inmopro\StoreClientRequest;
+use App\Http\Requests\Inmopro\UpdateClientCrmRequest;
 use App\Http\Requests\Inmopro\UpdateClientRequest;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\City;
 use App\Models\Inmopro\Client;
+use App\Models\Inmopro\ClientStatus;
+use App\Models\Inmopro\ClientTag;
 use App\Models\Inmopro\ClientType;
+use App\Models\User;
+use App\Services\Inmopro\ClientCrmService;
 use App\Services\Inmopro\ClientsExcelImportService;
 use App\Services\Inmopro\ClientsIndexQuery;
 use App\Support\InertiaListingRedirect;
@@ -27,7 +32,10 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ClientController extends Controller
 {
-    public function __construct(private ClientsIndexQuery $clientsIndexQuery) {}
+    public function __construct(
+        private ClientsIndexQuery $clientsIndexQuery,
+        private ClientCrmService $clientCrmService,
+    ) {}
 
     public function search(Request $request): JsonResponse
     {
@@ -59,7 +67,7 @@ class ClientController extends Controller
             ));
         }
 
-        $query = Client::query()->with(['type', 'city', 'advisor.team'])->withCount('lots');
+        $query = Client::query()->with(['type', 'status', 'tags', 'city', 'advisor.team'])->withCount('lots');
 
         $this->clientsIndexQuery->apply($query, $request);
 
@@ -71,6 +79,8 @@ class ClientController extends Controller
             'clients' => $clients,
             'filters' => $this->clientsIndexQuery->filtersFromRequest($request),
             'clientTypes' => ClientType::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
+            'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
+            'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
             'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'advisors' => Advisor::query()->orderBy('name')->get(['id', 'name']),
             'perPageOptions' => ClientsIndexQuery::PER_PAGE_OPTIONS,
@@ -81,7 +91,7 @@ class ClientController extends Controller
     {
         $this->clientsIndexQuery->mergeDefaultDatesIfMissing($request);
 
-        $clientsQuery = Client::query()->with(['type', 'city', 'advisor.team'])->withCount('lots');
+        $clientsQuery = Client::query()->with(['type', 'status', 'tags', 'city', 'advisor.team'])->withCount('lots');
 
         $this->clientsIndexQuery->apply($clientsQuery, $request);
 
@@ -147,6 +157,8 @@ class ClientController extends Controller
     {
         return Inertia::render('inmopro/clients/create', [
             'clientTypes' => ClientType::orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
+            'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
+            'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
             'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'department']),
             'advisors' => Advisor::query()->with('team')->orderBy('name')->get(['id', 'name', 'team_id']),
         ]);
@@ -154,25 +166,56 @@ class ClientController extends Controller
 
     public function store(StoreClientRequest $request): RedirectResponse
     {
-        Client::create($request->validated());
+        $validated = $request->validated();
+        $tagIds = array_values(array_map('intval', $validated['tag_ids'] ?? []));
+        $statusId = array_key_exists('client_status_id', $validated)
+            ? ($validated['client_status_id'] !== null ? (int) $validated['client_status_id'] : null)
+            : null;
+        unset($validated['tag_ids'], $validated['client_status_id']);
+
+        $client = Client::create($validated);
+
+        $this->clientCrmService->applyCrmFields(
+            $client,
+            $statusId,
+            $tagIds,
+            $client->advisor,
+            allowNullStatus: $statusId === null,
+        );
 
         return redirect()->route('inmopro.clients.index', InertiaListingRedirect::clientsIndexQuery($request));
     }
 
     public function show(Client $client): Response
     {
-        $client->load(['type', 'city', 'advisor.team', 'lots.project', 'lots.status']);
+        $client->load([
+            'type',
+            'status',
+            'tags',
+            'city',
+            'advisor.team',
+            'lots.project',
+            'lots.status',
+            'reminders' => fn ($query) => $query->pending()->orderBy('remind_at')->limit(10),
+            'crmEvents' => fn ($query) => $query->with('advisor')->limit(50),
+        ]);
 
         return Inertia::render('inmopro/clients/show', [
             'client' => $client,
+            'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
+            'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
         ]);
     }
 
     public function edit(Client $client): Response
     {
+        $client->load('tags:id');
+
         return Inertia::render('inmopro/clients/edit', [
             'client' => $client,
             'clientTypes' => ClientType::orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
+            'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
+            'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
             'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'department']),
             'advisors' => Advisor::query()->with('team')->orderBy('name')->get(['id', 'name', 'team_id']),
         ]);
@@ -180,9 +223,62 @@ class ClientController extends Controller
 
     public function update(UpdateClientRequest $request, Client $client): RedirectResponse
     {
-        $client->update($request->validated());
+        $validated = $request->validated();
+        $tagIds = array_values(array_map('intval', $validated['tag_ids'] ?? []));
+        $statusId = array_key_exists('client_status_id', $validated)
+            ? ($validated['client_status_id'] !== null ? (int) $validated['client_status_id'] : null)
+            : $client->client_status_id;
+        unset($validated['tag_ids'], $validated['client_status_id']);
+
+        $client->update($validated);
+
+        /** @var User|null $user */
+        $user = $request->user();
+
+        $this->clientCrmService->applyCrmFields(
+            $client,
+            $statusId,
+            $tagIds,
+            $client->advisor,
+            allowNullStatus: true,
+            source: ClientCrmService::SOURCE_INMOPRO,
+            user: $user,
+        );
+
+        $this->clientCrmService->logEvent(
+            $client,
+            'client.edited',
+            ClientCrmService::SOURCE_INMOPRO,
+            $client->advisor,
+            $user,
+        );
 
         return redirect()->route('inmopro.clients.index', InertiaListingRedirect::clientsIndexQuery($request));
+    }
+
+    public function updateCrm(UpdateClientCrmRequest $request, Client $client): RedirectResponse
+    {
+        $validated = $request->validated();
+        /** @var User|null $user */
+        $user = $request->user();
+
+        $this->clientCrmService->applyCrmFields(
+            $client,
+            array_key_exists('client_status_id', $validated)
+                ? ($validated['client_status_id'] !== null ? (int) $validated['client_status_id'] : null)
+                : null,
+            array_key_exists('tag_ids', $validated)
+                ? array_values(array_map('intval', $validated['tag_ids'] ?? []))
+                : null,
+            $client->advisor,
+            allowNullStatus: array_key_exists('client_status_id', $validated),
+            source: ClientCrmService::SOURCE_INMOPRO,
+            user: $user,
+        );
+
+        return redirect()
+            ->route('inmopro.clients.show', $client)
+            ->with('success', 'Seguimiento CRM actualizado.');
     }
 
     public function destroy(Request $request, Client $client): RedirectResponse

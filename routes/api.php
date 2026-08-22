@@ -1,10 +1,13 @@
 <?php
 
+use App\Http\Controllers\Api\v1\Cazador\AppVersionController;
 use App\Http\Controllers\Api\v1\Cazador\AttentionTicketController;
 use App\Http\Controllers\Api\v1\Cazador\AttentionTicketTypeController;
 use App\Http\Controllers\Api\v1\Cazador\AuthController;
 use App\Http\Controllers\Api\v1\Cazador\CityController;
 use App\Http\Controllers\Api\v1\Cazador\ClientController;
+use App\Http\Controllers\Api\v1\Cazador\ClientStatusController;
+use App\Http\Controllers\Api\v1\Cazador\ClientTagController;
 use App\Http\Controllers\Api\v1\Cazador\DashboardController;
 use App\Http\Controllers\Api\v1\Cazador\DateroController;
 use App\Http\Controllers\Api\v1\Cazador\LotController;
@@ -38,6 +41,10 @@ Route::prefix('v1/cazador')->name('api.v1.cazador.')->group(function (): void {
         ->middleware('throttle:cazador-login')
         ->name('auth.login');
 
+    Route::get('app-version', [AppVersionController::class, 'show'])
+        ->middleware('throttle:60,1')
+        ->name('app-version.show');
+
     Route::get('shared/assets/{asset}', [SharedProjectAssetController::class, 'show'])
         ->middleware('signed')
         ->name('shared-assets.show');
@@ -56,10 +63,15 @@ Route::prefix('v1/cazador')->name('api.v1.cazador.')->group(function (): void {
         Route::post('dateros', [DateroController::class, 'store'])->name('dateros.store');
         Route::put('dateros/{datero}', [DateroController::class, 'update'])->name('dateros.update');
 
+        Route::get('client-statuses', [ClientStatusController::class, 'index'])->name('client-statuses.index');
+        Route::get('client-tags', [ClientTagController::class, 'index'])->name('client-tags.index');
+
         Route::get('clients', [ClientController::class, 'index'])->name('clients.index');
         Route::post('clients', [ClientController::class, 'store'])->name('clients.store');
         Route::get('clients/{client}', [ClientController::class, 'show'])->name('clients.show');
         Route::match(['put', 'patch'], 'clients/{client}', [ClientController::class, 'update'])->name('clients.update');
+        Route::patch('clients/{client}/crm', [ClientController::class, 'updateCrm'])->name('clients.crm.update');
+        Route::post('clients/{client}/crm/events', [ClientController::class, 'storeCrmEvent'])->name('clients.crm.events.store');
         Route::get('attention-ticket-types', [AttentionTicketTypeController::class, 'index'])->name('attention-ticket-types.index');
         Route::get('attention-tickets', [AttentionTicketController::class, 'index'])->name('attention-tickets.index');
         Route::post('attention-tickets', [AttentionTicketController::class, 'store'])->name('attention-tickets.store');

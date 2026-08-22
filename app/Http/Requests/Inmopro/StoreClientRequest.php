@@ -20,7 +20,7 @@ class StoreClientRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $merge = [];
-        foreach (['dni', 'email', 'referred_by', 'city_id'] as $field) {
+        foreach (['dni', 'email', 'referred_by', 'city_id', 'client_status_id'] as $field) {
             if ($this->input($field) === '') {
                 $merge[$field] = null;
             }
@@ -42,6 +42,9 @@ class StoreClientRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:255'],
             'referred_by' => ['nullable', 'string', 'max:255'],
             'client_type_id' => ['required', 'exists:client_types,id'],
+            'client_status_id' => ['nullable', 'exists:client_statuses,id'],
+            'tag_ids' => ['sometimes', 'array'],
+            'tag_ids.*' => ['integer', 'exists:client_tags,id'],
             'city_id' => ['required', 'exists:cities,id'],
             'advisor_id' => ['required', 'exists:advisors,id'],
         ];

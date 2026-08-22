@@ -44,6 +44,8 @@ class DatabaseSeeder extends Seeder
             Inmopro\ProjectSeeder::class,
             Inmopro\TeamSeeder::class,
             Inmopro\ClientTypeSeeder::class,
+            Inmopro\ClientStatusSeeder::class,
+            Inmopro\ClientTagSeeder::class,
             Inmopro\CitySeeder::class,
             Inmopro\AdvisorSeeder::class,
             Inmopro\ClientSeeder::class,

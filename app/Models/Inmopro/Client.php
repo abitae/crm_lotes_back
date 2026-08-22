@@ -4,6 +4,7 @@ namespace App\Models\Inmopro;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Client extends Model
@@ -33,6 +34,7 @@ class Client extends Model
         'email',
         'referred_by',
         'client_type_id',
+        'client_status_id',
         'city_id',
         'advisor_id',
         'registered_by_datero_id',
@@ -44,6 +46,39 @@ class Client extends Model
     public function type(): BelongsTo
     {
         return $this->belongsTo(ClientType::class, 'client_type_id');
+    }
+
+    /**
+     * @return BelongsTo<ClientStatus, $this>
+     */
+    public function status(): BelongsTo
+    {
+        return $this->belongsTo(ClientStatus::class, 'client_status_id');
+    }
+
+    /**
+     * @return BelongsToMany<ClientTag, $this>
+     */
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(ClientTag::class, 'client_client_tag')
+            ->withTimestamps();
+    }
+
+    /**
+     * @return HasMany<ClientStatusChange, $this>
+     */
+    public function statusChanges(): HasMany
+    {
+        return $this->hasMany(ClientStatusChange::class, 'client_id')->orderByDesc('created_at');
+    }
+
+    /**
+     * @return HasMany<ClientCrmEvent, $this>
+     */
+    public function crmEvents(): HasMany
+    {
+        return $this->hasMany(ClientCrmEvent::class, 'client_id')->orderByDesc('created_at');
     }
 
     /**

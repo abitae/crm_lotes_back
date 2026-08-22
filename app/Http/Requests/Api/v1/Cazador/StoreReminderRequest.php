@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\v1\Cazador;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreReminderRequest extends FormRequest
 {
@@ -21,6 +22,9 @@ class StoreReminderRequest extends FormRequest
             'title' => ['required', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'remind_at' => ['required', 'date'],
+            'client_status_id' => ['sometimes', 'nullable', 'integer', Rule::exists('client_statuses', 'id')->where('is_active', true)],
+            'tag_ids' => ['sometimes', 'array'],
+            'tag_ids.*' => ['integer', Rule::exists('client_tags', 'id')->where('is_active', true)],
         ];
     }
 }

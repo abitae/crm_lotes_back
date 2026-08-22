@@ -16,6 +16,8 @@ final class InertiaListingRedirect
             'per_page',
             'search',
             'client_type_id',
+            'client_status_id',
+            'tag_id',
             'city_id',
             'advisor_id',
             'created_from',

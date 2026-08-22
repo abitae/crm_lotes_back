@@ -7,6 +7,7 @@ use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\AdvisorReminder;
 use App\Models\Inmopro\AttentionTicket;
 use App\Models\Inmopro\Client;
+use App\Models\Inmopro\ClientStatus;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotPreReservation;
 use App\Models\Inmopro\LotStatus;
@@ -64,6 +65,28 @@ class DashboardController extends Controller
             ->pending()
             ->count();
 
+        $clientsByStatus = ClientStatus::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'color'])
+            ->map(function (ClientStatus $status) use ($advisorId): array {
+                $count = Client::query()
+                    ->where('advisor_id', $advisorId)
+                    ->where('client_status_id', $status->id)
+                    ->whereHas('type', fn ($query) => $query->whereIn('code', ['PROPIO', 'DATERO']))
+                    ->count();
+
+                return [
+                    'id' => $status->id,
+                    'code' => $status->code,
+                    'name' => $status->name,
+                    'color' => $status->color,
+                    'count' => $count,
+                ];
+            })
+            ->all();
+
         return response()->json([
             'data' => [
                 'clients_count' => $clientsCount,
@@ -72,6 +95,7 @@ class DashboardController extends Controller
                     'propio' => $propioClientsCount,
                     'datero' => $dateroClientsCount,
                 ],
+                'clients_by_status' => $clientsByStatus,
                 'pre_reservations' => [
                     'active' => $preReservationActive,
                     'pending' => $preReservationPending,

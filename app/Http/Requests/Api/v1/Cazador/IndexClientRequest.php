@@ -38,6 +38,8 @@ class IndexClientRequest extends FormRequest
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'search' => ['sometimes', 'nullable', 'string', 'min:2', 'max:255'],
             'client_type' => ['sometimes', 'nullable', 'string', Rule::in(['PROPIO', 'DATERO'])],
+            'client_status_id' => ['sometimes', 'nullable', 'integer', 'exists:client_statuses,id'],
+            'tag_id' => ['sometimes', 'nullable', 'integer', 'exists:client_tags,id'],
         ];
     }
 }

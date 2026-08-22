@@ -7,6 +7,8 @@ use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\AdvisorAgendaEvent;
 use App\Models\Inmopro\AdvisorReminder;
 use App\Models\Inmopro\Client;
+use App\Models\Inmopro\ClientStatus;
+use App\Models\Inmopro\ClientTag;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -101,6 +103,8 @@ class AgendaController extends Controller
             'clients' => $clients,
             'events' => $events,
             'remindersPending' => $remindersPending,
+            'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
+            'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'filters' => $request->only('advisor_id', 'start', 'end'),
         ]);
     }

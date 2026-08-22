@@ -64,6 +64,8 @@ type PageProps = {
     clients: Client[];
     events: CalendarEvent[];
     remindersPending: PendingReminder[];
+    clientStatuses: Array<{ id: number; name: string }>;
+    clientTags: Array<{ id: number; name: string }>;
     filters: {
         advisor_id?: string;
         start?: string;
@@ -77,6 +79,8 @@ export default function AgendaIndex({
     clients,
     events,
     remindersPending,
+    clientStatuses,
+    clientTags,
     filters,
 }: PageProps) {
     const advisorId = filters.advisor_id ?? '';
@@ -420,6 +424,8 @@ export default function AgendaIndex({
                             onOpenChange={setReminderModalOpen}
                             advisorId={Number(advisorId)}
                             clients={clients}
+                            clientStatuses={clientStatuses}
+                            clientTags={clientTags}
                             editData={editReminderData}
                             onClose={() => setEditReminderData(null)}
                         />
@@ -631,6 +637,8 @@ function ReminderModal({
     onOpenChange,
     advisorId,
     clients,
+    clientStatuses,
+    clientTags,
     editData,
     onClose,
 }: {
@@ -638,6 +646,8 @@ function ReminderModal({
     onOpenChange: (open: boolean) => void;
     advisorId: number;
     clients: Client[];
+    clientStatuses: Array<{ id: number; name: string }>;
+    clientTags: Array<{ id: number; name: string }>;
     editData: {
         id: number;
         client_id: number;
@@ -648,12 +658,14 @@ function ReminderModal({
     onClose: () => void;
 }) {
     const isEdit = editData !== null;
-    const { data, setData, post, put, processing, errors, reset } = useForm({
+    const { data, setData, post, put, processing, errors, reset, transform } = useForm({
         advisor_id: advisorId,
         client_id: editData?.client_id ?? clients[0]?.id ?? 0,
         title: editData?.title ?? '',
         notes: editData?.notes ?? '',
         remind_at: editData?.remind_at ?? '',
+        client_status_id: '' as string | number,
+        tag_ids: [] as number[],
     });
 
     useEffect(() => {
@@ -664,6 +676,8 @@ function ReminderModal({
                 title: editData.title,
                 notes: editData.notes,
                 remind_at: editData.remind_at,
+                client_status_id: '',
+                tag_ids: [],
             });
         }
         if (open && !editData) {
@@ -674,26 +688,40 @@ function ReminderModal({
                 title: '',
                 notes: '',
                 remind_at: now.toISOString().slice(0, 16),
+                client_status_id: '',
+                tag_ids: [],
             });
         }
     }, [open, editData, advisorId, clients]);
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
+        transform((form) => {
+            const payload: Record<string, unknown> = {
+                advisor_id: form.advisor_id,
+                client_id: form.client_id,
+                title: form.title,
+                notes: form.notes,
+                remind_at: form.remind_at,
+            };
+            if (form.client_status_id !== '' && form.client_status_id != null) {
+                payload.client_status_id = Number(form.client_status_id);
+            }
+            if ((form.tag_ids as number[]).length > 0) {
+                payload.tag_ids = form.tag_ids;
+            }
+            return payload;
+        });
+        const options = {
+            onSuccess: () => {
+                onOpenChange(false);
+                onClose();
+            },
+        };
         if (isEdit) {
-            put(`/inmopro/advisor-reminders/${editData.id}`, {
-                onSuccess: () => {
-                    onOpenChange(false);
-                    onClose();
-                },
-            });
+            put(`/inmopro/advisor-reminders/${editData.id}`, options);
         } else {
-            post('/inmopro/advisor-reminders', {
-                onSuccess: () => {
-                    onOpenChange(false);
-                    onClose();
-                },
-            });
+            post('/inmopro/advisor-reminders', options);
         }
     };
 
@@ -764,6 +792,58 @@ function ReminderModal({
                             required
                         />
                         <InputError message={errors.remind_at} />
+                    </div>
+                    <div>
+                        <Label>Actualizar estado del cliente (opcional)</Label>
+                        <select
+                            value={data.client_status_id === '' ? '' : String(data.client_status_id)}
+                            onChange={(e) =>
+                                setData(
+                                    'client_status_id',
+                                    e.target.value === '' ? '' : Number(e.target.value),
+                                )
+                            }
+                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                        >
+                            <option value="">No cambiar</option>
+                            {clientStatuses.map((status) => (
+                                <option key={status.id} value={status.id}>
+                                    {status.name}
+                                </option>
+                            ))}
+                        </select>
+                        <InputError message={errors.client_status_id} />
+                    </div>
+                    <div>
+                        <Label>Actualizar etiquetas (opcional)</Label>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            {clientTags.map((tag) => {
+                                const selected = (data.tag_ids as number[]).includes(tag.id);
+                                return (
+                                    <button
+                                        key={tag.id}
+                                        type="button"
+                                        onClick={() => {
+                                            const current = data.tag_ids as number[];
+                                            setData(
+                                                'tag_ids',
+                                                selected
+                                                    ? current.filter((id) => id !== tag.id)
+                                                    : [...current, tag.id],
+                                            );
+                                        }}
+                                        className={`rounded-full px-3 py-1 text-xs font-bold ${
+                                            selected
+                                                ? 'bg-emerald-600 text-white'
+                                                : 'bg-slate-100 text-slate-700'
+                                        }`}
+                                    >
+                                        {tag.name}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <InputError message={errors.tag_ids} />
                     </div>
                     <DialogFooter className="flex-wrap gap-2">
                         {isEdit && (

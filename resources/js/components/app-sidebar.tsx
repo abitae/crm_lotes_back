@@ -122,6 +122,16 @@ const managementSections: NavSection[] = [
                 href: '/inmopro/client-types',
                 icon: Users,
             },
+            {
+                title: 'Estados CRM',
+                href: '/inmopro/client-statuses',
+                icon: Tag,
+            },
+            {
+                title: 'Etiquetas CRM',
+                href: '/inmopro/client-tags',
+                icon: Tag,
+            },
             { title: 'Ciudades', href: '/inmopro/cities', icon: MapPin },
             { title: 'Vendedores', href: '/inmopro/advisors', icon: UserCheck },
             { title: 'Dateros', href: '/inmopro/dateros', icon: ContactRound },
