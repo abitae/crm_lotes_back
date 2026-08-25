@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Inmopro\Reports;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Inmopro\Reports\Concerns\ExportsReportDetail;
+use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
 use App\Services\Inmopro\Reports\LotDetailSerializer;
 use App\Services\Inmopro\Reports\LotReportQueryBuilder;
@@ -12,6 +13,7 @@ use App\Services\Inmopro\Reports\ReportFilterOptions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -112,6 +114,9 @@ class LotsAdvancedReportController extends Controller
             'end_date' => $dateRange['end_date'],
             'apply_dates' => $applyDates,
             'include_inactive' => $request->boolean('include_inactive'),
+            'per_page' => in_array($request->integer('per_page'), [20, 40, 80], true)
+                ? $request->integer('per_page')
+                : 20,
         ];
 
         $query = $this->lotQueryBuilder
@@ -132,7 +137,7 @@ class LotsAdvancedReportController extends Controller
         $statusBreakdown = $this->statusBreakdown(clone $query);
         $total = (clone $query)->withoutEagerLoads()->count();
         $totalAmount = round(
-            (float) (clone $query)->withoutEagerLoads()->sum(\Illuminate\Support\Facades\DB::raw('COALESCE(sale_price, price, 0)')),
+            (float) (clone $query)->withoutEagerLoads()->sum(DB::raw('COALESCE(sale_price, price, 0)')),
             2
         );
 
@@ -141,7 +146,7 @@ class LotsAdvancedReportController extends Controller
             $rows = $lots->map(fn ($lot) => $this->lotSerializer->toRow($lot))->all();
             $pagination = null;
         } else {
-            $paginator = $query->paginate(40)->withQueryString();
+            $paginator = $query->paginate($filters['per_page'])->withQueryString();
             $rows = collect($paginator->items())->map(fn ($lot) => $this->lotSerializer->toRow($lot))->all();
             $pagination = [
                 'data' => $rows,
@@ -186,7 +191,7 @@ class LotsAdvancedReportController extends Controller
     }
 
     /**
-     * @param  Builder<\App\Models\Inmopro\Lot>  $query
+     * @param  Builder<Lot>  $query
      */
     private function applyScope(Builder $query, string $scope): void
     {
@@ -211,7 +216,7 @@ class LotsAdvancedReportController extends Controller
     }
 
     /**
-     * @param  Builder<\App\Models\Inmopro\Lot>  $query
+     * @param  Builder<Lot>  $query
      */
     private function applyDateFilter(Builder $query, string $scope, string $start, string $end): void
     {
@@ -269,7 +274,7 @@ class LotsAdvancedReportController extends Controller
     }
 
     /**
-     * @param  Builder<\App\Models\Inmopro\Lot>  $query
+     * @param  Builder<Lot>  $query
      * @return list<array{code: string, name: string, count: int}>
      */
     private function statusBreakdown(Builder $query): array

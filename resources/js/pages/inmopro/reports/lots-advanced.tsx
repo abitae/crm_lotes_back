@@ -1,7 +1,8 @@
 import { router } from '@inertiajs/react';
-import { ReportDateFilters } from '@/components/inmopro/reports/ReportDateFilters';
 import { projectOptionLabel } from '@/components/inmopro/reports/IncludeInactiveProjectsField';
+import { ReportDateFilters } from '@/components/inmopro/reports/ReportDateFilters';
 import { ReportPageShell } from '@/components/inmopro/reports/ReportPageShell';
+import Pagination, { type PaginationLink } from '@/components/pagination';
 import { formatDate } from '@/lib/date';
 import { formatPen } from '@/lib/report-utils';
 
@@ -47,7 +48,8 @@ export default function LotsAdvancedReport({
         current_page: number;
         last_page: number;
         total: number;
-        links: { url: string | null; label: string; active: boolean }[];
+        per_page: number;
+        links: PaginationLink[];
     } | null;
     summary: {
         total: number;
@@ -76,6 +78,7 @@ export default function LotsAdvancedReport({
                 extraFields={{
                     scope: filters.scope,
                     apply_dates: filters.apply_dates ? '1' : '0',
+                    per_page: filters.per_page,
                 }}
             >
                 <select
@@ -126,7 +129,9 @@ export default function LotsAdvancedReport({
                     ))}
                 </select>
                 <label className="text-sm">
-                    <span className="mb-1 block text-xs font-semibold text-slate-500">Cliente</span>
+                    <span className="mb-1 block text-xs font-semibold text-slate-500">
+                        Cliente
+                    </span>
                     <input
                         type="search"
                         name="client_search"
@@ -153,90 +158,196 @@ export default function LotsAdvancedReport({
                     <p className="text-2xl font-black">{summary.total}</p>
                 </div>
                 <div className="rounded-2xl border bg-card p-4">
-                    <p className="text-xs text-muted-foreground">Monto filtrado</p>
-                    <p className="text-2xl font-black">{formatPen(summary.total_amount)}</p>
+                    <p className="text-xs text-muted-foreground">
+                        Monto filtrado
+                    </p>
+                    <p className="text-2xl font-black">
+                        {formatPen(summary.total_amount)}
+                    </p>
                 </div>
                 {summary.by_status.slice(0, 2).map((status) => (
-                    <div key={status.code} className="rounded-2xl border bg-card p-4">
-                        <p className="text-xs text-muted-foreground">{status.name}</p>
+                    <div
+                        key={status.code}
+                        className="rounded-2xl border bg-card p-4"
+                    >
+                        <p className="text-xs text-muted-foreground">
+                            {status.name}
+                        </p>
                         <p className="text-2xl font-black">{status.count}</p>
                     </div>
                 ))}
             </div>
 
-            <div className="overflow-x-auto rounded-3xl border bg-card shadow-sm">
-                <table className="w-full min-w-[1100px] text-sm">
-                    <thead>
-                        <tr className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                            <th className="px-3 py-3">Cliente</th>
-                            <th className="px-3 py-3">Ciudad</th>
-                            <th className="px-3 py-3">Celular</th>
-                            <th className="px-3 py-3">Proyecto</th>
-                            <th className="px-3 py-3">MZ</th>
-                            <th className="px-3 py-3">Lote</th>
-                            <th className="px-3 py-3">Estado</th>
-                            <th className="px-3 py-3">Monto</th>
-                            <th className="px-3 py-3">Cazador</th>
-                            <th className="px-3 py-3">Equipo</th>
-                            <th className="px-3 py-3">F. contrato</th>
-                            <th className="px-3 py-3">F. límite</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows.length === 0 ? (
-                            <tr>
-                                <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">
-                                    Sin registros para los filtros aplicados.
-                                </td>
+            <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[1050px] table-auto text-xs">
+                        <thead>
+                            <tr className="border-b bg-muted/60 text-left text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                                {[
+                                    'Cliente',
+                                    'Ciudad',
+                                    'Celular',
+                                    'Proyecto',
+                                    'MZ',
+                                    'Lote',
+                                    'Estado',
+                                    'Monto',
+                                    'Cazador',
+                                    'Equipo',
+                                    'F. contrato',
+                                    'F. límite',
+                                ].map((heading) => (
+                                    <th
+                                        key={heading}
+                                        className="px-2.5 py-2 whitespace-nowrap"
+                                    >
+                                        {heading}
+                                    </th>
+                                ))}
                             </tr>
-                        ) : (
-                            rows.map((row, i) => (
-                                <tr key={i} className="border-b">
-                                    <td className="px-3 py-2">{row.client_name ?? '—'}</td>
-                                    <td className="px-3 py-2">{row.city_name ?? '—'}</td>
-                                    <td className="px-3 py-2">{row.client_phone ?? '—'}</td>
-                                    <td className="px-3 py-2">{row.project_name ?? '—'}</td>
-                                    <td className="px-3 py-2">{row.block ?? '—'}</td>
-                                    <td className="px-3 py-2">{row.number ?? '—'}</td>
-                                    <td className="px-3 py-2">
-                                        {row.status_name ?? '—'}
-                                        {row.days_overdue != null ? (
-                                            <span className="ml-1 text-xs text-destructive">
-                                                (+{row.days_overdue}d)
-                                            </span>
-                                        ) : null}
-                                    </td>
-                                    <td className="px-3 py-2">{formatPen(row.price ?? 0)}</td>
-                                    <td className="px-3 py-2">{row.advisor_name ?? '—'}</td>
-                                    <td className="px-3 py-2">{row.team_name ?? '—'}</td>
-                                    <td className="px-3 py-2">
-                                        {row.contract_date ? formatDate(row.contract_date) : '—'}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        {row.payment_limit_date ? formatDate(row.payment_limit_date) : '—'}
+                        </thead>
+                        <tbody>
+                            {rows.length === 0 ? (
+                                <tr>
+                                    <td
+                                        colSpan={12}
+                                        className="px-4 py-8 text-center text-muted-foreground"
+                                    >
+                                        Sin registros para los filtros
+                                        aplicados.
                                     </td>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
-
-            {pagination && pagination.last_page > 1 ? (
-                <div className="flex flex-wrap gap-2">
-                    {pagination.links.map((link, i) =>
-                        link.url ? (
-                            <button
-                                key={i}
-                                type="button"
-                                className={`rounded-lg border px-3 py-1 text-sm ${link.active ? 'bg-primary text-primary-foreground' : ''}`}
-                                onClick={() => router.get(link.url!, {}, { preserveScroll: true })}
-                                dangerouslySetInnerHTML={{ __html: link.label }}
-                            />
-                        ) : null,
-                    )}
+                            ) : (
+                                rows.map((row, i) => (
+                                    <tr
+                                        key={i}
+                                        className="border-b last:border-0 hover:bg-muted/30"
+                                    >
+                                        <td
+                                            className="max-w-44 truncate px-2.5 py-1.5 font-medium"
+                                            title={row.client_name ?? undefined}
+                                        >
+                                            {row.client_name ?? '—'}
+                                        </td>
+                                        <td className="px-2.5 py-1.5 whitespace-nowrap">
+                                            {row.city_name ?? '—'}
+                                        </td>
+                                        <td className="px-2.5 py-1.5 whitespace-nowrap">
+                                            {row.client_phone ?? '—'}
+                                        </td>
+                                        <td
+                                            className="max-w-40 truncate px-2.5 py-1.5"
+                                            title={
+                                                row.project_name ?? undefined
+                                            }
+                                        >
+                                            {row.project_name ?? '—'}
+                                        </td>
+                                        <td className="px-2.5 py-1.5">
+                                            {row.block ?? '—'}
+                                        </td>
+                                        <td className="px-2.5 py-1.5">
+                                            {row.number ?? '—'}
+                                        </td>
+                                        <td className="px-2.5 py-1.5 whitespace-nowrap">
+                                            {row.status_name ?? '—'}
+                                            {row.days_overdue != null ? (
+                                                <span className="ml-1 text-xs text-destructive">
+                                                    (+{row.days_overdue}d)
+                                                </span>
+                                            ) : null}
+                                        </td>
+                                        <td className="px-2.5 py-1.5 text-right font-medium whitespace-nowrap">
+                                            {formatPen(row.price ?? 0)}
+                                        </td>
+                                        <td
+                                            className="max-w-36 truncate px-2.5 py-1.5"
+                                            title={
+                                                row.advisor_name ?? undefined
+                                            }
+                                        >
+                                            {row.advisor_name ?? '—'}
+                                        </td>
+                                        <td
+                                            className="max-w-32 truncate px-2.5 py-1.5"
+                                            title={row.team_name ?? undefined}
+                                        >
+                                            {row.team_name ?? '—'}
+                                        </td>
+                                        <td className="px-2.5 py-1.5 whitespace-nowrap">
+                                            {row.contract_date
+                                                ? formatDate(row.contract_date)
+                                                : '—'}
+                                        </td>
+                                        <td className="px-2.5 py-1.5 whitespace-nowrap">
+                                            {row.payment_limit_date
+                                                ? formatDate(
+                                                      row.payment_limit_date,
+                                                  )
+                                                : '—'}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
                 </div>
-            ) : null}
+
+                {pagination ? (
+                    <div className="flex flex-col gap-2 border-t bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-3">
+                            <span>
+                                {pagination.total === 0
+                                    ? 0
+                                    : (pagination.current_page - 1) *
+                                          pagination.per_page +
+                                      1}
+                                –
+                                {Math.min(
+                                    pagination.current_page *
+                                        pagination.per_page,
+                                    pagination.total,
+                                )}{' '}
+                                de {pagination.total}
+                            </span>
+                            <label className="flex items-center gap-1.5">
+                                Filas
+                                <select
+                                    value={pagination.per_page}
+                                    className="h-7 rounded-md border bg-background px-1.5 text-xs text-foreground"
+                                    onChange={(event) =>
+                                        router.get(
+                                            '/inmopro/reports/lots-advanced',
+                                            {
+                                                ...filters,
+                                                per_page: event.target.value,
+                                                page: 1,
+                                            },
+                                            { preserveScroll: true },
+                                        )
+                                    }
+                                >
+                                    {[20, 40, 80].map((size) => (
+                                        <option key={size} value={size}>
+                                            {size}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        </div>
+                        <div className="flex items-center gap-3 self-end sm:self-auto">
+                            <span>
+                                Página {pagination.current_page} de{' '}
+                                {pagination.last_page}
+                            </span>
+                            <Pagination
+                                links={pagination.links}
+                                className="justify-end"
+                            />
+                        </div>
+                    </div>
+                ) : null}
+            </div>
         </ReportPageShell>
     );
 }

@@ -141,6 +141,7 @@ class TransfersByProjectAndLotsAdvancedReportTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->component('inmopro/reports/lots-advanced')
                 ->where('summary.total', 1)
+                ->where('pagination.per_page', 20)
                 ->where('rows.0.client_name', 'Ana Pérez')
                 ->where('rows.0.city_name', 'Cusco'));
     }
