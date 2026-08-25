@@ -85,6 +85,7 @@ class ExpiredContractsReportController extends Controller
             'project_id' => $request->filled('project_id') ? $request->integer('project_id') : null,
             'team_id' => $request->filled('team_id') ? $request->integer('team_id') : null,
             'advisor_id' => $request->filled('advisor_id') ? $request->integer('advisor_id') : null,
+            'include_inactive' => $request->boolean('include_inactive'),
         ];
 
         $query = $this->lotQueryBuilder
@@ -120,7 +121,7 @@ class ExpiredContractsReportController extends Controller
             'summary' => ['total' => $pagination['total'] ?? count($rows)],
             'generatedAt' => now()->format('d/m/Y H:i'),
             'exportBaseUrl' => '/inmopro/reports/expired-contracts',
-            ...$this->filterOptions->all(),
+            ...$this->filterOptions->all($request),
         ];
     }
 }

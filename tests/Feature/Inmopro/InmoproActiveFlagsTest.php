@@ -261,7 +261,18 @@ class InmoproActiveFlagsTest extends TestCase
         $this->get(route('inmopro.lots.index', ['project_id' => $inactiveProject->id]))
             ->assertOk()
             ->assertInertia(fn ($page) => $assertOnlyActiveProject($page)
-                ->where('project.id', $activeProject->id));
+                ->where('project.id', $activeProject->id)
+                ->where('filters.include_inactive', false));
+
+        $this->get(route('inmopro.lots.index', [
+            'project_id' => $inactiveProject->id,
+            'include_inactive' => 1,
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $assertBothProjects($page)
+                ->where('project.id', $inactiveProject->id)
+                ->where('project.is_active', false)
+                ->where('filters.include_inactive', true));
 
         $this->get(route('inmopro.financial.index'))
             ->assertOk()

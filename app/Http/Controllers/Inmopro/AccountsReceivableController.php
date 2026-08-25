@@ -7,14 +7,17 @@ use App\Http\Requests\Inmopro\StoreLotInstallmentRequest;
 use App\Http\Requests\Inmopro\StoreLotPaymentRequest;
 use App\Models\Inmopro\CashAccount;
 use App\Models\Inmopro\Lot;
+use App\Models\Inmopro\LotPayment;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
 use App\Models\Inmopro\Team;
 use App\Services\Inmopro\ReceivableService;
+use App\Support\FileStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AccountsReceivableController extends Controller
 {
@@ -135,8 +138,22 @@ class AccountsReceivableController extends Controller
 
     public function storePayment(StoreLotPaymentRequest $request, Lot $lot): RedirectResponse
     {
-        $this->receivableService->recordPayment($lot, $request->validated());
+        $this->receivableService->recordPayment(
+            $lot,
+            $request->safe()->except('voucher_image'),
+            $request->file('voucher_image'),
+        );
 
         return back()->with('success', 'Pago registrado correctamente.');
+    }
+
+    public function voucher(LotPayment $lot_payment): StreamedResponse
+    {
+        abort_unless(FileStorage::exists($lot_payment->voucher_path), 404);
+
+        return FileStorage::filesystem()->response(
+            $lot_payment->voucher_path,
+            basename($lot_payment->voucher_path),
+        );
     }
 }

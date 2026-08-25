@@ -5,11 +5,13 @@ import {
     ExternalLink,
     FileDown,
     Info,
+    Map,
     MapPin,
     Pencil,
     Ruler,
     Search,
     UserRound,
+    View,
     type LucideIcon,
 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
@@ -30,10 +32,13 @@ type LotStatus = { id: number; name: string; code: string; color: string };
 type Project = {
     id: number;
     name: string;
+    is_active?: boolean;
     blocks: string[];
     location?: string | null;
     maps_url?: string | null;
     location_label?: string | null;
+    view_360_url?: string | null;
+    view_flat_url?: string | null;
 };
 type Lot = {
     id: number;
@@ -161,15 +166,40 @@ export default function Inventory({
     project,
     lots,
     lotStatuses,
+    filters = { include_inactive: false },
 }: {
     projects: Project[];
     project: Project | null;
     lots: Lot[];
     lotStatuses: LotStatus[];
+    filters?: { include_inactive?: boolean };
 }) {
+    const includeInactive = Boolean(filters.include_inactive);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedLot, setSelectedLot] = useState<Lot | null>(null);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
+
+    const navigateInventory = (patch: {
+        project_id?: number | string | null;
+        include_inactive?: boolean;
+    }) => {
+        const query: Record<string, string | number> = {};
+        const nextInclude =
+            patch.include_inactive !== undefined
+                ? patch.include_inactive
+                : includeInactive;
+        const nextProjectId =
+            patch.project_id !== undefined ? patch.project_id : project?.id;
+
+        if (nextProjectId) {
+            query.project_id = nextProjectId;
+        }
+        if (nextInclude) {
+            query.include_inactive = 1;
+        }
+
+        router.get('/inmopro/lots', query, { preserveScroll: true });
+    };
 
     const freeCount = lots.filter((lot) => lot.status.code === 'LIBRE').length;
     const preReservedCount = lots.filter(
@@ -256,16 +286,41 @@ export default function Inventory({
                                 </div>
 
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                    <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={includeInactive}
+                                            onClick={() =>
+                                                navigateInventory({
+                                                    include_inactive: !includeInactive,
+                                                    project_id: project?.id ?? null,
+                                                })
+                                            }
+                                            className={`relative h-6 w-11 rounded-full transition ${
+                                                includeInactive
+                                                    ? 'bg-emerald-500'
+                                                    : 'bg-slate-300 dark:bg-slate-700'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white transition ${
+                                                    includeInactive
+                                                        ? 'translate-x-5'
+                                                        : 'translate-x-0'
+                                                }`}
+                                            />
+                                        </button>
+                                        Mostrar inactivos
+                                    </label>
                                     {projects.length > 0 && (
                                         <select
                                             value={project?.id ?? ''}
                                             onChange={(event) => {
                                                 const id = event.target.value;
-
-                                                router.get(
-                                                    '/inmopro/lots',
-                                                    id ? { project_id: id } : {},
-                                                );
+                                                navigateInventory({
+                                                    project_id: id || null,
+                                                });
                                             }}
                                             className="min-w-64 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:ring-emerald-500/20"
                                         >
@@ -274,22 +329,46 @@ export default function Inventory({
                                                     key={item.id}
                                                     value={item.id}
                                                 >
-                                                    {item.name}
+                                                    {item.is_active === false
+                                                        ? `${item.name} (Inactivo)`
+                                                        : item.name}
                                                 </option>
                                             ))}
                                         </select>
                                     )}
 
                                     {project && (
-                                        <a
-                                            href={`/inmopro/lots/export-pdf?project_id=${project.id}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#001b44] px-4 py-2 text-sm font-black text-white transition hover:bg-[#002f6f] dark:bg-emerald-500 dark:text-slate-950 dark:hover:bg-emerald-400"
-                                        >
-                                            <FileDown className="h-4 w-4" />
-                                            Exportar PDF
-                                        </a>
+                                        <>
+                                            {project.view_360_url ? (
+                                                <a
+                                                    href={project.view_360_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-black text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
+                                                >
+                                                    <View className="h-4 w-4" />
+                                                    Vista 360
+                                                </a>
+                                            ) : null}
+                                            {project.view_flat_url ? (
+                                                <Link
+                                                    href={project.view_flat_url}
+                                                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-black text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
+                                                >
+                                                    <Map className="h-4 w-4" />
+                                                    Vista plana
+                                                </Link>
+                                            ) : null}
+                                            <a
+                                                href={`/inmopro/lots/export-pdf?project_id=${project.id}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#001b44] px-4 py-2 text-sm font-black text-white transition hover:bg-[#002f6f] dark:bg-emerald-500 dark:text-slate-950 dark:hover:bg-emerald-400"
+                                            >
+                                                <FileDown className="h-4 w-4" />
+                                                Exportar PDF
+                                            </a>
+                                        </>
                                     )}
                                 </div>
                             </div>

@@ -76,9 +76,11 @@ class ProjectInventoryReportController extends Controller
     private function buildPayload(Request $request): array
     {
         $clientOrigin = (string) $request->input('client_origin', 'all');
+        $includeInactive = $request->boolean('include_inactive');
         $filters = [
             'project_id' => $request->filled('project_id') ? $request->integer('project_id') : null,
             'client_origin' => $clientOrigin,
+            'include_inactive' => $includeInactive,
         ];
 
         $statusIds = LotStatus::query()
@@ -89,10 +91,10 @@ class ProjectInventoryReportController extends Controller
             ])
             ->pluck('id', 'code');
 
-        $projects = Project::query()
+        $projects = $this->filterOptions
+            ->projectsQuery($includeInactive)
             ->when($filters['project_id'], fn (Builder $q, int $id) => $q->where('id', $id))
-            ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'is_active']);
 
         $rows = $projects->map(function (Project $project) use ($statusIds, $clientOrigin): array {
             $base = Lot::query()->where('project_id', $project->id);
@@ -146,7 +148,7 @@ class ProjectInventoryReportController extends Controller
             ],
             'generatedAt' => now()->format('d/m/Y H:i'),
             'exportBaseUrl' => '/inmopro/reports/project-inventory',
-            ...$this->filterOptions->all(),
+            ...$this->filterOptions->all($request),
         ];
     }
 }

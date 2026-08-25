@@ -78,7 +78,7 @@ class TopAdvisorsReportController extends Controller
     }
 
     /**
-     * @param  array{project_id: int|null, team_id: int|null, start_date: string, end_date: string}  $filters
+     * @param  array{project_id: int|null, team_id: int|null, start_date: string, end_date: string, include_inactive?: bool}  $filters
      * @return Builder<Lot>
      */
     private function transferredLotsQuery(array $filters): Builder
@@ -87,6 +87,7 @@ class TopAdvisorsReportController extends Controller
             ->join('projects', 'projects.id', '=', 'lots.project_id')
             ->leftJoin('project_types', 'project_types.id', '=', 'projects.project_type_id')
             ->whereHas('status', fn (Builder $query) => $query->where('code', LotStatus::CODE_TRANSFERIDO))
+            ->when(! ($filters['include_inactive'] ?? false), fn (Builder $query) => $query->where('projects.is_active', true))
             ->when($filters['project_id'], fn (Builder $query, int $projectId) => $query->where('lots.project_id', $projectId))
             ->when($filters['team_id'], fn (Builder $query, int $teamId) => $query->whereHas(
                 'advisor',
@@ -109,9 +110,10 @@ class TopAdvisorsReportController extends Controller
             'team_id' => $request->filled('team_id') ? $request->integer('team_id') : null,
             'start_date' => $dateRange['start_date'],
             'end_date' => $dateRange['end_date'],
+            'include_inactive' => $request->boolean('include_inactive'),
         ];
 
-        $options = $this->filterOptions->all();
+        $options = $this->filterOptions->all($request);
 
         $advisors = Advisor::query()
             ->with('team:id,name,color')

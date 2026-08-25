@@ -26,6 +26,7 @@ class LotDetailSerializer
             'id' => $lot->id,
             'client_phone' => $lot->client?->phone,
             'client_name' => $lot->client?->name ?? $lot->client_name,
+            'city_name' => $lot->client?->city?->name,
             'operation_number' => $lot->operation_number,
             'advance' => round((float) ($lot->advance ?? 0), 2),
             'price' => round((float) ($lot->sale_price ?? $lot->price ?? 0), 2),

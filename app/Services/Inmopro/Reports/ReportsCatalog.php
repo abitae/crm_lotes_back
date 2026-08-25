@@ -54,10 +54,17 @@ class ReportsCatalog
             ],
             [
                 'slug' => 'transfers-by-project',
-                'title' => 'Transferencias por proyecto (mensual)',
-                'description' => 'Monto y cantidad de transferencias aprobadas agrupadas por mes y proyecto.',
+                'title' => 'Transferencias por proyecto',
+                'description' => 'Detalle de transferencias aprobadas (cliente, ciudad, proyecto, monto) y consolidado mensual.',
                 'route' => 'inmopro.reports.transfers-by-project.index',
-                'filters' => ['Año', 'Proyecto'],
+                'filters' => ['Rango de fechas', 'Proyecto', 'Cazador', 'Cliente'],
+            ],
+            [
+                'slug' => 'lots-advanced',
+                'title' => 'Inventario avanzado de lotes',
+                'description' => 'Detalle de lotes libres, reservados, caídos y en cuotas con filtros de proyecto, fechas, cazador y cliente.',
+                'route' => 'inmopro.reports.lots-advanced.index',
+                'filters' => ['Alcance', 'Proyecto', 'Cazador', 'Cliente', 'Rango de fechas'],
             ],
             [
                 'slug' => 'team-goals',

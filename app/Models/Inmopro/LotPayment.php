@@ -20,6 +20,7 @@ class LotPayment extends Model
         'payment_method',
         'reference',
         'notes',
+        'voucher_path',
     ];
 
     /**

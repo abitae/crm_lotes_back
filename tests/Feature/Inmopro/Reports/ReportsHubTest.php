@@ -19,7 +19,7 @@ class ReportsHubTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('inmopro/reports/index')
-                ->has('reports', 9)
+                ->has('reports', 10)
                 ->has('reportSettingsUrl'));
     }
 }

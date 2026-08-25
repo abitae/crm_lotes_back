@@ -21,6 +21,7 @@ class ProjectController extends Controller
                 'assets as images_count' => fn ($query) => $query->where('kind', 'image')->where('is_active', true),
                 'assets as documents_count' => fn ($query) => $query->where('kind', 'document')->where('is_active', true),
             ])
+            ->withCount('flatPolygons')
             ->orderBy('name')
             ->get();
 
@@ -37,6 +38,7 @@ class ProjectController extends Controller
             'lots',
             'assets as images_count' => fn ($query) => $query->where('kind', 'image')->where('is_active', true),
             'assets as documents_count' => fn ($query) => $query->where('kind', 'document')->where('is_active', true),
+            'flatPolygons',
         ]);
         $project->load(['assets' => fn ($query) => $query
             ->where('is_active', true)
@@ -75,6 +77,8 @@ class ProjectController extends Controller
             'images_count' => $project->images_count ?? null,
             'documents_count' => $project->documents_count ?? null,
             'tour_360_url' => $project->tour_360_url,
+            'view_360_url' => $project->tour_360_url,
+            'view_flat_url' => $project->resolveViewFlatUrl(),
         ];
 
         if (! $includeAssets) {

@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
 import type { FormEvent } from 'react';
+import { IncludeInactiveProjectsField } from '@/components/inmopro/reports/IncludeInactiveProjectsField';
 import { LotDetailTable } from '@/components/inmopro/reports/LotDetailTable';
 import type { LotDetailRow } from '@/components/inmopro/reports/LotDetailTable';
 import { ReportPageShell } from '@/components/inmopro/reports/ReportPageShell';
@@ -19,7 +20,7 @@ export default function ContractsWeekReport({
     title: string;
     description: string;
     criteriaNote?: string;
-    filters: { start_date: string; end_date: string; week_date?: string | null };
+    filters: { start_date: string; end_date: string; week_date?: string | null; include_inactive?: boolean | null };
     reserved_rows: LotDetailRow[];
     transferred_rows: LotDetailRow[];
     summary: { reserved_count: number; transferred_count: number };
@@ -28,8 +29,11 @@ export default function ContractsWeekReport({
 }) {
     const onWeek = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const fd = new FormData(e.currentTarget);
-        router.get('/inmopro/reports/contracts-week', { week_date: fd.get('week_date') as string }, { preserveScroll: true });
+        router.get(
+            '/inmopro/reports/contracts-week',
+            Object.fromEntries(new FormData(e.currentTarget).entries()),
+            { preserveScroll: true },
+        );
     };
 
     return (
@@ -42,6 +46,7 @@ export default function ContractsWeekReport({
                 <p className="text-sm text-muted-foreground">
                     {filters.start_date} — {filters.end_date}
                 </p>
+                <IncludeInactiveProjectsField checked={Boolean(filters.include_inactive)} />
                 <Button type="submit">Cambiar semana</Button>
             </form>
             <div className="grid gap-3 sm:grid-cols-2">

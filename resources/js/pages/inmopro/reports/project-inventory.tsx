@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
 import type { FormEvent } from 'react';
+import { IncludeInactiveProjectsField, projectOptionLabel } from '@/components/inmopro/reports/IncludeInactiveProjectsField';
 import { ReportPageShell } from '@/components/inmopro/reports/ReportPageShell';
 import { Button } from '@/components/ui/button';
 import { formatPen } from '@/lib/report-utils';
@@ -28,12 +29,12 @@ export default function ProjectInventoryReport({
     title: string;
     description: string;
     criteriaNote?: string;
-    filters: Record<string, string | number | null>;
+    filters: Record<string, string | number | boolean | null>;
     rows: Row[];
     summary: { libre: number; reservado: number; transferido: number };
     generatedAt: string;
     exportBaseUrl: string;
-    projects: { id: number; name: string }[];
+    projects: { id: number; name: string; is_active?: boolean }[];
 }) {
     const onFilter = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -42,11 +43,11 @@ export default function ProjectInventoryReport({
 
     return (
         <ReportPageShell title={title} description={description} criteriaNote={criteriaNote} generatedAt={generatedAt} exportBaseUrl={exportBaseUrl} exportQuery={filters}>
-            <form onSubmit={onFilter} className="flex flex-wrap gap-3 rounded-3xl border bg-card p-5">
+            <form onSubmit={onFilter} className="flex flex-wrap items-end gap-3 rounded-3xl border bg-card p-5">
                 <select name="project_id" defaultValue={String(filters.project_id ?? '')} className="rounded-xl border px-3 py-2 text-sm">
                     <option value="">Todos los proyectos</option>
                     {projects.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                        <option key={p.id} value={p.id}>{projectOptionLabel(p)}</option>
                     ))}
                 </select>
                 <select name="client_origin" defaultValue={String(filters.client_origin ?? 'all')} className="rounded-xl border px-3 py-2 text-sm">
@@ -54,6 +55,7 @@ export default function ProjectInventoryReport({
                     <option value="propio">Propio</option>
                     <option value="tercero">Tercero (datero)</option>
                 </select>
+                <IncludeInactiveProjectsField checked={Boolean(filters.include_inactive)} />
                 <Button type="submit">Aplicar</Button>
             </form>
             <div className="grid gap-3 sm:grid-cols-3">

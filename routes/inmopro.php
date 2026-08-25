@@ -49,6 +49,7 @@ use App\Http\Controllers\Inmopro\ReportController;
 use App\Http\Controllers\Inmopro\Reports\ContractsWeekReportController;
 use App\Http\Controllers\Inmopro\Reports\ExpiredContractsReportController;
 use App\Http\Controllers\Inmopro\Reports\FallenLotsReportController;
+use App\Http\Controllers\Inmopro\Reports\LotsAdvancedReportController;
 use App\Http\Controllers\Inmopro\Reports\ProjectInventoryReportController;
 use App\Http\Controllers\Inmopro\Reports\ReportsHubController;
 use App\Http\Controllers\Inmopro\Reports\ReservationsDetailReportController;
@@ -171,6 +172,7 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::get('accounts-receivable', [AccountsReceivableController::class, 'index'])->name('accounts-receivable.index');
         Route::post('lots/{lot}/installments', [AccountsReceivableController::class, 'storeInstallment'])->name('lots.installments.store');
         Route::post('lots/{lot}/payments', [AccountsReceivableController::class, 'storePayment'])->name('lots.payments.store');
+        Route::get('lot-payments/{lot_payment}/voucher', [AccountsReceivableController::class, 'voucher'])->name('lot-payments.voucher');
         Route::get('cash-accounts', [CashAccountController::class, 'index'])->name('cash-accounts.index');
         Route::post('cash-accounts', [CashAccountController::class, 'store'])->name('cash-accounts.store');
         Route::post('cash-accounts/{cash_account}/entries', [CashAccountController::class, 'storeEntry'])->name('cash-accounts.entries.store');
@@ -198,6 +200,9 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::get('reports/transfers-by-project', [TransfersByProjectReportController::class, 'index'])->name('reports.transfers-by-project.index');
         Route::get('reports/transfers-by-project/pdf', [TransfersByProjectReportController::class, 'pdf'])->name('reports.transfers-by-project.pdf');
         Route::get('reports/transfers-by-project/csv', [TransfersByProjectReportController::class, 'csv'])->name('reports.transfers-by-project.csv');
+        Route::get('reports/lots-advanced', [LotsAdvancedReportController::class, 'index'])->name('reports.lots-advanced.index');
+        Route::get('reports/lots-advanced/pdf', [LotsAdvancedReportController::class, 'pdf'])->name('reports.lots-advanced.pdf');
+        Route::get('reports/lots-advanced/csv', [LotsAdvancedReportController::class, 'csv'])->name('reports.lots-advanced.csv');
         Route::get('reports/team-goals', [TeamGoalsReportController::class, 'index'])->name('reports.team-goals.index');
         Route::get('reports/team-goals/pdf', [TeamGoalsReportController::class, 'pdf'])->name('reports.team-goals.pdf');
         Route::get('reports/team-goals/csv', [TeamGoalsReportController::class, 'csv'])->name('reports.team-goals.csv');

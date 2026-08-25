@@ -87,6 +87,7 @@ class ContractsWeekReportController extends Controller
             'week_date' => $request->input('week_date'),
             'start_date' => $week['start_date'],
             'end_date' => $week['end_date'],
+            'include_inactive' => $request->boolean('include_inactive'),
         ];
 
         $reservedLots = $this->lotQueryBuilder
@@ -100,7 +101,9 @@ class ContractsWeekReportController extends Controller
 
         $transferredLotIds = Lot::query()
             ->join('lot_transfer_confirmations as ltc', 'ltc.lot_id', '=', 'lots.id')
+            ->join('projects', 'projects.id', '=', 'lots.project_id')
             ->where('ltc.status', LotTransferConfirmation::STATUS_APPROVED)
+            ->when(! $filters['include_inactive'], fn (Builder $q) => $q->where('projects.is_active', true))
             ->whereBetween(DB::raw('DATE(ltc.reviewed_at)'), [$filters['start_date'], $filters['end_date']])
             ->pluck('lots.id');
 
@@ -127,7 +130,7 @@ class ContractsWeekReportController extends Controller
             ],
             'generatedAt' => now()->format('d/m/Y H:i'),
             'exportBaseUrl' => '/inmopro/reports/contracts-week',
-            ...$this->filterOptions->all(),
+            ...$this->filterOptions->all($request),
         ];
     }
 }

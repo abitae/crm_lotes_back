@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
+    BarChart3,
     Bot,
     Building2,
     Calendar,
@@ -103,9 +104,69 @@ const managementSections: NavSection[] = [
                 href: '/inmopro/commissions',
                 icon: Percent,
             },
-            { title: 'Reportes', href: '/inmopro/reports', icon: LayoutGrid },
+        ],
+    },
+    {
+        label: 'Reportes',
+        icon: BarChart3,
+        items: [
             {
-                title: 'Meta general reportes',
+                title: 'Centro de reportes',
+                href: '/inmopro/reports',
+                icon: LayoutGrid,
+            },
+            {
+                title: 'Inventario avanzado',
+                href: '/inmopro/reports/lots-advanced',
+                icon: Layers,
+            },
+            {
+                title: 'Transferencias por proyecto',
+                href: '/inmopro/reports/transfers-by-project',
+                icon: FileCheck,
+            },
+            {
+                title: 'Ventas por proyecto/equipo',
+                href: '/inmopro/reports/sales',
+                icon: DollarSign,
+            },
+            {
+                title: 'Top cazadores',
+                href: '/inmopro/reports/top-advisors',
+                icon: UserCheck,
+            },
+            {
+                title: 'Detalle de reservas',
+                href: '/inmopro/reports/reservations',
+                icon: FileCheck,
+            },
+            {
+                title: 'Caídos',
+                href: '/inmopro/reports/fallen',
+                icon: Tag,
+            },
+            {
+                title: 'Inventario por proyecto',
+                href: '/inmopro/reports/project-inventory',
+                icon: MapPin,
+            },
+            {
+                title: 'Contratos de la semana',
+                href: '/inmopro/reports/contracts-week',
+                icon: Calendar,
+            },
+            {
+                title: 'Contratos vencidos',
+                href: '/inmopro/reports/expired-contracts',
+                icon: FileCheck,
+            },
+            {
+                title: 'Meta grupal',
+                href: '/inmopro/reports/team-goals',
+                icon: Target,
+            },
+            {
+                title: 'Meta general',
                 href: '/inmopro/report-settings',
                 icon: Target,
             },

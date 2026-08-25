@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import { IncludeInactiveProjectsField, projectOptionLabel } from '@/components/inmopro/reports/IncludeInactiveProjectsField';
 import { LotDetailTable } from '@/components/inmopro/reports/LotDetailTable';
 import type { LotDetailRow } from '@/components/inmopro/reports/LotDetailTable';
 import { ReportPageShell } from '@/components/inmopro/reports/ReportPageShell';
@@ -22,13 +23,13 @@ export default function ExpiredContractsReport({
     title: string;
     description: string;
     criteriaNote?: string;
-    filters: Record<string, string | number | null>;
+    filters: Record<string, string | number | boolean | null>;
     rows: LotDetailRow[];
     pagination: { current_page: number; last_page: number; total: number; links: { url: string | null; label: string; active: boolean }[] } | null;
     summary: { total: number };
     generatedAt: string;
     exportBaseUrl: string;
-    projects: { id: number; name: string }[];
+    projects: { id: number; name: string; is_active?: boolean }[];
     teams: { id: number; name: string }[];
     advisors: { id: number; name: string }[];
 }) {
@@ -43,7 +44,7 @@ export default function ExpiredContractsReport({
                 <select name="project_id" defaultValue={String(filters.project_id ?? '')} className="rounded-xl border px-3 py-2 text-sm">
                     <option value="">Proyecto</option>
                     {projects.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                        <option key={p.id} value={p.id}>{projectOptionLabel(p)}</option>
                     ))}
                 </select>
                 <select name="team_id" defaultValue={String(filters.team_id ?? '')} className="rounded-xl border px-3 py-2 text-sm">
@@ -58,6 +59,7 @@ export default function ExpiredContractsReport({
                         <option key={a.id} value={a.id}>{a.name}</option>
                     ))}
                 </select>
+                <IncludeInactiveProjectsField checked={Boolean(filters.include_inactive)} />
                 <Button type="submit">Filtrar</Button>
             </form>
             <p className="text-sm text-muted-foreground">Total vencidos: {summary.total}</p>

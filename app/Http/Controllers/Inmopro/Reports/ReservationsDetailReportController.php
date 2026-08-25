@@ -103,6 +103,7 @@ class ReservationsDetailReportController extends Controller
             'start_date' => $dateRange['start_date'],
             'end_date' => $dateRange['end_date'],
             'include_prereserva' => $includePreReserva,
+            'include_inactive' => $request->boolean('include_inactive'),
         ];
 
         $statusCodes = [LotStatus::CODE_RESERVADO];
@@ -148,7 +149,7 @@ class ReservationsDetailReportController extends Controller
             'summary' => ['total' => $pagination['total'] ?? count($rows)],
             'generatedAt' => now()->format('d/m/Y H:i'),
             'exportBaseUrl' => '/inmopro/reports/reservations',
-            ...$this->filterOptions->all(),
+            ...$this->filterOptions->all($request),
         ];
     }
 }

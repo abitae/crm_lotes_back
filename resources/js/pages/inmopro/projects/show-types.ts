@@ -53,6 +53,7 @@ export type Project = {
     documents?: ProjectAsset[];
     lots?: Lot[];
     tour_360_url?: string | null;
+    view_flat_url?: string | null;
 };
 
 export type LotPayload = {

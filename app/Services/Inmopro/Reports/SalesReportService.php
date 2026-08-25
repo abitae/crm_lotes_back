@@ -35,9 +35,14 @@ class SalesReportService
             'advisor_id' => $request->filled('advisor_id') ? $request->integer('advisor_id') : null,
             'start_date' => $dateRange['start_date'],
             'end_date' => $dateRange['end_date'],
+            'include_inactive' => $request->boolean('include_inactive'),
         ];
 
-        $projects = Project::query()->orderBy('name')->get(['id', 'name']);
+        $projects = Project::query()
+            ->when(! $filters['include_inactive'], fn (Builder $query) => $query->active())
+            ->when($filters['include_inactive'], fn (Builder $query) => $query->orderByDesc('is_active'))
+            ->orderBy('name')
+            ->get(['id', 'name', 'is_active']);
         $teams = Team::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color', 'is_active', 'group_sales_goal']);
         $advisors = Advisor::query()
             ->with('team:id,name,color')
@@ -52,6 +57,7 @@ class SalesReportService
                 $filters['start_date'],
                 $filters['end_date']
             ))
+            ->tap(fn (Builder $query) => $this->lotQueryBuilder->applyActiveProjectFilter($query, $request))
             ->when($filters['project_id'], fn (Builder $builder, int $projectId) => $builder->where('project_id', $projectId))
             ->when($filters['advisor_id'], fn (Builder $builder, int $advisorId) => $builder->where('advisor_id', $advisorId))
             ->when($filters['team_id'], fn (Builder $builder, int $teamId) => $builder->whereHas('advisor', fn (Builder $advisorQuery) => $advisorQuery->where('team_id', $teamId)))

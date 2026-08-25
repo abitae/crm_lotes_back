@@ -8,6 +8,7 @@ import {
     Power,
     PowerOff,
     Save,
+    View,
 } from 'lucide-react';
 import { ProjectLocationLink } from '@/components/inmopro/project-location-link';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -56,6 +57,35 @@ export function ProjectShowHeader({
                     </div>
 
                     <div className="flex flex-wrap gap-2">
+                        {project.tour_360_url ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl border-transparent bg-[#f5f3f3] shadow-none dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                                asChild
+                            >
+                                <a
+                                    href={project.tour_360_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    <View className="h-4 w-4" />
+                                    Vista 360
+                                </a>
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl border-transparent bg-[#f5f3f3] shadow-none dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                                asChild
+                            >
+                                <Link href={`/inmopro/project-360/${project.id}`}>
+                                    <View className="h-4 w-4" />
+                                    Vista 360
+                                </Link>
+                            </Button>
+                        )}
                         <Button
                             variant="outline"
                             size="sm"

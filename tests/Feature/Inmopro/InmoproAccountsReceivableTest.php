@@ -6,8 +6,10 @@ use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\CashAccount;
 use App\Models\Inmopro\Client;
 use App\Models\Inmopro\Lot;
+use App\Models\Inmopro\LotPayment;
 use App\Models\Inmopro\LotStatus;
 use App\Models\User;
+use App\Support\FileStorage;
 use Database\Seeders\Inmopro\AdvisorLevelSeeder;
 use Database\Seeders\Inmopro\AdvisorSeeder;
 use Database\Seeders\Inmopro\ClientSeeder;
@@ -16,6 +18,8 @@ use Database\Seeders\Inmopro\LotSeeder;
 use Database\Seeders\Inmopro\LotStatusSeeder;
 use Database\Seeders\Inmopro\ProjectSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class InmoproAccountsReceivableTest extends TestCase
@@ -64,10 +68,15 @@ class InmoproAccountsReceivableTest extends TestCase
             ->has('teams'));
     }
 
-    public function test_authenticated_users_can_create_installment_and_payment(): void
+    public function test_authenticated_users_can_create_installment_and_payment_for_cuotas_lot(): void
     {
+        Storage::fake(FileStorage::disk());
+
         $user = User::factory()->create();
         $lot = Lot::whereNotNull('client_id')->firstOrFail();
+        $lot->update([
+            'lot_status_id' => LotStatus::query()->where('code', LotStatus::CODE_CUOTAS)->value('id'),
+        ]);
         $cashAccount = CashAccount::create([
             'name' => 'Caja Principal',
             'type' => 'CAJA',
@@ -94,7 +103,13 @@ class InmoproAccountsReceivableTest extends TestCase
             'paid_at' => now()->toDateString(),
             'payment_method' => 'TRANSFERENCIA',
             'reference' => 'OP-100',
+            'voucher_image' => UploadedFile::fake()->image('voucher.png'),
         ])->assertRedirect();
+
+        $payment = LotPayment::query()->where('lot_id', $lot->id)->first();
+        $this->assertNotNull($payment);
+        $this->assertNotNull($payment->voucher_path);
+        Storage::disk(FileStorage::disk())->assertExists($payment->voucher_path);
 
         $this->assertDatabaseHas('lot_payments', [
             'lot_id' => $lot->id,
@@ -113,6 +128,67 @@ class InmoproAccountsReceivableTest extends TestCase
             'id' => $cashAccount->id,
             'current_balance' => 2600,
         ]);
+    }
+
+    public function test_cannot_create_installment_when_lot_is_not_cuotas(): void
+    {
+        $user = User::factory()->create();
+        $lot = Lot::whereNotNull('client_id')->firstOrFail();
+        $this->assertSame(
+            LotStatus::CODE_RESERVADO,
+            LotStatus::query()->find($lot->lot_status_id)?->code,
+        );
+        $this->actingAs($user);
+
+        $this->from(route('inmopro.accounts-receivable.index'))
+            ->post(route('inmopro.lots.installments.store', $lot), [
+                'due_date' => now()->addDays(15)->toDateString(),
+                'amount' => 2500,
+                'notes' => 'Primera cuota',
+            ])
+            ->assertRedirect(route('inmopro.accounts-receivable.index'))
+            ->assertSessionHasErrors('amount');
+
+        $this->assertDatabaseCount('lot_installments', 0);
+    }
+
+    public function test_payment_requires_voucher_image(): void
+    {
+        $user = User::factory()->create();
+        $lot = Lot::whereNotNull('client_id')->firstOrFail();
+        $this->actingAs($user);
+
+        $this->from(route('inmopro.accounts-receivable.index'))
+            ->post(route('inmopro.lots.payments.store', $lot), [
+                'amount' => 2500,
+                'paid_at' => now()->toDateString(),
+                'payment_method' => 'TRANSFERENCIA',
+            ])
+            ->assertRedirect(route('inmopro.accounts-receivable.index'))
+            ->assertSessionHasErrors('voucher_image');
+
+        $this->assertDatabaseCount('lot_payments', 0);
+    }
+
+    public function test_payment_voucher_can_be_viewed(): void
+    {
+        Storage::fake(FileStorage::disk());
+
+        $user = User::factory()->create();
+        $lot = Lot::whereNotNull('client_id')->firstOrFail();
+        $this->actingAs($user);
+
+        $this->post(route('inmopro.lots.payments.store', $lot), [
+            'amount' => 1000,
+            'paid_at' => now()->toDateString(),
+            'payment_method' => 'EFECTIVO',
+            'voucher_image' => UploadedFile::fake()->image('comprobante.jpg'),
+        ])->assertRedirect();
+
+        $payment = LotPayment::query()->where('lot_id', $lot->id)->firstOrFail();
+
+        $this->get(route('inmopro.lot-payments.voucher', $payment))
+            ->assertOk();
     }
 
     public function test_accounts_receivable_can_filter_by_project_and_client(): void

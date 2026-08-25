@@ -115,4 +115,20 @@ class Project extends Model
     {
         return $this->hasMany(ProjectFlatPolygon::class);
     }
+
+    /**
+     * URL absoluta a la vista plana del CRM cuando el proyecto tiene polígonos.
+     */
+    public function resolveViewFlatUrl(): ?string
+    {
+        $hasPolygons = array_key_exists('flat_polygons_count', $this->attributes)
+            ? (int) $this->attributes['flat_polygons_count'] > 0
+            : $this->flatPolygons()->exists();
+
+        if (! $hasPolygons) {
+            return null;
+        }
+
+        return route('inmopro.project-flat.show', $this);
+    }
 }

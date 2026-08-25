@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Inmopro\Reports\Concerns\ExportsReportDetail;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotTransferConfirmation;
-use App\Models\Inmopro\Project;
 use App\Services\Inmopro\Reports\ReportDateRangeResolver;
 use App\Services\Inmopro\Reports\ReportFilterOptions;
 use Illuminate\Database\Eloquent\Builder;
@@ -34,18 +33,22 @@ class TransfersByProjectReportController extends Controller
     public function pdf(Request $request): Response
     {
         $payload = $this->buildPayload($request);
-        $payload['tableHeaders'] = ['Proyecto', 'Mes', 'Cantidad', 'Monto'];
+        $payload['tableHeaders'] = ['Cliente', 'Ciudad', 'Proyecto', 'MZ', 'Lote', 'Monto', 'Fecha revisión', 'Cazador'];
         $payload['tableBody'] = array_map(
             fn (array $row) => [
-                $row['project_name'],
-                $row['month_label'].' '.$row['year'],
-                (string) $row['transfer_count'],
-                number_format((float) $row['transfer_amount'], 2),
+                $row['client_name'] ?? '',
+                $row['city_name'] ?? '',
+                $row['project_name'] ?? '',
+                $row['block'] ?? '',
+                (string) ($row['number'] ?? ''),
+                number_format((float) $row['amount'], 2),
+                $row['reviewed_at'] ?? '',
+                $row['advisor_name'] ?? '',
             ],
-            $payload['rows']
+            $payload['detail_rows']
         );
 
-        return $this->pdfResponse($request, $payload, 'inmopro.reports.detail-pdf', 'transferencias-mensuales');
+        return $this->pdfResponse($request, $payload, 'inmopro.reports.detail-pdf', 'transferencias-por-proyecto');
     }
 
     public function csv(Request $request): StreamedResponse
@@ -53,17 +56,20 @@ class TransfersByProjectReportController extends Controller
         $payload = $this->buildPayload($request);
 
         return $this->csvResponse(
-            'transferencias-mensuales',
-            ['Proyecto', 'Año', 'Mes', 'Cantidad', 'Monto (S/)'],
+            'transferencias-por-proyecto',
+            ['Cliente', 'Ciudad', 'Proyecto', 'MZ', 'Lote', 'Monto (S/)', 'Fecha revisión', 'Cazador'],
             fn () => array_map(
                 fn (array $row) => [
-                    $row['project_name'],
-                    (string) $row['year'],
-                    (string) $row['month'],
-                    (string) $row['transfer_count'],
-                    number_format((float) $row['transfer_amount'], 2, '.', ''),
+                    $row['client_name'] ?? '',
+                    $row['city_name'] ?? '',
+                    $row['project_name'] ?? '',
+                    $row['block'] ?? '',
+                    (string) ($row['number'] ?? ''),
+                    number_format((float) $row['amount'], 2, '.', ''),
+                    $row['reviewed_at'] ?? '',
+                    $row['advisor_name'] ?? '',
                 ],
-                $payload['rows']
+                $payload['detail_rows']
             )
         );
     }
@@ -73,30 +79,72 @@ class TransfersByProjectReportController extends Controller
      */
     private function buildPayload(Request $request): array
     {
-        $yearRange = $this->dateRangeResolver->resolveYear($request);
+        $dateRange = $this->dateRangeResolver->resolve($request);
         $filters = [
-            'year' => $yearRange['year'],
+            'start_date' => $dateRange['start_date'],
+            'end_date' => $dateRange['end_date'],
             'project_id' => $request->filled('project_id') ? $request->integer('project_id') : null,
+            'advisor_id' => $request->filled('advisor_id') ? $request->integer('advisor_id') : null,
+            'client_search' => trim((string) $request->input('client_search', '')) ?: null,
+            'include_inactive' => $request->boolean('include_inactive'),
         ];
 
-        $aggregates = Lot::query()
+        $baseQuery = Lot::query()
             ->join('lot_transfer_confirmations as ltc', 'ltc.lot_id', '=', 'lots.id')
             ->join('projects', 'projects.id', '=', 'lots.project_id')
+            ->leftJoin('clients', 'clients.id', '=', 'lots.client_id')
+            ->leftJoin('cities', 'cities.id', '=', 'clients.city_id')
+            ->leftJoin('advisors', 'advisors.id', '=', 'lots.advisor_id')
             ->where('ltc.status', LotTransferConfirmation::STATUS_APPROVED)
-            ->whereYear('ltc.reviewed_at', $filters['year'])
+            ->whereDate('ltc.reviewed_at', '>=', $filters['start_date'])
+            ->whereDate('ltc.reviewed_at', '<=', $filters['end_date'])
+            ->when(! $filters['include_inactive'], fn (Builder $q) => $q->where('projects.is_active', true))
             ->when($filters['project_id'], fn (Builder $q, int $pid) => $q->where('lots.project_id', $pid))
+            ->when($filters['advisor_id'], fn (Builder $q, int $aid) => $q->where('lots.advisor_id', $aid))
+            ->when($filters['client_search'], function (Builder $q, string $search): void {
+                $like = '%'.$search.'%';
+                $q->where(function (Builder $clientQuery) use ($like): void {
+                    $clientQuery
+                        ->where('clients.name', 'like', $like)
+                        ->orWhere('lots.client_name', 'like', $like)
+                        ->orWhere('clients.phone', 'like', $like)
+                        ->orWhere('clients.dni', 'like', $like);
+                });
+            });
+
+        $detailRows = (clone $baseQuery)
             ->select(
-                'lots.project_id',
+                'lots.id',
+                DB::raw('COALESCE(clients.name, lots.client_name) as client_name'),
+                'cities.name as city_name',
                 'projects.name as project_name',
-                DB::raw('YEAR(ltc.reviewed_at) as year'),
-                DB::raw('MONTH(ltc.reviewed_at) as month'),
-                DB::raw('COUNT(DISTINCT lots.id) as transfer_count'),
-                DB::raw('SUM(lots.price) as transfer_amount')
+                'lots.project_id',
+                'lots.block',
+                'lots.number',
+                'lots.price as amount',
+                'ltc.reviewed_at',
+                'advisors.name as advisor_name'
             )
-            ->groupBy('lots.project_id', 'projects.name', DB::raw('YEAR(ltc.reviewed_at)'), DB::raw('MONTH(ltc.reviewed_at)'))
+            ->orderByDesc('ltc.reviewed_at')
             ->orderBy('projects.name')
-            ->orderBy('month')
-            ->get();
+            ->orderBy('lots.block')
+            ->orderBy('lots.number')
+            ->get()
+            ->map(fn ($row) => [
+                'id' => (int) $row->id,
+                'client_name' => $row->client_name,
+                'city_name' => $row->city_name,
+                'project_id' => (int) $row->project_id,
+                'project_name' => $row->project_name,
+                'block' => $row->block,
+                'number' => $row->number,
+                'amount' => round((float) $row->amount, 2),
+                'reviewed_at' => $row->reviewed_at
+                    ? \Illuminate\Support\Carbon::parse($row->reviewed_at)->format('Y-m-d')
+                    : null,
+                'advisor_name' => $row->advisor_name,
+            ])
+            ->all();
 
         $monthNames = [
             1 => 'Enero', 2 => 'Febrero', 3 => 'Marzo', 4 => 'Abril',
@@ -104,29 +152,50 @@ class TransfersByProjectReportController extends Controller
             9 => 'Septiembre', 10 => 'Octubre', 11 => 'Noviembre', 12 => 'Diciembre',
         ];
 
-        $rows = $aggregates->map(fn ($row) => [
-            'project_id' => $row->project_id,
-            'project_name' => $row->project_name,
-            'year' => (int) $row->year,
-            'month' => (int) $row->month,
-            'month_label' => $monthNames[(int) $row->month] ?? (string) $row->month,
-            'transfer_count' => (int) $row->transfer_count,
-            'transfer_amount' => round((float) $row->transfer_amount, 2),
-        ])->all();
+        $rows = collect($detailRows)
+            ->filter(fn (array $row) => filled($row['reviewed_at']))
+            ->groupBy(function (array $row): string {
+                $date = \Illuminate\Support\Carbon::parse((string) $row['reviewed_at']);
+
+                return $row['project_id'].'-'.$date->format('Y-m');
+            })
+            ->map(function ($group) use ($monthNames): array {
+                $first = $group->first();
+                $date = \Illuminate\Support\Carbon::parse((string) $first['reviewed_at']);
+                $month = (int) $date->format('n');
+
+                return [
+                    'project_id' => $first['project_id'],
+                    'project_name' => $first['project_name'],
+                    'year' => (int) $date->format('Y'),
+                    'month' => $month,
+                    'month_label' => $monthNames[$month] ?? (string) $month,
+                    'transfer_count' => $group->count(),
+                    'transfer_amount' => round((float) $group->sum('amount'), 2),
+                ];
+            })
+            ->sortBy([
+                ['project_name', 'asc'],
+                ['year', 'asc'],
+                ['month', 'asc'],
+            ])
+            ->values()
+            ->all();
 
         return [
-            'title' => 'Transferencias por proyecto (mensual)',
-            'description' => 'Cantidad y monto de transferencias aprobadas agrupadas por mes.',
-            'criteriaNote' => 'Fecha = revisión de confirmación APROBADA.',
+            'title' => 'Transferencias por proyecto',
+            'description' => 'Detalle y consolidado de transferencias aprobadas por rango de fechas y proyecto.',
+            'criteriaNote' => 'Fecha = revisión de confirmación APROBADA. Detalle: cliente, ciudad, proyecto y monto.',
             'filters' => $filters,
             'rows' => $rows,
+            'detail_rows' => $detailRows,
             'summary' => [
-                'total_count' => (int) collect($rows)->sum('transfer_count'),
-                'total_amount' => round((float) collect($rows)->sum('transfer_amount'), 2),
+                'total_count' => count($detailRows),
+                'total_amount' => round((float) collect($detailRows)->sum('amount'), 2),
             ],
             'generatedAt' => now()->format('d/m/Y H:i'),
             'exportBaseUrl' => '/inmopro/reports/transfers-by-project',
-            'projects' => Project::query()->orderBy('name')->get(['id', 'name']),
+            ...$this->filterOptions->all($request),
         ];
     }
 }

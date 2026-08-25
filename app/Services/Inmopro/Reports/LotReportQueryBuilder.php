@@ -15,13 +15,14 @@ class LotReportQueryBuilder
     public function base(): Builder
     {
         return Lot::query()->with([
-            'project:id,name,project_type_id',
+            'project:id,name,project_type_id,is_active',
             'project.projectType:id,percentage_meta',
             'status:id,name,code,color',
             'advisor:id,name,team_id,personal_quota',
             'advisor.team:id,name,color',
-            'client:id,name,phone,dni,client_type_id,registered_by_datero_id',
+            'client:id,name,phone,dni,client_type_id,city_id,registered_by_datero_id',
             'client.type:id,name,code',
+            'client.city:id,name',
             'client.registeredByDatero:id,name',
             'payments:id,lot_id,amount,paid_at',
         ]);
@@ -64,7 +65,41 @@ class LotReportQueryBuilder
             $query->whereHas('advisor', fn (Builder $advisorQuery) => $advisorQuery->where('team_id', $teamId));
         }
 
+        if ($request->filled('client_id')) {
+            $query->where('client_id', $request->integer('client_id'));
+        }
+
+        $clientSearch = trim((string) $request->input('client_search', ''));
+        if ($clientSearch !== '') {
+            $like = '%'.$clientSearch.'%';
+            $query->where(function (Builder $clientQuery) use ($like): void {
+                $clientQuery
+                    ->where('client_name', 'like', $like)
+                    ->orWhereHas('client', function (Builder $client) use ($like): void {
+                        $client
+                            ->where('name', 'like', $like)
+                            ->orWhere('phone', 'like', $like)
+                            ->orWhere('dni', 'like', $like);
+                    });
+            });
+        }
+
         $this->applyClientOriginFilter($query, (string) $request->input('client_origin', 'all'));
+        $this->applyActiveProjectFilter($query, $request);
+
+        return $query;
+    }
+
+    /**
+     * Por defecto solo proyectos activos; con include_inactive=1 incluye inactivos.
+     *
+     * @return Builder<Lot>
+     */
+    public function applyActiveProjectFilter(Builder $query, Request $request): Builder
+    {
+        if (! $request->boolean('include_inactive')) {
+            $query->whereHas('project', fn (Builder $projectQuery) => $projectQuery->active());
+        }
 
         return $query;
     }

@@ -46,7 +46,7 @@ function toYmdLocal(d: Date): string {
     return `${y}-${m}-${day}`;
 }
 
-type Project = { id: number; name: string };
+type Project = { id: number; name: string; is_active?: boolean };
 type Team = { id: number; name: string; color?: string | null };
 type Advisor = { id: number; name: string; team?: Team | null };
 type ReportRow = {
@@ -67,6 +67,7 @@ type Filters = {
     advisor_id?: number | null;
     start_date?: string | null;
     end_date?: string | null;
+    include_inactive?: boolean | null;
 };
 type Summary = {
     sold_amount: number;
@@ -116,6 +117,9 @@ function buildExportQueryString(
     }
     if (filters.end_date) {
         params.set('end_date', filters.end_date);
+    }
+    if (filters.include_inactive) {
+        params.set('include_inactive', '1');
     }
     if (disposition === 'attachment') {
         params.set('disposition', 'attachment');
@@ -210,6 +214,7 @@ export default function Reports({
                 advisor_id: filters.advisor_id ?? undefined,
                 start_date: next.start_date ?? filters.start_date ?? undefined,
                 end_date: next.end_date ?? filters.end_date ?? undefined,
+                include_inactive: filters.include_inactive ? '1' : undefined,
             },
             { preserveScroll: true },
         );
@@ -272,6 +277,7 @@ export default function Reports({
                 advisor_id: (formData.get('advisor_id') as string) || undefined,
                 start_date: (formData.get('start_date') as string) || undefined,
                 end_date: (formData.get('end_date') as string) || undefined,
+                include_inactive: (formData.get('include_inactive') as string) || undefined,
             },
             { preserveScroll: true },
         );
@@ -435,7 +441,9 @@ export default function Reports({
                             <option value="">Todos</option>
                             {projects.map((project) => (
                                 <option key={project.id} value={project.id}>
-                                    {project.name}
+                                    {project.is_active === false
+                                        ? `${project.name} (Inactivo)`
+                                        : project.name}
                                 </option>
                             ))}
                         </select>
@@ -483,13 +491,24 @@ export default function Reports({
                         <span className="text-xs font-semibold text-slate-600">
                             Hasta y acción
                         </span>
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
                             <input
                                 type="date"
                                 name="end_date"
                                 defaultValue={filters.end_date ?? ''}
                                 className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-slate-300"
                             />
+                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                                <input type="hidden" name="include_inactive" value="0" />
+                                <input
+                                    type="checkbox"
+                                    name="include_inactive"
+                                    value="1"
+                                    defaultChecked={Boolean(filters.include_inactive)}
+                                    className="size-4 rounded border-input"
+                                />
+                                Incluir inactivos
+                            </label>
                             <Button
                                 type="submit"
                                 className="shrink-0 rounded-xl px-5"

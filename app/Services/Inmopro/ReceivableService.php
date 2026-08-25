@@ -7,12 +7,24 @@ use App\Models\Inmopro\CashEntry;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotInstallment;
 use App\Models\Inmopro\LotPayment;
+use App\Models\Inmopro\LotStatus;
+use App\Support\FileStorage;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ReceivableService
 {
     public function createInstallment(Lot $lot, array $validated): LotInstallment
     {
+        $lot->loadMissing('status');
+
+        if ($lot->status?->code !== LotStatus::CODE_CUOTAS) {
+            throw ValidationException::withMessages([
+                'amount' => 'Solo se pueden generar cuotas para lotes en estado CUOTAS.',
+            ]);
+        }
+
         $sequence = ((int) $lot->installments()->max('sequence')) + 1;
 
         $installment = $lot->installments()->create([
@@ -28,52 +40,61 @@ class ReceivableService
         return $installment;
     }
 
-    public function recordPayment(Lot $lot, array $validated): LotPayment
+    public function recordPayment(Lot $lot, array $validated, UploadedFile $voucherImage): LotPayment
     {
-        return DB::transaction(function () use ($lot, $validated): LotPayment {
-            $payment = LotPayment::create([
-                'lot_id' => $lot->id,
-                'lot_installment_id' => $validated['lot_installment_id'] ?? null,
-                'cash_account_id' => $validated['cash_account_id'] ?? null,
-                'amount' => $validated['amount'],
-                'paid_at' => $validated['paid_at'],
-                'payment_method' => $validated['payment_method'],
-                'reference' => $validated['reference'] ?? null,
-                'notes' => $validated['notes'] ?? null,
-            ]);
+        $storedPath = FileStorage::storeUploadedFile($voucherImage, 'lot-payments');
 
-            if (! empty($validated['lot_installment_id'])) {
-                /** @var LotInstallment $installment */
-                $installment = LotInstallment::query()
-                    ->where('lot_id', $lot->id)
-                    ->findOrFail($validated['lot_installment_id']);
-
-                $installment->paid_amount = (float) $installment->paid_amount + (float) $validated['amount'];
-                $this->refreshInstallmentStatus($installment);
-                $installment->save();
-            }
-
-            if (! empty($validated['cash_account_id'])) {
-                /** @var CashAccount $cashAccount */
-                $cashAccount = CashAccount::findOrFail($validated['cash_account_id']);
-                $cashAccount->increment('current_balance', (float) $validated['amount']);
-
-                CashEntry::create([
-                    'cash_account_id' => $cashAccount->id,
-                    'lot_payment_id' => $payment->id,
-                    'type' => 'INGRESO',
-                    'concept' => sprintf('Pago lote %s-%s', $lot->block, $lot->number),
+        try {
+            return DB::transaction(function () use ($lot, $validated, $storedPath): LotPayment {
+                $payment = LotPayment::create([
+                    'lot_id' => $lot->id,
+                    'lot_installment_id' => $validated['lot_installment_id'] ?? null,
+                    'cash_account_id' => $validated['cash_account_id'] ?? null,
                     'amount' => $validated['amount'],
-                    'entry_date' => $validated['paid_at'],
+                    'paid_at' => $validated['paid_at'],
+                    'payment_method' => $validated['payment_method'],
                     'reference' => $validated['reference'] ?? null,
                     'notes' => $validated['notes'] ?? null,
+                    'voucher_path' => $storedPath,
                 ]);
-            }
 
-            $this->syncLotBalances($lot->fresh());
+                if (! empty($validated['lot_installment_id'])) {
+                    /** @var LotInstallment $installment */
+                    $installment = LotInstallment::query()
+                        ->where('lot_id', $lot->id)
+                        ->findOrFail($validated['lot_installment_id']);
 
-            return $payment;
-        });
+                    $installment->paid_amount = (float) $installment->paid_amount + (float) $validated['amount'];
+                    $this->refreshInstallmentStatus($installment);
+                    $installment->save();
+                }
+
+                if (! empty($validated['cash_account_id'])) {
+                    /** @var CashAccount $cashAccount */
+                    $cashAccount = CashAccount::findOrFail($validated['cash_account_id']);
+                    $cashAccount->increment('current_balance', (float) $validated['amount']);
+
+                    CashEntry::create([
+                        'cash_account_id' => $cashAccount->id,
+                        'lot_payment_id' => $payment->id,
+                        'type' => 'INGRESO',
+                        'concept' => sprintf('Pago lote %s-%s', $lot->block, $lot->number),
+                        'amount' => $validated['amount'],
+                        'entry_date' => $validated['paid_at'],
+                        'reference' => $validated['reference'] ?? null,
+                        'notes' => $validated['notes'] ?? null,
+                    ]);
+                }
+
+                $this->syncLotBalances($lot->fresh());
+
+                return $payment;
+            });
+        } catch (\Throwable $exception) {
+            FileStorage::deleteIfExists($storedPath);
+
+            throw $exception;
+        }
     }
 
     public function recordManualEntry(CashAccount $cashAccount, array $validated): CashEntry

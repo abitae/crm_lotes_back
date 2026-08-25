@@ -1,12 +1,14 @@
 import { router } from '@inertiajs/react';
 import type { FormEvent } from 'react';
 import { CalendarRange } from 'lucide-react';
+import { IncludeInactiveProjectsField } from '@/components/inmopro/reports/IncludeInactiveProjectsField';
 import { Button } from '@/components/ui/button';
 import { toYmdLocal } from '@/lib/report-utils';
 
 type DateFilters = {
     start_date?: string | null;
     end_date?: string | null;
+    include_inactive?: string | number | boolean | null;
     [key: string]: string | number | boolean | null | undefined;
 };
 
@@ -15,6 +17,7 @@ type Props = {
     filters: DateFilters;
     extraFields?: Record<string, string | number | boolean | null | undefined>;
     children?: React.ReactNode;
+    showInactiveProjectsToggle?: boolean;
 };
 
 function preservedFilterFields(
@@ -60,12 +63,23 @@ function queryFromForm(
     return query;
 }
 
-export function ReportDateFilters({ basePath, filters, extraFields = {}, children }: Props) {
+export function ReportDateFilters({
+    basePath,
+    filters,
+    extraFields = {},
+    children,
+    showInactiveProjectsToggle = true,
+}: Props) {
     const navigate = (patch: Partial<DateFilters>) => {
         router.get(
             basePath,
             {
-                ...preservedFilterFields(filters, extraFields),
+                ...preservedFilterFields(filters, {
+                    ...extraFields,
+                    ...(showInactiveProjectsToggle
+                        ? { include_inactive: filters.include_inactive ? '1' : '0' }
+                        : {}),
+                }),
                 start_date: patch.start_date ?? filters.start_date ?? undefined,
                 end_date: patch.end_date ?? filters.end_date ?? undefined,
             },
@@ -141,6 +155,9 @@ export function ReportDateFilters({ basePath, filters, extraFields = {}, childre
                     />
                 </label>
                 {children}
+                {showInactiveProjectsToggle ? (
+                    <IncludeInactiveProjectsField checked={Boolean(filters.include_inactive)} />
+                ) : null}
                 <Button type="submit">Aplicar</Button>
             </form>
         </div>

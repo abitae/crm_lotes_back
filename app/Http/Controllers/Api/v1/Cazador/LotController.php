@@ -15,6 +15,7 @@ class LotController extends Controller
     {
         $lots = Lot::query()
             ->with(['project', 'status', 'preReservations' => fn ($query) => $query->whereIn('status', ['PENDIENTE', 'APROBADA'])])
+            ->whereHas('project', fn ($query) => $query->where('is_active', true))
             ->when($request->filled('project_id'), fn ($query) => $query->where('project_id', $request->integer('project_id')))
             ->when($request->filled('search'), function ($query) use ($request) {
                 $term = (string) $request->input('search');
@@ -40,6 +41,8 @@ class LotController extends Controller
     {
         $lot->load(['project', 'status', 'client', 'advisor', 'preReservations' => fn ($query) => $query->latest()]);
 
+        abort_unless($lot->project?->is_active, 404);
+
         return response()->json([
             'data' => $this->lotPayload($lot, true),
         ]);
@@ -52,6 +55,7 @@ class LotController extends Controller
 
         $lots = Lot::query()
             ->where('lots.advisor_id', $advisor->id)
+            ->whereHas('project', fn ($query) => $query->where('is_active', true))
             ->with(['project', 'status', 'client', 'preReservations' => fn ($query) => $query->latest()])
             ->when($request->filled('status'), function ($query) use ($request) {
                 $code = (string) $request->input('status');

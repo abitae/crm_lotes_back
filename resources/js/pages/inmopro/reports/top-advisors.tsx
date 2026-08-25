@@ -1,4 +1,5 @@
 import { ReportDateFilters } from '@/components/inmopro/reports/ReportDateFilters';
+import { projectOptionLabel } from '@/components/inmopro/reports/IncludeInactiveProjectsField';
 import { ReportPageShell } from '@/components/inmopro/reports/ReportPageShell';
 import { TopAdvisorsExportActions } from '@/components/inmopro/reports/TopAdvisorsExportActions';
 import { formatPen } from '@/lib/report-utils';
@@ -31,7 +32,7 @@ export default function TopAdvisorsReport({
     summary: { advisors_count: number; total_sold: number; total_transfers: number };
     generatedAt: string;
     exportBaseUrl: string;
-    projects: { id: number; name: string }[];
+    projects: { id: number; name: string; is_active?: boolean }[];
     teams: { id: number; name: string }[];
 }) {
     return (
@@ -57,7 +58,7 @@ export default function TopAdvisorsReport({
                     <option value="">Todos los proyectos</option>
                     {projects.map((p) => (
                         <option key={p.id} value={p.id}>
-                            {p.name}
+                            {projectOptionLabel(p)}
                         </option>
                     ))}
                 </select>

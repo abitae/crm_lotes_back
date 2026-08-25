@@ -30,20 +30,29 @@ class LotController extends Controller
 
     public function index(Request $request): Response
     {
+        $includeInactive = $request->boolean('include_inactive');
         $projectId = $request->query('project_id');
-        $project = $this->resolveActiveProject($projectId ? (int) $projectId : null);
+        $project = $this->resolveProject(
+            $projectId ? (int) $projectId : null,
+            $includeInactive
+        );
+
+        $projects = $this->projectsQuery($includeInactive)
+            ->get()
+            ->map(fn (Project $item): array => $this->projectPayload($item))
+            ->values();
 
         if (! $project) {
             return Inertia::render('inmopro/inventory', [
-                'projects' => $this->activeProjects()
-                    ->get()
-                    ->map(fn (Project $project): array => $this->projectPayload($project))
-                    ->values(),
+                'projects' => $projects,
                 'project' => null,
                 'lots' => [],
                 'lotStatuses' => LotStatus::orderBy('sort_order')->get(),
                 'clients' => [],
                 'advisors' => [],
+                'filters' => [
+                    'include_inactive' => $includeInactive,
+                ],
             ]);
         }
 
@@ -53,10 +62,6 @@ class LotController extends Controller
             ->orderBy('number')
             ->get();
 
-        $projects = $this->activeProjects()
-            ->get()
-            ->map(fn (Project $project): array => $this->projectPayload($project))
-            ->values();
         $lotStatuses = LotStatus::orderBy('sort_order')->get();
         $clients = Client::orderBy('name')->get(['id', 'name', 'dni', 'phone', 'email']);
         $advisors = Advisor::with('level')->orderBy('name')->get();
@@ -68,6 +73,9 @@ class LotController extends Controller
             'lotStatuses' => $lotStatuses,
             'clients' => $clients,
             'advisors' => $advisors,
+            'filters' => [
+                'include_inactive' => $includeInactive,
+            ],
         ]);
     }
 
@@ -196,33 +204,55 @@ class LotController extends Controller
      */
     private function activeProjects(): Builder
     {
-        return Project::query()->active()->orderBy('name');
+        return $this->projectsQuery(false);
+    }
+
+    /**
+     * @return Builder<Project>
+     */
+    private function projectsQuery(bool $includeInactive): Builder
+    {
+        return Project::query()
+            ->withCount('flatPolygons')
+            ->when(! $includeInactive, fn (Builder $query) => $query->active())
+            ->when($includeInactive, fn (Builder $query) => $query->orderByDesc('is_active'))
+            ->orderBy('name');
     }
 
     private function resolveActiveProject(?int $projectId): ?Project
     {
+        return $this->resolveProject($projectId, false);
+    }
+
+    private function resolveProject(?int $projectId, bool $includeInactive): ?Project
+    {
+        $query = $this->projectsQuery($includeInactive);
+
         if ($projectId) {
-            $project = $this->activeProjects()->whereKey($projectId)->first();
+            $project = (clone $query)->whereKey($projectId)->first();
             if ($project) {
                 return $project;
             }
         }
 
-        return $this->activeProjects()->first();
+        return $query->first();
     }
 
     /**
-     * @return array{id:int,name:string,location:string|null,maps_url:string|null,location_label:string|null,blocks:list<string>}
+     * @return array{id:int,name:string,is_active:bool,location:string|null,maps_url:string|null,location_label:string|null,blocks:list<string>,view_360_url:string|null,view_flat_url:string|null}
      */
     private function projectPayload(Project $project): array
     {
         return [
             'id' => $project->id,
             'name' => $project->name,
+            'is_active' => (bool) $project->is_active,
             'location' => $project->location,
             'maps_url' => $this->locationMapsResolver->resolveMapsUrl($project->location),
             'location_label' => $this->locationMapsResolver->displayLabel($project->location),
             'blocks' => array_values($project->blocks ?? []),
+            'view_360_url' => $project->tour_360_url,
+            'view_flat_url' => $project->resolveViewFlatUrl(),
         ];
     }
 }

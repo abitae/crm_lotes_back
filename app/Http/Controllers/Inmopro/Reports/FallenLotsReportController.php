@@ -63,6 +63,7 @@ class FallenLotsReportController extends Controller
             'project_id' => $request->filled('project_id') ? $request->integer('project_id') : null,
             'team_id' => $request->filled('team_id') ? $request->integer('team_id') : null,
             'advisor_id' => $request->filled('advisor_id') ? $request->integer('advisor_id') : null,
+            'include_inactive' => $request->boolean('include_inactive'),
         ];
 
         $lots = $this->fallenQuery->lots($request);
@@ -84,7 +85,7 @@ class FallenLotsReportController extends Controller
             'summary' => ['total' => count($detailRows)],
             'generatedAt' => now()->format('d/m/Y H:i'),
             'exportBaseUrl' => '/inmopro/reports/fallen',
-            ...$this->filterOptions->all(),
+            ...$this->filterOptions->all($request),
         ];
     }
 

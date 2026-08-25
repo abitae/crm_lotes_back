@@ -1,7 +1,8 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
-import { Eye, HandCoins, Plus, Search } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Eye, HandCoins, ImagePlus, Plus, Search } from 'lucide-react';
 import { InmoproMetricCard } from '@/components/inmopro/metric-card';
+import InputError from '@/components/input-error';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,6 +33,7 @@ type Payment = {
     amount: string;
     paid_at: string;
     payment_method: string;
+    voucher_path?: string | null;
     cash_account?: { name: string } | null;
 };
 type LotStatusOption = {
@@ -243,20 +245,22 @@ export default function AccountsReceivable({
                                                     <Eye className="h-3.5 w-3.5" />
                                                     <span className="hidden sm:inline">Detalle</span>
                                                 </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="h-7 px-2 text-xs"
-                                                    title="Nueva cuota"
-                                                    onClick={() => {
-                                                        setSelectedLot(lot);
-                                                        setInstallmentOpen(true);
-                                                    }}
-                                                >
-                                                    <Plus className="h-3.5 w-3.5" />
-                                                    <span className="hidden sm:inline">Cuota</span>
-                                                </Button>
+                                                {lot.status?.code === 'CUOTAS' ? (
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-7 px-2 text-xs"
+                                                        title="Nueva cuota"
+                                                        onClick={() => {
+                                                            setSelectedLot(lot);
+                                                            setInstallmentOpen(true);
+                                                        }}
+                                                    >
+                                                        <Plus className="h-3.5 w-3.5" />
+                                                        <span className="hidden sm:inline">Cuota</span>
+                                                    </Button>
+                                                ) : null}
                                                 <Button
                                                     type="button"
                                                     size="sm"
@@ -352,13 +356,25 @@ function LotDetailDialog({
                                     lot.payments.map((payment) => (
                                         <div
                                             key={payment.id}
-                                            className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2 text-sm"
+                                            className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 px-3 py-2 text-sm"
                                         >
-                                            <span>
-                                                {formatDate(payment.paid_at)} · {payment.payment_method}
-                                                {payment.cash_account?.name ? ` · ${payment.cash_account.name}` : ''}
-                                            </span>
-                                            <span className="font-bold text-emerald-600">
+                                            <div className="min-w-0">
+                                                <p>
+                                                    {formatDate(payment.paid_at)} · {payment.payment_method}
+                                                    {payment.cash_account?.name ? ` · ${payment.cash_account.name}` : ''}
+                                                </p>
+                                                {payment.voucher_path ? (
+                                                    <a
+                                                        href={`/inmopro/lot-payments/${payment.id}/voucher`}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="text-xs font-semibold text-sky-700 hover:underline"
+                                                    >
+                                                        Ver comprobante
+                                                    </a>
+                                                ) : null}
+                                            </div>
+                                            <span className="shrink-0 font-bold text-emerald-600">
                                                 S/ {Number(payment.amount).toLocaleString()}
                                             </span>
                                         </div>
@@ -417,28 +433,37 @@ function InstallmentDialog({
                     }}
                     className="space-y-4"
                 >
-                    <input
-                        type="date"
-                        value={form.data.due_date}
-                        onChange={(event) => form.setData('due_date', event.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
-                    />
-                    <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="Monto"
-                        value={form.data.amount}
-                        onChange={(event) => form.setData('amount', event.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
-                    />
-                    <input
-                        type="text"
-                        placeholder="Notas"
-                        value={form.data.notes}
-                        onChange={(event) => form.setData('notes', event.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
-                    />
+                    <div>
+                        <input
+                            type="date"
+                            value={form.data.due_date}
+                            onChange={(event) => form.setData('due_date', event.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
+                        />
+                        <InputError message={form.errors.due_date} />
+                    </div>
+                    <div>
+                        <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="Monto"
+                            value={form.data.amount}
+                            onChange={(event) => form.setData('amount', event.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
+                        />
+                        <InputError message={form.errors.amount} />
+                    </div>
+                    <div>
+                        <input
+                            type="text"
+                            placeholder="Notas"
+                            value={form.data.notes}
+                            onChange={(event) => form.setData('notes', event.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
+                        />
+                        <InputError message={form.errors.notes} />
+                    </div>
 
                     <DialogFooter>
                         <Button type="submit" disabled={form.processing}>
@@ -462,7 +487,16 @@ function PaymentDialog({
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }) {
-    const form = useForm({
+    const form = useForm<{
+        lot_installment_id: string;
+        cash_account_id: string;
+        amount: string;
+        paid_at: string;
+        payment_method: string;
+        reference: string;
+        notes: string;
+        voucher_image: File | null;
+    }>({
         lot_installment_id: '',
         cash_account_id: '',
         amount: '',
@@ -470,10 +504,56 @@ function PaymentDialog({
         payment_method: 'TRANSFERENCIA',
         reference: '',
         notes: '',
+        voucher_image: null,
     });
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (previewUrl) {
+                URL.revokeObjectURL(previewUrl);
+            }
+        };
+    }, [previewUrl]);
+
+    const handleVoucherChange = (file: File | null) => {
+        form.setData('voucher_image', file);
+
+        if (previewUrl) {
+            URL.revokeObjectURL(previewUrl);
+        }
+
+        setPreviewUrl(file ? URL.createObjectURL(file) : null);
+    };
+
+    const resetPaymentForm = () => {
+        if (previewUrl) {
+            URL.revokeObjectURL(previewUrl);
+        }
+        setPreviewUrl(null);
+        form.setData({
+            lot_installment_id: '',
+            cash_account_id: '',
+            amount: '',
+            paid_at: todayIsoDate(),
+            payment_method: 'TRANSFERENCIA',
+            reference: '',
+            notes: '',
+            voucher_image: null,
+        });
+        form.clearErrors();
+    };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                if (!nextOpen) {
+                    resetPaymentForm();
+                }
+                onOpenChange(nextOpen);
+            }}
+        >
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>
@@ -493,10 +573,10 @@ function PaymentDialog({
                         }
 
                         form.post(`/inmopro/lots/${lot.id}/payments`, {
+                            forceFormData: true,
                             preserveScroll: true,
                             onSuccess: () => {
-                                form.reset('lot_installment_id', 'cash_account_id', 'amount', 'reference', 'notes');
-                                form.setData('paid_at', todayIsoDate());
+                                resetPaymentForm();
                                 onOpenChange(false);
                             },
                         });
@@ -529,15 +609,18 @@ function PaymentDialog({
                         ))}
                     </select>
 
-                    <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="Monto"
-                        value={form.data.amount}
-                        onChange={(event) => form.setData('amount', event.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
-                    />
+                    <div>
+                        <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="Monto"
+                            value={form.data.amount}
+                            onChange={(event) => form.setData('amount', event.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
+                        />
+                        <InputError message={form.errors.amount} />
+                    </div>
                     <input
                         type="date"
                         value={form.data.paid_at}
@@ -560,6 +643,47 @@ function PaymentDialog({
                         onChange={(event) => form.setData('reference', event.target.value)}
                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
                     />
+
+                    <div className="space-y-2">
+                        <label
+                            htmlFor="lot_payment_voucher"
+                            className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center transition hover:border-slate-400"
+                        >
+                            <ImagePlus className="h-7 w-7 text-slate-400" />
+                            <p className="mt-2 text-sm font-semibold text-slate-700">
+                                {form.data.voucher_image ? 'Cambiar comprobante' : 'Adjuntar comprobante'}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">JPG, PNG, WEBP. Máximo 5 MB.</p>
+                            {form.data.voucher_image ? (
+                                <p className="mt-1 truncate text-xs font-semibold text-emerald-700">
+                                    {form.data.voucher_image.name}
+                                </p>
+                            ) : null}
+                        </label>
+                        <input
+                            id="lot_payment_voucher"
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(event) => {
+                                handleVoucherChange(event.target.files?.[0] ?? null);
+                            }}
+                        />
+                        <InputError message={form.errors.voucher_image} />
+                        <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                            {previewUrl ? (
+                                <img
+                                    src={previewUrl}
+                                    alt="Vista previa del comprobante"
+                                    className="max-h-44 w-full object-contain"
+                                />
+                            ) : (
+                                <div className="flex min-h-24 items-center justify-center px-4 py-4 text-center text-sm text-slate-500">
+                                    Vista previa del comprobante
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
                     <DialogFooter>
                         <Button type="submit" disabled={form.processing}>

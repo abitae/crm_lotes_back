@@ -70,6 +70,7 @@ class TeamGoalsReportController extends Controller
             'team_id' => $request->filled('team_id') ? $request->integer('team_id') : null,
             'start_date' => $dateRange['start_date'],
             'end_date' => $dateRange['end_date'],
+            'include_inactive' => $request->boolean('include_inactive'),
         ];
 
         $teams = Team::query()
@@ -81,11 +82,12 @@ class TeamGoalsReportController extends Controller
         $lots = $this->lotQueryBuilder
             ->base()
             ->tap(fn (Builder $q) => $this->lotQueryBuilder->excludingLibreAndPreReserva($q))
+            ->tap(fn (Builder $q) => $this->lotQueryBuilder->applyActiveProjectFilter($q, $request))
             ->whereDate('contract_date', '>=', $filters['start_date'])
             ->whereDate('contract_date', '<=', $filters['end_date'])
             ->get();
 
-        $options = $this->filterOptions->all();
+        $options = $this->filterOptions->all($request);
 
         $rows = $teams->map(function (Team $team) use ($lots, $options): array {
             $teamLots = $lots->filter(fn (Lot $lot) => $lot->advisor?->team_id === $team->id)->values();

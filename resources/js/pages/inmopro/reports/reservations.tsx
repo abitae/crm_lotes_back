@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
 import { ReportDateFilters } from '@/components/inmopro/reports/ReportDateFilters';
+import { projectOptionLabel } from '@/components/inmopro/reports/IncludeInactiveProjectsField';
 import { LotDetailTable } from '@/components/inmopro/reports/LotDetailTable';
 import { ReportPageShell } from '@/components/inmopro/reports/ReportPageShell';
 import type { LotDetailRow } from '@/components/inmopro/reports/LotDetailTable';
@@ -26,7 +27,7 @@ export default function ReservationsReport({
     summary: { total: number };
     generatedAt: string;
     exportBaseUrl: string;
-    projects: { id: number; name: string }[];
+    projects: { id: number; name: string; is_active?: boolean }[];
     teams: { id: number; name: string }[];
 }) {
     return (
@@ -41,7 +42,7 @@ export default function ReservationsReport({
                 <select name="project_id" defaultValue={String(filters.project_id ?? '')} className="rounded-xl border px-3 py-2 text-sm">
                     <option value="">Todos los proyectos</option>
                     {projects.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                        <option key={p.id} value={p.id}>{projectOptionLabel(p)}</option>
                     ))}
                 </select>
                 <label className="flex items-center gap-2 text-sm">
