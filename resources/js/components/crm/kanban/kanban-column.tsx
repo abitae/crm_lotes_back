@@ -13,15 +13,24 @@ export function KanbanColumn({
     status,
     clients,
     onEditClient,
+    droppable = true,
+    emptyLabel = 'Sin clientes en este estado.',
 }: {
     status: KanbanStatus;
     clients: KanbanClient[];
     onEditClient: (client: KanbanClient) => void;
+    droppable?: boolean;
+    emptyLabel?: string;
 }) {
-    const { setNodeRef, isOver } = useDroppable({ id: status.id });
+    const { setNodeRef, isOver } = useDroppable({ id: status.id, disabled: !droppable });
 
     return (
-        <div className="flex w-72 shrink-0 flex-col rounded-xl bg-muted/40">
+        <div
+            className={cn(
+                'flex w-72 shrink-0 flex-col rounded-xl bg-muted/40',
+                !droppable && 'border border-dashed border-border bg-transparent',
+            )}
+        >
             <div className="flex items-center justify-between gap-2 px-3 py-2.5">
                 <div className="flex min-w-0 items-center gap-2">
                     <span
@@ -47,9 +56,7 @@ export function KanbanColumn({
                     <KanbanCard key={client.id} client={client} onEdit={onEditClient} />
                 ))}
                 {clients.length === 0 && (
-                    <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-                        Sin clientes en este estado.
-                    </p>
+                    <p className="px-2 py-6 text-center text-xs text-muted-foreground">{emptyLabel}</p>
                 )}
             </div>
         </div>
