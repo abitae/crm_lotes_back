@@ -139,4 +139,37 @@ class CrmClientsScopingTest extends TestCase
 
         $this->get(route('crm.clients.index'))->assertOk();
     }
+
+    public function test_kanban_view_applies_search_filter(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+
+        Client::create([
+            'name' => 'Busqueda Kanban Alfa',
+            'dni' => '20000010',
+            'phone' => '900000101',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+        ]);
+
+        Client::create([
+            'name' => 'Otro Cliente Beta',
+            'dni' => '20000011',
+            'phone' => '900000102',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+        ]);
+
+        $this->actingAs($advisor, 'advisor');
+
+        $response = $this->get(route('crm.clients.index', ['view' => 'kanban', 'search' => 'Alfa']));
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->has('kanbanClients', 1)
+            ->where('kanbanClients.0.name', 'Busqueda Kanban Alfa'));
+    }
 }

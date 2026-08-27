@@ -1,7 +1,14 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Phone } from 'lucide-react';
+import { BellPlus, LifeBuoy, MoreVertical, Pencil, Phone } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 export type KanbanClient = {
@@ -22,9 +29,13 @@ export type KanbanClient = {
 export function KanbanCard({
     client,
     onEdit,
+    onCreateReminder,
+    onCreateTicket,
 }: {
     client: KanbanClient;
     onEdit: (client: KanbanClient) => void;
+    onCreateReminder: (client: KanbanClient) => void;
+    onCreateTicket: (client: KanbanClient) => void;
 }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: client.id,
@@ -43,11 +54,45 @@ export function KanbanCard({
             {...attributes}
             onClick={() => onEdit(client)}
             className={cn(
-                'cursor-grab touch-none rounded-lg border border-border bg-card p-3 shadow-sm transition-shadow select-none active:cursor-grabbing',
+                'group/card cursor-grab touch-none rounded-lg border border-border bg-card p-3 shadow-sm transition-shadow select-none active:cursor-grabbing',
                 isDragging ? 'opacity-40' : 'hover:shadow-md',
             )}
         >
-            <p className="truncate text-sm font-semibold text-card-foreground">{client.name}</p>
+            <div className="flex items-start justify-between gap-1">
+                <p className="min-w-0 truncate text-sm font-semibold text-card-foreground">{client.name}</p>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="-mt-1 -mr-1 size-6 shrink-0 opacity-0 group-hover/card:opacity-100 data-[state=open]:opacity-100"
+                            onClick={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => e.stopPropagation()}
+                        >
+                            <MoreVertical className="size-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                        align="end"
+                        onClick={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
+                    >
+                        <DropdownMenuItem onSelect={() => onCreateReminder(client)}>
+                            <BellPlus className="mr-2 size-4" />
+                            Crear recordatorio
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => onCreateTicket(client)}>
+                            <LifeBuoy className="mr-2 size-4" />
+                            Crear ticket
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => onEdit(client)}>
+                            <Pencil className="mr-2 size-4" />
+                            Editar cliente
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
             <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Phone className="size-3" />
                 {client.phone}

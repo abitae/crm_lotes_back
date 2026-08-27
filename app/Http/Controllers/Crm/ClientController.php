@@ -8,11 +8,13 @@ use App\Http\Requests\Crm\StoreClientRequest;
 use App\Http\Requests\Crm\UpdateClientCrmRequest;
 use App\Http\Requests\Crm\UpdateClientRequest;
 use App\Models\Inmopro\Advisor;
+use App\Models\Inmopro\AttentionTicketType;
 use App\Models\Inmopro\City;
 use App\Models\Inmopro\Client;
 use App\Models\Inmopro\ClientStatus;
 use App\Models\Inmopro\ClientTag;
 use App\Models\Inmopro\ClientType;
+use App\Models\Inmopro\Project;
 use App\Services\Inmopro\ClientCrmService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -35,8 +37,42 @@ class ClientController extends Controller
         $advisor = $request->user('advisor');
         $view = $request->string('view')->value() === 'table' ? 'table' : 'kanban';
 
-        $clients = $this->advisorVisibleClientsQuery($advisor)
+        $clients = $this->applyFilters($this->advisorVisibleClientsQuery($advisor), $request)
             ->with(['type:id,code,name', 'status:id,code,name,color', 'tags:id,code,name,color'])
+            ->orderBy('name')
+            ->orderBy('id')
+            ->paginate(20, self::CLIENT_ROW_COLUMNS)
+            ->withQueryString();
+
+        $kanbanClients = null;
+
+        if ($view === 'kanban') {
+            $kanbanClients = $this->applyFilters($this->advisorVisibleClientsQuery($advisor), $request)
+                ->with(['type:id,code,name', 'status:id,code,name,color', 'tags:id,code,name,color'])
+                ->orderBy('name')
+                ->get(self::CLIENT_ROW_COLUMNS);
+        }
+
+        return Inertia::render('crm/clients/index', [
+            'clients' => $clients,
+            'kanbanClients' => $kanbanClients,
+            'view' => $view,
+            'statuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->get(['id', 'code', 'name', 'color']),
+            'tags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->get(['id', 'code', 'name', 'color']),
+            'cities' => City::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'department']),
+            'projects' => Project::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'ticketTypes' => AttentionTicketType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'code']),
+            'filters' => $request->only(['search', 'client_type', 'client_status_id', 'tag_id']),
+        ]);
+    }
+
+    /**
+     * @param  Builder<Client>  $query
+     * @return Builder<Client>
+     */
+    private function applyFilters(Builder $query, Request $request): Builder
+    {
+        return $query
             ->when($request->filled('client_type'), function (Builder $query) use ($request): void {
                 $code = (string) $request->input('client_type');
                 $query->where('client_type_id', ClientType::query()->where('code', $code)->value('id'));
@@ -50,30 +86,7 @@ class ClientController extends Controller
             })
             ->when($request->filled('search'), function (Builder $query) use ($request): void {
                 $this->applySearch($query, (string) $request->input('search'));
-            })
-            ->orderBy('name')
-            ->orderBy('id')
-            ->paginate(20, self::CLIENT_ROW_COLUMNS)
-            ->withQueryString();
-
-        $kanbanClients = null;
-
-        if ($view === 'kanban') {
-            $kanbanClients = $this->advisorVisibleClientsQuery($advisor)
-                ->with(['type:id,code,name', 'status:id,code,name,color', 'tags:id,code,name,color'])
-                ->orderBy('name')
-                ->get(self::CLIENT_ROW_COLUMNS);
-        }
-
-        return Inertia::render('crm/clients/index', [
-            'clients' => $clients,
-            'kanbanClients' => $kanbanClients,
-            'view' => $view,
-            'statuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->get(['id', 'code', 'name', 'color']),
-            'tags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->get(['id', 'code', 'name', 'color']),
-            'cities' => City::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'department']),
-            'filters' => $request->only(['search', 'client_type', 'client_status_id', 'tag_id']),
-        ]);
+            });
     }
 
     public function create(): Response

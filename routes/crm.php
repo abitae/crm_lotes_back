@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Crm\AgendaController;
 use App\Http\Controllers\Crm\AttentionTicketController;
 use App\Http\Controllers\Crm\Auth\LoginController;
 use App\Http\Controllers\Crm\ClientController;
@@ -53,6 +54,8 @@ Route::prefix('crm')->name('crm.')->group(function (): void {
         Route::put('reminders/{reminder}', [ReminderController::class, 'update'])->name('reminders.update');
         Route::delete('reminders/{reminder}', [ReminderController::class, 'destroy'])->name('reminders.destroy');
         Route::post('reminders/{reminder}/complete', [ReminderController::class, 'complete'])->name('reminders.complete');
+
+        Route::get('agenda', [AgendaController::class, 'index'])->name('agenda.index');
 
         Route::get('commissions', [CommissionController::class, 'index'])->name('commissions.index');
 

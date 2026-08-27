@@ -45,10 +45,14 @@ export function KanbanBoard({
     clients,
     statuses,
     onEditClient,
+    onCreateReminder,
+    onCreateTicket,
 }: {
     clients: KanbanClient[];
     statuses: KanbanStatus[];
     onEditClient: (client: KanbanClient) => void;
+    onCreateReminder: (client: KanbanClient) => void;
+    onCreateTicket: (client: KanbanClient) => void;
 }) {
     const [columns, setColumns] = useState<ColumnsState>(() => groupByStatus(clients, statuses));
     const [activeClient, setActiveClient] = useState<KanbanClient | null>(null);
@@ -122,6 +126,8 @@ export function KanbanBoard({
                         status={UNASSIGNED_STATUS}
                         clients={columns[UNASSIGNED_COLUMN_ID]}
                         onEditClient={onEditClient}
+                        onCreateReminder={onCreateReminder}
+                        onCreateTicket={onCreateTicket}
                         droppable={false}
                         emptyLabel="Todos los clientes tienen una etapa asignada."
                     />
@@ -132,11 +138,20 @@ export function KanbanBoard({
                         status={status}
                         clients={columns[status.id] ?? []}
                         onEditClient={onEditClient}
+                        onCreateReminder={onCreateReminder}
+                        onCreateTicket={onCreateTicket}
                     />
                 ))}
             </div>
             <DragOverlay>
-                {activeClient && <KanbanCard client={activeClient} onEdit={() => {}} />}
+                {activeClient && (
+                    <KanbanCard
+                        client={activeClient}
+                        onEdit={() => {}}
+                        onCreateReminder={() => {}}
+                        onCreateTicket={() => {}}
+                    />
+                )}
             </DragOverlay>
         </DndContext>
     );

@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { FormEvent } from 'react';
+import { FormEvent, useEffect } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,15 +24,38 @@ type Props = {
     clients: ClientOption[];
     projects: Option[];
     ticketTypes: Option[];
+    defaultClientId?: number | null;
 };
 
-export function AttentionTicketFormModal({ open, onOpenChange, clients, projects, ticketTypes }: Props) {
-    const { data, setData, post, processing, errors, reset } = useForm({
+export function AttentionTicketFormModal({
+    open,
+    onOpenChange,
+    clients,
+    projects,
+    ticketTypes,
+    defaultClientId,
+}: Props) {
+    const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
         client_id: clients[0]?.id ?? '',
         project_id: projects[0]?.id ?? '',
         attention_ticket_type_id: ticketTypes[0]?.id ?? '',
         notes: '',
     });
+
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        clearErrors();
+        setData({
+            client_id: defaultClientId ?? clients[0]?.id ?? '',
+            project_id: projects[0]?.id ?? '',
+            attention_ticket_type_id: ticketTypes[0]?.id ?? '',
+            notes: '',
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, defaultClientId]);
 
     const submit = (e: FormEvent) => {
         e.preventDefault();

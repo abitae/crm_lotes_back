@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import {
+    Bell,
     Calendar,
     FileCheck,
     LayoutGrid,
@@ -19,6 +20,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
+import agenda from '@/routes/crm/agenda';
 import crm from '@/routes/crm';
 import attentionTickets from '@/routes/crm/attention-tickets';
 import clients from '@/routes/crm/clients';
@@ -35,7 +37,8 @@ const navItems: NavItem[] = [
     { title: 'Proyectos', href: projects.index(), icon: MapPin },
     { title: 'Pre-reservas', href: preReservations.index(), icon: FileCheck },
     { title: 'Tickets', href: attentionTickets.index(), icon: LifeBuoy },
-    { title: 'Recordatorios', href: reminders.index(), icon: Calendar },
+    { title: 'Recordatorios', href: reminders.index(), icon: Bell },
+    { title: 'Agenda', href: agenda.index(), icon: Calendar },
     { title: 'Comisiones', href: commissions.index(), icon: Percent },
 ];
 

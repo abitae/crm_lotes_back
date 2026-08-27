@@ -13,12 +13,16 @@ export function KanbanColumn({
     status,
     clients,
     onEditClient,
+    onCreateReminder,
+    onCreateTicket,
     droppable = true,
     emptyLabel = 'Sin clientes en este estado.',
 }: {
     status: KanbanStatus;
     clients: KanbanClient[];
     onEditClient: (client: KanbanClient) => void;
+    onCreateReminder: (client: KanbanClient) => void;
+    onCreateTicket: (client: KanbanClient) => void;
     droppable?: boolean;
     emptyLabel?: string;
 }) {
@@ -53,7 +57,13 @@ export function KanbanColumn({
                 style={{ maxHeight: 'calc(100vh - 20rem)' }}
             >
                 {clients.map((client) => (
-                    <KanbanCard key={client.id} client={client} onEdit={onEditClient} />
+                    <KanbanCard
+                        key={client.id}
+                        client={client}
+                        onEdit={onEditClient}
+                        onCreateReminder={onCreateReminder}
+                        onCreateTicket={onCreateTicket}
+                    />
                 ))}
                 {clients.length === 0 && (
                     <p className="px-2 py-6 text-center text-xs text-muted-foreground">{emptyLabel}</p>

@@ -30,6 +30,7 @@ type Props = {
     onOpenChange: (open: boolean) => void;
     reminder: ReminderFormValues | null;
     clients: ClientOption[];
+    extraFooterAction?: { label: string; onClick: () => void };
 };
 
 function toDatetimeLocal(value: string): string {
@@ -41,7 +42,7 @@ function toDatetimeLocal(value: string): string {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function ReminderFormModal({ open, onOpenChange, reminder, clients }: Props) {
+export function ReminderFormModal({ open, onOpenChange, reminder, clients, extraFooterAction }: Props) {
     const mode = reminder?.id ? 'edit' : 'create';
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
@@ -147,14 +148,23 @@ export function ReminderFormModal({ open, onOpenChange, reminder, clients }: Pro
                         <InputError message={errors.notes} />
                     </div>
 
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                            Cancelar
-                        </Button>
-                        <Button type="submit" disabled={processing}>
-                            {processing && <Spinner />}
-                            {mode === 'edit' ? 'Guardar cambios' : 'Crear recordatorio'}
-                        </Button>
+                    <DialogFooter className="flex-wrap gap-2 sm:justify-between">
+                        {extraFooterAction ? (
+                            <Button type="button" variant="outline" onClick={extraFooterAction.onClick}>
+                                {extraFooterAction.label}
+                            </Button>
+                        ) : (
+                            <span />
+                        )}
+                        <div className="flex gap-2">
+                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                                Cancelar
+                            </Button>
+                            <Button type="submit" disabled={processing}>
+                                {processing && <Spinner />}
+                                {mode === 'edit' ? 'Guardar cambios' : 'Crear recordatorio'}
+                            </Button>
+                        </div>
                     </DialogFooter>
                 </form>
             </DialogContent>
