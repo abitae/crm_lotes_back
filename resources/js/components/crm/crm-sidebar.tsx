@@ -20,9 +20,12 @@ import {
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import crm from '@/routes/crm';
+import attentionTickets from '@/routes/crm/attention-tickets';
 import clients from '@/routes/crm/clients';
+import commissions from '@/routes/crm/commissions';
 import preReservations from '@/routes/crm/pre-reservations';
 import projects from '@/routes/crm/projects';
+import reminders from '@/routes/crm/reminders';
 import type { NavItem } from '@/types';
 import AppLogo from '@/components/app-logo';
 
@@ -31,9 +34,9 @@ const navItems: NavItem[] = [
     { title: 'Clientes', href: clients.index(), icon: Users },
     { title: 'Proyectos', href: projects.index(), icon: MapPin },
     { title: 'Pre-reservas', href: preReservations.index(), icon: FileCheck },
-    { title: 'Tickets', href: '/crm/attention-tickets', icon: LifeBuoy },
-    { title: 'Recordatorios', href: '/crm/reminders', icon: Calendar },
-    { title: 'Comisiones', href: '/crm/commissions', icon: Percent },
+    { title: 'Tickets', href: attentionTickets.index(), icon: LifeBuoy },
+    { title: 'Recordatorios', href: reminders.index(), icon: Calendar },
+    { title: 'Comisiones', href: commissions.index(), icon: Percent },
 ];
 
 export function CrmSidebar() {

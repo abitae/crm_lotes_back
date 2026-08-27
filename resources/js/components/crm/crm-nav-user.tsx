@@ -19,6 +19,7 @@ import {
 import { useInitials } from '@/hooks/use-initials';
 import { useIsMobile } from '@/hooks/use-mobile';
 import crm from '@/routes/crm';
+import profile from '@/routes/crm/profile';
 
 export function CrmNavUser() {
     const { auth } = usePage().props;
@@ -79,7 +80,7 @@ export function CrmNavUser() {
                             <DropdownMenuItem asChild>
                                 <Link
                                     className="block w-full cursor-pointer"
-                                    href="/crm/profile"
+                                    href={profile.edit()}
                                     prefetch
                                 >
                                     <Settings className="mr-2" />
