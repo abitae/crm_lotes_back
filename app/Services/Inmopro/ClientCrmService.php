@@ -19,6 +19,8 @@ class ClientCrmService
 
     public const SOURCE_INMOPRO = 'inmopro';
 
+    public const SOURCE_CRM = 'crm';
+
     /**
      * Acciones permitidas desde POST /clients/{id}/crm/events (UI sin mutación propia).
      *
@@ -234,7 +236,7 @@ class ClientCrmService
         ?array $meta = null,
         ?string $label = null,
     ): ClientCrmEvent {
-        if (! in_array($source, [self::SOURCE_CAZADOR, self::SOURCE_INMOPRO], true)) {
+        if (! in_array($source, [self::SOURCE_CAZADOR, self::SOURCE_INMOPRO, self::SOURCE_CRM], true)) {
             throw ValidationException::withMessages([
                 'source' => 'Origen de evento CRM no válido.',
             ]);

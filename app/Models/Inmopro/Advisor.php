@@ -2,6 +2,8 @@
 
 namespace App\Models\Inmopro;
 
+use Illuminate\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,8 +14,10 @@ use Illuminate\Support\Facades\Hash;
 /**
  * @property-read string $name Nombre para mostrar consolidado (nombres + apellidos).
  */
-class Advisor extends Model
+class Advisor extends Model implements AuthenticatableContract
 {
+    use Authenticatable;
+
     /**
      * @var list<string>
      */
@@ -223,5 +227,15 @@ class Advisor extends Model
     public function profile(): HasOne
     {
         return $this->hasOne(AdvisorProfile::class);
+    }
+
+    public function getAuthPasswordName(): string
+    {
+        return 'pin';
+    }
+
+    public function getRememberTokenName(): string
+    {
+        return '';
     }
 }

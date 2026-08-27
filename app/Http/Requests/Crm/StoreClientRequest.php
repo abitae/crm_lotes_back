@@ -1,0 +1,61 @@
+<?php
+
+namespace App\Http\Requests\Crm;
+
+use App\Services\Inmopro\ClientDuplicateRegistrationChecker;
+use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreClientRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /**
+     * @return array<string, ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:255'],
+            'dni' => ['nullable', 'string', 'max:20'],
+            'phone' => ['required', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'referred_by' => ['nullable', 'string', 'max:255'],
+            'city_id' => ['required', 'exists:cities,id'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'name' => 'nombre',
+            'dni' => 'DNI',
+            'phone' => 'teléfono',
+            'email' => 'correo',
+            'referred_by' => 'referido por',
+            'city_id' => 'ciudad',
+        ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            app(ClientDuplicateRegistrationChecker::class)->addPhoneValidationErrors(
+                $validator,
+                $this->input('phone'),
+                null,
+            );
+        });
+    }
+}

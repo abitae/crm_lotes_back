@@ -98,6 +98,12 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->ip());
         });
 
+        RateLimiter::for('crm-login', function (Request $request) {
+            $key = strtolower((string) $request->input('username')).'|'.$request->ip();
+
+            return Limit::perMinute(10)->by($key);
+        });
+
         RateLimiter::for('datero-public-register', function (Request $request) {
             return Limit::perMinute(10)->by($request->ip());
         });

@@ -12,8 +12,19 @@ export type User = {
     [key: string]: unknown;
 };
 
+export type Advisor = {
+    id: number;
+    name: string;
+    username: string;
+    email: string | null;
+    phone: string | null;
+    team: { id: number; name: string; color: string | null } | null;
+    level: { id: number; name: string; code: string } | null;
+};
+
 export type Auth = {
     user: User;
+    advisor?: Advisor | null;
 };
 
 export type TwoFactorSetupData = {

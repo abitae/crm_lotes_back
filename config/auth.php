@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Inmopro\Advisor;
+use App\Models\User;
+
 return [
 
     /*
@@ -40,6 +43,11 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        'advisor' => [
+            'driver' => 'session',
+            'provider' => 'advisors',
+        ],
     ],
 
     /*
@@ -62,13 +70,18 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', App\Models\User::class),
+            'model' => env('AUTH_MODEL', User::class),
         ],
 
         // 'users' => [
         //     'driver' => 'database',
         //     'table' => 'users',
         // ],
+
+        'advisors' => [
+            'driver' => 'eloquent',
+            'model' => Advisor::class,
+        ],
     ],
 
     /*

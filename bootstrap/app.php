@@ -2,17 +2,20 @@
 
 use App\Http\Middleware\AuthenticateAdvisorApiToken;
 use App\Http\Middleware\AuthenticateDateroApiToken;
+use App\Http\Middleware\EnsureAdvisorIsActive;
 use App\Http\Middleware\EnsureInmoproRoutePermission;
 use App\Http\Middleware\EnsureOpenAiCazadorEnabled;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\ShareCrmInertiaData;
 use App\Http\Requests\Inmopro\StoreProject360PanoramasRequest;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -37,7 +40,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'openai.cazador' => EnsureOpenAiCazadorEnabled::class,
             'inmopro.permission' => EnsureInmoproRoutePermission::class,
             'rbac.super-admin' => EnsureUserIsSuperAdmin::class,
+            'advisor.active' => EnsureAdvisorIsActive::class,
+            'crm.share-inertia' => ShareCrmInertiaData::class,
         ]);
+
+        $middleware->redirectGuestsTo(function (Request $request): string {
+            return $request->is('crm', 'crm/*')
+                ? route('crm.login')
+                : route('login');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontReport([PostTooLargeException::class]);

@@ -40,4 +40,5 @@ Route::prefix('tours/360')
 Route::get('dashboard', DashboardController::class)->middleware(['auth', 'verified'])->name('dashboard');
 
 require __DIR__.'/inmopro.php';
+require __DIR__.'/crm.php';
 require __DIR__.'/settings.php';

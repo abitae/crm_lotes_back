@@ -43,9 +43,9 @@ class HandleInertiaRequests extends Middleware
             'brandingTagline' => AppBrandingResolver::tagline(),
             'brandingPrimaryColor' => AppBrandingResolver::primaryColorHex(),
             'auth' => [
-                'user' => fn () => $request->user()
+                'user' => fn () => $request->user('web')
                     ? [
-                        ...$request->user()->only([
+                        ...$request->user('web')->only([
                             'id',
                             'name',
                             'email',
@@ -54,9 +54,9 @@ class HandleInertiaRequests extends Middleware
                             'updated_at',
                         ]),
                         'avatar' => null,
-                        'two_factor_enabled' => $request->user()->two_factor_secret !== null,
-                        'permissions' => $request->user()->permissionNamesForFrontend(),
-                        'roles' => $request->user()->getRoleNames()->values()->all(),
+                        'two_factor_enabled' => $request->user('web')->two_factor_secret !== null,
+                        'permissions' => $request->user('web')->permissionNamesForFrontend(),
+                        'roles' => $request->user('web')->getRoleNames()->values()->all(),
                     ]
                     : null,
             ],
