@@ -156,6 +156,6 @@ class PreReservationController extends Controller
             ],
         );
 
-        return redirect()->route('crm.pre-reservations.index')->with('success', 'Pre-reserva registrada y pendiente de aprobación.');
+        return redirect()->route('crm.lots.show', $lot)->with('success', 'Pre-reserva registrada y pendiente de aprobación.');
     }
 }

@@ -43,7 +43,7 @@ class CrmClientsScopingTest extends TestCase
         ]);
 
         $client = Client::where('name', 'Cliente CRM')->firstOrFail();
-        $response->assertRedirect(route('crm.clients.show', $client));
+        $response->assertRedirect(route('crm.clients.index'));
 
         $this->assertDatabaseHas('clients', [
             'name' => 'Cliente CRM',

@@ -1,8 +1,9 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
+import { useState } from 'react';
+import { PreReservationFormModal } from '@/components/crm/pre-reservations/pre-reservation-form-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
-import preReservations from '@/routes/crm/lots/pre-reservations';
 import type { BreadcrumbItem } from '@/types';
 
 type LotDetail = {
@@ -16,12 +17,16 @@ type LotDetail = {
     can_pre_reserve: boolean;
 };
 
+type ClientOption = { id: number; name: string; dni: string | null };
+
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Proyectos', href: '/crm/projects' },
     { title: 'Lote', href: '#' },
 ];
 
-export default function CrmLotsShow({ lot }: { lot: LotDetail }) {
+export default function CrmLotsShow({ lot, clients }: { lot: LotDetail; clients: ClientOption[] }) {
+    const [modalOpen, setModalOpen] = useState(false);
+
     return (
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title={`Lote ${lot.number ?? lot.id}`} />
@@ -57,14 +62,29 @@ export default function CrmLotsShow({ lot }: { lot: LotDetail }) {
                             )}
                         </p>
 
-                        {lot.can_pre_reserve && (
-                            <Button asChild className="mt-2">
-                                <Link href={preReservations.create(lot.id)}>Registrar pre-reserva</Link>
+                        {lot.can_pre_reserve && lot.project && (
+                            <Button className="mt-2" onClick={() => setModalOpen(true)}>
+                                Registrar pre-reserva
                             </Button>
                         )}
                     </CardContent>
                 </Card>
             </div>
+
+            {lot.project && (
+                <PreReservationFormModal
+                    open={modalOpen}
+                    onOpenChange={setModalOpen}
+                    lot={{
+                        id: lot.id,
+                        block: lot.block,
+                        number: lot.number,
+                        price: lot.price,
+                        project: lot.project,
+                    }}
+                    clients={clients}
+                />
+            )}
         </CrmLayout>
     );
 }

@@ -1,10 +1,16 @@
 import { Head } from '@inertiajs/react';
+import { CalendarClock, LifeBuoy, MapPin, Users } from 'lucide-react';
 import {
-    CalendarClock,
-    LifeBuoy,
-    MapPin,
-    Users,
-} from 'lucide-react';
+    Bar,
+    BarChart,
+    CartesianGrid,
+    Cell,
+    LabelList,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
+} from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -38,6 +44,17 @@ type Kpis = {
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/crm/dashboard' }];
 
+// Paleta categórica validada (skill dataviz), orden fijo — usada para las
+// categorías de "lotes" (identidad de etapa, no evaluación good/bad).
+const CATEGORICAL = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100'];
+
+// Paleta de estado (skill dataviz), reservada para categorías evaluativas.
+const STATUS = { good: '#0ca30c', warning: '#fab219', critical: '#d03b3b' };
+
+const MUTED_FALLBACK = '#898781';
+
+const chartMargin = { top: 4, right: 28, bottom: 4, left: 0 };
+
 function MetricCard({
     label,
     value,
@@ -50,30 +67,56 @@ function MetricCard({
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {label}
-                </CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
                 <Icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">{value}</div>
+                <div className="text-2xl font-semibold">{value.toLocaleString('es-PE')}</div>
             </CardContent>
         </Card>
     );
 }
 
+function ChartTooltip({ active, payload }: { active?: boolean; payload?: { value: number; payload: { name: string } }[] }) {
+    if (!active || !payload?.length) {
+        return null;
+    }
+    const item = payload[0];
+    return (
+        <div className="rounded-md border border-border bg-popover px-3 py-1.5 text-xs shadow-md">
+            <p className="font-medium text-popover-foreground">{item.payload.name}</p>
+            <p className="text-muted-foreground">{item.value.toLocaleString('es-PE')}</p>
+        </div>
+    );
+}
+
 export default function CrmDashboard({ kpis }: { kpis: Kpis }) {
+    const preReservationData = [
+        { name: 'Pendientes', value: kpis.pre_reservations.pending, fill: STATUS.warning },
+        { name: 'Aprobadas', value: kpis.pre_reservations.approved, fill: STATUS.good },
+        { name: 'Rechazadas', value: kpis.pre_reservations.rejected, fill: STATUS.critical },
+    ];
+
+    const lotsData = [
+        { name: 'Pre-reserva', value: kpis.lots.pre_reservation, fill: CATEGORICAL[0] },
+        { name: 'Reservados', value: kpis.lots.reserved, fill: CATEGORICAL[1] },
+        { name: 'Transferidos', value: kpis.lots.transferred, fill: CATEGORICAL[2] },
+        { name: 'En cuotas', value: kpis.lots.installments, fill: CATEGORICAL[3] },
+    ];
+
+    const statusData = kpis.clients_by_status.map((status) => ({
+        name: status.name,
+        value: status.count,
+        fill: status.color ?? MUTED_FALLBACK,
+    }));
+
     return (
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
 
             <div className="flex flex-col gap-6 p-6">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <MetricCard
-                        label="Mis clientes"
-                        value={kpis.clients.total}
-                        icon={Users}
-                    />
+                    <MetricCard label="Mis clientes" value={kpis.clients.total} icon={Users} />
                     <MetricCard
                         label="Pre-reservas activas"
                         value={kpis.pre_reservations.active}
@@ -96,100 +139,112 @@ export default function CrmDashboard({ kpis }: { kpis: Kpis }) {
                         <CardTitle>Clientes por estado</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {kpis.clients_by_status.map((status) => (
-                                <div
-                                    key={status.id}
-                                    className="flex items-center justify-between rounded-lg border border-border px-4 py-3"
-                                >
-                                    <span className="flex items-center gap-2 text-sm font-medium">
-                                        <span
-                                            className="size-2.5 rounded-full"
-                                            style={{
-                                                backgroundColor:
-                                                    status.color ?? '#94a3b8',
-                                            }}
+                        <div style={{ height: Math.max(statusData.length * 40, 120) }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={statusData} layout="vertical" margin={chartMargin}>
+                                    <CartesianGrid
+                                        horizontal={false}
+                                        strokeDasharray="0"
+                                        stroke="var(--border)"
+                                    />
+                                    <XAxis type="number" hide />
+                                    <YAxis
+                                        type="category"
+                                        dataKey="name"
+                                        width={140}
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+                                    />
+                                    <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.3 }} />
+                                    <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={24}>
+                                        {statusData.map((entry, index) => (
+                                            <Cell key={index} fill={entry.fill} />
+                                        ))}
+                                        <LabelList
+                                            dataKey="value"
+                                            position="right"
+                                            style={{ fill: 'var(--foreground)', fontSize: 12 }}
                                         />
-                                        {status.name}
-                                    </span>
-                                    <span className="text-sm font-semibold">
-                                        {status.count}
-                                    </span>
-                                </div>
-                            ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
                         </div>
+                        {statusData.length === 0 && (
+                            <p className="text-sm text-muted-foreground">No hay estados configurados.</p>
+                        )}
                     </CardContent>
                 </Card>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 lg:grid-cols-2">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Pre-reservas</CardTitle>
+                            <CardTitle>Pre-reservas por estado</CardTitle>
                         </CardHeader>
-                        <CardContent className="grid grid-cols-3 gap-2 text-center">
-                            <div>
-                                <p className="text-lg font-bold">
-                                    {kpis.pre_reservations.pending}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    Pendientes
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-lg font-bold">
-                                    {kpis.pre_reservations.approved}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    Aprobadas
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-lg font-bold">
-                                    {kpis.pre_reservations.rejected}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    Rechazadas
-                                </p>
+                        <CardContent>
+                            <div className="h-48">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={preReservationData} margin={chartMargin}>
+                                        <CartesianGrid vertical={false} stroke="var(--border)" />
+                                        <XAxis
+                                            dataKey="name"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+                                        />
+                                        <YAxis hide />
+                                        <Tooltip
+                                            content={<ChartTooltip />}
+                                            cursor={{ fill: 'var(--muted)', opacity: 0.3 }}
+                                        />
+                                        <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                                            {preReservationData.map((entry, index) => (
+                                                <Cell key={index} fill={entry.fill} />
+                                            ))}
+                                            <LabelList
+                                                dataKey="value"
+                                                position="top"
+                                                style={{ fill: 'var(--foreground)', fontSize: 12 }}
+                                            />
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
                             </div>
                         </CardContent>
                     </Card>
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>Mis lotes</CardTitle>
+                            <CardTitle>Mis lotes por estado</CardTitle>
                         </CardHeader>
-                        <CardContent className="grid grid-cols-2 gap-2 text-center">
-                            <div>
-                                <p className="text-lg font-bold">
-                                    {kpis.lots.pre_reservation}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    Pre-reserva
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-lg font-bold">
-                                    {kpis.lots.reserved}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    Reservados
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-lg font-bold">
-                                    {kpis.lots.transferred}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    Transferidos
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-lg font-bold">
-                                    {kpis.lots.installments}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    En cuotas
-                                </p>
+                        <CardContent>
+                            <div className="h-48">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={lotsData} margin={chartMargin}>
+                                        <CartesianGrid vertical={false} stroke="var(--border)" />
+                                        <XAxis
+                                            dataKey="name"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                                        />
+                                        <YAxis hide />
+                                        <Tooltip
+                                            content={<ChartTooltip />}
+                                            cursor={{ fill: 'var(--muted)', opacity: 0.3 }}
+                                        />
+                                        <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                                            {lotsData.map((entry, index) => (
+                                                <Cell key={index} fill={entry.fill} />
+                                            ))}
+                                            <LabelList
+                                                dataKey="value"
+                                                position="top"
+                                                style={{ fill: 'var(--foreground)', fontSize: 12 }}
+                                            />
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
                             </div>
                         </CardContent>
                     </Card>

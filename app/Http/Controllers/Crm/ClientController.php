@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Crm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\IndexClientRequest;
 use App\Http\Requests\Crm\StoreClientRequest;
+use App\Http\Requests\Crm\UpdateClientCrmRequest;
 use App\Http\Requests\Crm\UpdateClientRequest;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\City;
@@ -23,10 +24,16 @@ class ClientController extends Controller
 {
     public function __construct(private ClientCrmService $clientCrmService) {}
 
+    private const CLIENT_ROW_COLUMNS = [
+        'id', 'name', 'dni', 'phone', 'email', 'referred_by',
+        'client_type_id', 'client_status_id', 'city_id',
+    ];
+
     public function index(IndexClientRequest $request): Response
     {
         /** @var Advisor $advisor */
         $advisor = $request->user('advisor');
+        $view = $request->string('view')->value() === 'table' ? 'table' : 'kanban';
 
         $clients = $this->advisorVisibleClientsQuery($advisor)
             ->with(['type:id,code,name', 'status:id,code,name,color', 'tags:id,code,name,color'])
@@ -46,13 +53,25 @@ class ClientController extends Controller
             })
             ->orderBy('name')
             ->orderBy('id')
-            ->paginate(20)
+            ->paginate(20, self::CLIENT_ROW_COLUMNS)
             ->withQueryString();
+
+        $kanbanClients = null;
+
+        if ($view === 'kanban') {
+            $kanbanClients = $this->advisorVisibleClientsQuery($advisor)
+                ->with(['type:id,code,name', 'status:id,code,name,color', 'tags:id,code,name,color'])
+                ->orderBy('name')
+                ->get(self::CLIENT_ROW_COLUMNS);
+        }
 
         return Inertia::render('crm/clients/index', [
             'clients' => $clients,
+            'kanbanClients' => $kanbanClients,
+            'view' => $view,
             'statuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->get(['id', 'code', 'name', 'color']),
             'tags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->get(['id', 'code', 'name', 'color']),
+            'cities' => City::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'department']),
             'filters' => $request->only(['search', 'client_type', 'client_status_id', 'tag_id']),
         ]);
     }
@@ -78,7 +97,7 @@ class ClientController extends Controller
 
         $this->clientCrmService->logEvent($client, 'client.created', ClientCrmService::SOURCE_CRM, $advisor);
 
-        return redirect()->route('crm.clients.show', $client)->with('success', 'Cliente registrado.');
+        return redirect()->route('crm.clients.index')->with('success', 'Cliente registrado.');
     }
 
     public function show(Request $request, Client $client): Response
@@ -110,7 +129,25 @@ class ClientController extends Controller
         $advisor = $request->user('advisor');
         $this->clientCrmService->logEvent($ownedClient, 'client.edited', ClientCrmService::SOURCE_CRM, $advisor);
 
-        return redirect()->route('crm.clients.show', $ownedClient)->with('success', 'Cliente actualizado.');
+        return redirect()->route('crm.clients.index')->with('success', 'Cliente actualizado.');
+    }
+
+    public function updateCrm(UpdateClientCrmRequest $request, Client $client): RedirectResponse
+    {
+        $ownedClient = $this->ownedClientOr404($request, $client);
+
+        /** @var Advisor $advisor */
+        $advisor = $request->user('advisor');
+
+        $this->clientCrmService->applyCrmFields(
+            $ownedClient,
+            $request->integer('client_status_id'),
+            null,
+            $advisor,
+            source: ClientCrmService::SOURCE_CRM,
+        );
+
+        return back();
     }
 
     /**

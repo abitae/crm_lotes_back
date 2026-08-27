@@ -31,6 +31,7 @@ Route::prefix('crm')->name('crm.')->group(function (): void {
         Route::get('clients/{client}', [ClientController::class, 'show'])->name('clients.show');
         Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
         Route::match(['put', 'patch'], 'clients/{client}', [ClientController::class, 'update'])->name('clients.update');
+        Route::patch('clients/{client}/crm', [ClientController::class, 'updateCrm'])->name('clients.crm.update');
 
         Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
         Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');

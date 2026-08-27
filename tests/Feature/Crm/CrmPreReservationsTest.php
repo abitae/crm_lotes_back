@@ -63,7 +63,7 @@ class CrmPreReservationsTest extends TestCase
             'voucher_image' => UploadedFile::fake()->image('voucher.png'),
             'payment_reference' => 'OP-123',
             'notes' => 'Abono inicial',
-        ])->assertRedirect(route('crm.pre-reservations.index'));
+        ])->assertRedirect(route('crm.lots.show', $lot));
 
         $this->assertDatabaseHas('lot_pre_reservations', [
             'lot_id' => $lot->id,

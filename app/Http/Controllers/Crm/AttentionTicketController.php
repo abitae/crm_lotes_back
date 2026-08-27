@@ -36,6 +36,13 @@ class AttentionTicketController extends Controller
 
         return Inertia::render('crm/attention-tickets/index', [
             'tickets' => $tickets,
+            'clients' => Client::query()
+                ->where('advisor_id', $advisor->id)
+                ->whereHas('type', fn ($query) => $query->whereIn('code', ['PROPIO', 'DATERO']))
+                ->orderBy('name')
+                ->get(['id', 'name', 'dni']),
+            'projects' => Project::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'ticketTypes' => AttentionTicketType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'code']),
         ]);
     }
 

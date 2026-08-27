@@ -1,5 +1,7 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { PlusCircle } from 'lucide-react';
+import { useState } from 'react';
+import { AttentionTicketFormModal } from '@/components/crm/attention-tickets/attention-ticket-form-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,6 +19,9 @@ type TicketRow = {
     type: { id: number; name: string; color: string | null } | null;
 };
 
+type Option = { id: number; name: string };
+type ClientOption = { id: number; name: string; dni: string | null };
+
 const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
     pendiente: 'secondary',
     realizado: 'default',
@@ -25,7 +30,16 @@ const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'o
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Tickets de atención', href: '/crm/attention-tickets' }];
 
-export default function CrmAttentionTicketsIndex({ tickets }: { tickets: TicketRow[] }) {
+type Props = {
+    tickets: TicketRow[];
+    clients: ClientOption[];
+    projects: Option[];
+    ticketTypes: Option[];
+};
+
+export default function CrmAttentionTicketsIndex({ tickets, clients, projects, ticketTypes }: Props) {
+    const [modalOpen, setModalOpen] = useState(false);
+
     const cancelTicket = (id: number) => {
         if (confirm('¿Cancelar este ticket de atención?')) {
             router.post(attentionTickets.cancel(id).url);
@@ -38,11 +52,9 @@ export default function CrmAttentionTicketsIndex({ tickets }: { tickets: TicketR
 
             <div className="flex flex-col gap-6 p-6">
                 <div className="flex justify-end">
-                    <Button asChild>
-                        <Link href={attentionTickets.create()}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Nuevo ticket
-                        </Link>
+                    <Button onClick={() => setModalOpen(true)}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Nuevo ticket
                     </Button>
                 </div>
 
@@ -96,6 +108,14 @@ export default function CrmAttentionTicketsIndex({ tickets }: { tickets: TicketR
                     </CardContent>
                 </Card>
             </div>
+
+            <AttentionTicketFormModal
+                open={modalOpen}
+                onOpenChange={setModalOpen}
+                clients={clients}
+                projects={projects}
+                ticketTypes={ticketTypes}
+            />
         </CrmLayout>
     );
 }
