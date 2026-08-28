@@ -1,6 +1,4 @@
 import { Head, router } from '@inertiajs/react';
-import type { ComponentType, FormEvent } from 'react';
-import { useMemo } from 'react';
 import {
     CalendarRange,
     FileSpreadsheet,
@@ -11,6 +9,8 @@ import {
     Users,
     Wallet,
 } from 'lucide-react';
+import type { ComponentType, FormEvent } from 'react';
+import { useMemo } from 'react';
 import {
     Bar,
     BarChart,
@@ -21,10 +21,10 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
-import AppLayout from '@/layouts/app-layout';
-import { inmoproMetricTone } from '@/lib/inmopro-ui';
 import { Button } from '@/components/ui/button';
+import AppLayout from '@/layouts/app-layout';
 import { formatDate } from '@/lib/date';
+import { inmoproMetricTone } from '@/lib/inmopro-ui';
 import type { BreadcrumbItem } from '@/types';
 
 const penFormatter = new Intl.NumberFormat('es-PE', {

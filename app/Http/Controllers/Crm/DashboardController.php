@@ -11,6 +11,8 @@ use App\Models\Inmopro\ClientStatus;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotPreReservation;
 use App\Models\Inmopro\LotStatus;
+use App\Models\Meta\MetaConversation;
+use App\Models\Meta\MetaMessage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -62,30 +64,46 @@ class DashboardController extends Controller
 
         $remindersPending = AdvisorReminder::query()
             ->where('advisor_id', $advisorId)
-            ->whereHas('client', fn ($clientQuery) => $clientQuery->whereHas('type', fn ($typeQuery) => $typeQuery->whereIn('code', ['PROPIO', 'DATERO'])))
+            ->visibleForAdvisor()
             ->pending()
             ->count();
+
+        $clientCountsByStatus = $this->clientCountsByStatusForAdvisor($advisorId);
+
+        $metaConnected = $advisor->metaConnection?->isActive() ?? false;
+        $metaStats = null;
+
+        if ($metaConnected) {
+            $metaStats = [
+                'conversations_open' => MetaConversation::query()
+                    ->where('advisor_id', $advisorId)
+                    ->whereIn('status', [MetaConversation::STATUS_OPEN, MetaConversation::STATUS_HUMAN, MetaConversation::STATUS_BOT])
+                    ->count(),
+                'messages_inbound_today' => MetaMessage::query()
+                    ->whereHas('conversation', fn ($q) => $q->where('advisor_id', $advisorId))
+                    ->where('direction', MetaMessage::DIRECTION_INBOUND)
+                    ->whereDate('created_at', today())
+                    ->count(),
+                'messages_outbound_today' => MetaMessage::query()
+                    ->whereHas('conversation', fn ($q) => $q->where('advisor_id', $advisorId))
+                    ->where('direction', MetaMessage::DIRECTION_OUTBOUND)
+                    ->whereDate('created_at', today())
+                    ->count(),
+            ];
+        }
 
         $clientsByStatus = ClientStatus::query()
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get(['id', 'code', 'name', 'color'])
-            ->map(function (ClientStatus $status) use ($advisorId): array {
-                $count = Client::query()
-                    ->where('advisor_id', $advisorId)
-                    ->where('client_status_id', $status->id)
-                    ->whereHas('type', fn ($query) => $query->whereIn('code', ['PROPIO', 'DATERO']))
-                    ->count();
-
-                return [
-                    'id' => $status->id,
-                    'code' => $status->code,
-                    'name' => $status->name,
-                    'color' => $status->color,
-                    'count' => $count,
-                ];
-            })
+            ->map(fn (ClientStatus $status): array => [
+                'id' => $status->id,
+                'code' => $status->code,
+                'name' => $status->name,
+                'color' => $status->color,
+                'count' => $clientCountsByStatus->get($status->id, 0),
+            ])
             ->all();
 
         return Inertia::render('crm/dashboard/index', [
@@ -110,6 +128,7 @@ class DashboardController extends Controller
                 ],
                 'attention_tickets_pending' => $attentionTicketsPending,
                 'reminders_pending' => $remindersPending,
+                'meta' => $metaStats,
             ],
         ]);
     }
@@ -125,6 +144,23 @@ class DashboardController extends Controller
             ->groupBy('lot_statuses.code')
             ->selectRaw('lot_statuses.code as status_code, COUNT(*) as aggregate')
             ->pluck('aggregate', 'status_code')
+            ->map(fn ($count) => (int) $count);
+    }
+
+    /**
+     * One grouped query instead of one COUNT() per client status.
+     *
+     * @return Collection<int, int>
+     */
+    private function clientCountsByStatusForAdvisor(int $advisorId): Collection
+    {
+        return Client::query()
+            ->where('advisor_id', $advisorId)
+            ->whereNotNull('client_status_id')
+            ->whereHas('type', fn ($query) => $query->whereIn('code', ['PROPIO', 'DATERO']))
+            ->groupBy('client_status_id')
+            ->selectRaw('client_status_id, COUNT(*) as aggregate')
+            ->pluck('aggregate', 'client_status_id')
             ->map(fn ($count) => (int) $count);
     }
 }

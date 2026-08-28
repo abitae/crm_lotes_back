@@ -3,6 +3,7 @@
 use App\Http\Middleware\AuthenticateAdvisorApiToken;
 use App\Http\Middleware\AuthenticateDateroApiToken;
 use App\Http\Middleware\EnsureAdvisorIsActive;
+use App\Http\Middleware\EnsureAdvisorPinIsCurrent;
 use App\Http\Middleware\EnsureInmoproRoutePermission;
 use App\Http\Middleware\EnsureOpenAiCazadorEnabled;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
+        channels: __DIR__.'/../routes/channels.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
@@ -41,6 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'inmopro.permission' => EnsureInmoproRoutePermission::class,
             'rbac.super-admin' => EnsureUserIsSuperAdmin::class,
             'advisor.active' => EnsureAdvisorIsActive::class,
+            'advisor.pin-current' => EnsureAdvisorPinIsCurrent::class,
             'crm.share-inertia' => ShareCrmInertiaData::class,
         ]);
 

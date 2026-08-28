@@ -15,6 +15,7 @@ use App\Models\Inmopro\ClientStatus;
 use App\Models\Inmopro\ClientTag;
 use App\Models\Inmopro\ClientType;
 use App\Models\Inmopro\Project;
+use App\Services\Crm\CrmClientsIndexQuery;
 use App\Services\Inmopro\ClientCrmService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -24,12 +25,23 @@ use Inertia\Response;
 
 class ClientController extends Controller
 {
-    public function __construct(private ClientCrmService $clientCrmService) {}
+    public function __construct(
+        private ClientCrmService $clientCrmService,
+        private CrmClientsIndexQuery $clientsIndexQuery,
+    ) {}
 
     private const CLIENT_ROW_COLUMNS = [
         'id', 'name', 'dni', 'phone', 'email', 'referred_by',
         'client_type_id', 'client_status_id', 'city_id',
     ];
+
+    /**
+     * Upper bound on how many clients the kanban board will render at once.
+     * The board fundamentally needs an unpaginated result set to group by
+     * status, but this keeps that set bounded instead of growing forever
+     * with an advisor's tenure.
+     */
+    private const KANBAN_MAX_CLIENTS = 300;
 
     public function index(IndexClientRequest $request): Response
     {
@@ -37,19 +49,28 @@ class ClientController extends Controller
         $advisor = $request->user('advisor');
         $view = $request->string('view')->value() === 'table' ? 'table' : 'kanban';
 
-        $clients = $this->applyFilters($this->advisorVisibleClientsQuery($advisor), $request)
-            ->with(['type:id,code,name', 'status:id,code,name,color', 'tags:id,code,name,color'])
-            ->orderBy('name')
-            ->orderBy('id')
-            ->paginate(20, self::CLIENT_ROW_COLUMNS)
-            ->withQueryString();
-
+        // Only the dataset the active view actually renders is fetched — a table
+        // load no longer also runs the full kanban query (and vice versa).
+        $clients = ['data' => [], 'links' => []];
         $kanbanClients = null;
 
-        if ($view === 'kanban') {
-            $kanbanClients = $this->applyFilters($this->advisorVisibleClientsQuery($advisor), $request)
+        if ($view === 'table') {
+            $query = $this->advisorVisibleClientsQuery($advisor);
+            $this->clientsIndexQuery->apply($query, $request);
+            $this->clientsIndexQuery->applyDefaultOrdering($query);
+
+            $clients = $query
                 ->with(['type:id,code,name', 'status:id,code,name,color', 'tags:id,code,name,color'])
-                ->orderBy('name')
+                ->paginate($this->clientsIndexQuery->perPage($request), self::CLIENT_ROW_COLUMNS)
+                ->withQueryString();
+        } else {
+            $query = $this->advisorVisibleClientsQuery($advisor);
+            $this->clientsIndexQuery->apply($query, $request);
+            $this->clientsIndexQuery->applyDefaultOrdering($query);
+
+            $kanbanClients = $query
+                ->with(['type:id,code,name', 'status:id,code,name,color', 'tags:id,code,name,color'])
+                ->limit(self::KANBAN_MAX_CLIENTS)
                 ->get(self::CLIENT_ROW_COLUMNS);
         }
 
@@ -62,31 +83,9 @@ class ClientController extends Controller
             'cities' => City::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'department']),
             'projects' => Project::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'ticketTypes' => AttentionTicketType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'code']),
-            'filters' => $request->only(['search', 'client_type', 'client_status_id', 'tag_id']),
+            'perPageOptions' => CrmClientsIndexQuery::PER_PAGE_OPTIONS,
+            'filters' => $this->clientsIndexQuery->filtersFromRequest($request),
         ]);
-    }
-
-    /**
-     * @param  Builder<Client>  $query
-     * @return Builder<Client>
-     */
-    private function applyFilters(Builder $query, Request $request): Builder
-    {
-        return $query
-            ->when($request->filled('client_type'), function (Builder $query) use ($request): void {
-                $code = (string) $request->input('client_type');
-                $query->where('client_type_id', ClientType::query()->where('code', $code)->value('id'));
-            })
-            ->when($request->filled('client_status_id'), function (Builder $query) use ($request): void {
-                $query->where('client_status_id', $request->integer('client_status_id'));
-            })
-            ->when($request->filled('tag_id'), function (Builder $query) use ($request): void {
-                $tagId = $request->integer('tag_id');
-                $query->whereHas('tags', fn (Builder $tagQuery) => $tagQuery->where('client_tags.id', $tagId));
-            })
-            ->when($request->filled('search'), function (Builder $query) use ($request): void {
-                $this->applySearch($query, (string) $request->input('search'));
-            });
     }
 
     public function create(): Response
@@ -163,6 +162,14 @@ class ClientController extends Controller
         return back();
     }
 
+    public function destroy(Request $request, Client $client): RedirectResponse
+    {
+        $ownedClient = $this->ownedClientOr404($request, $client);
+        $ownedClient->delete();
+
+        return redirect()->route('crm.clients.index')->with('success', 'Cliente eliminado.');
+    }
+
     /**
      * Clientes visibles para el vendedor en el CRM: PROPIO (propios) y DATERO (captados por sus dateros).
      * El alta desde el CRM solo crea tipo PROPIO (método store).
@@ -174,27 +181,6 @@ class ClientController extends Controller
         return Client::query()
             ->where('advisor_id', $advisor->id)
             ->whereIn('client_type_id', ClientType::query()->whereIn('code', ['PROPIO', 'DATERO'])->select('id'));
-    }
-
-    /**
-     * @param  Builder<Client>  $query
-     */
-    private function applySearch(Builder $query, string $term): void
-    {
-        $trimmedTerm = trim($term);
-        $numericTerm = preg_replace('/\D+/', '', $trimmedTerm) ?? '';
-        $isNumericSearch = $numericTerm !== '' && preg_match('/[a-záéíóúñ]/iu', $trimmedTerm) !== 1;
-
-        $query->where(function (Builder $nestedQuery) use ($isNumericSearch, $numericTerm, $trimmedTerm): void {
-            if ($isNumericSearch) {
-                $nestedQuery->where('phone_normalized', 'like', $numericTerm.'%')
-                    ->orWhere('dni_normalized', 'like', $numericTerm.'%');
-
-                return;
-            }
-
-            $nestedQuery->where('name', 'like', '%'.$trimmedTerm.'%');
-        });
     }
 
     private function ownedClientOr404(Request $request, Client $client): Client

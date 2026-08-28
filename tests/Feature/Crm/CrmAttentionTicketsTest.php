@@ -86,4 +86,64 @@ class CrmAttentionTicketsTest extends TestCase
 
         $this->post(route('crm.attention-tickets.cancel', $ticket))->assertNotFound();
     }
+
+    public function test_index_paginates_tickets_instead_of_returning_everything(): void
+    {
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $client = Client::where('client_type_id', $ownType->id)->firstOrFail();
+        $advisor = Advisor::findOrFail($client->advisor_id);
+        $project = Project::firstOrFail();
+        $ticketType = AttentionTicketType::factory()->create();
+
+        for ($i = 0; $i < 25; $i++) {
+            AttentionTicket::create([
+                'advisor_id' => $advisor->id,
+                'client_id' => $client->id,
+                'project_id' => $project->id,
+                'attention_ticket_type_id' => $ticketType->id,
+                'status' => 'pendiente',
+            ]);
+        }
+
+        $this->actingAs($advisor, 'advisor');
+
+        $this->get(route('crm.attention-tickets.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('tickets.data', 20)
+                ->has('tickets.links'));
+    }
+
+    public function test_index_filters_tickets_by_status(): void
+    {
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $client = Client::where('client_type_id', $ownType->id)->firstOrFail();
+        $advisor = Advisor::findOrFail($client->advisor_id);
+        $project = Project::firstOrFail();
+        $ticketType = AttentionTicketType::factory()->create();
+
+        AttentionTicket::create([
+            'advisor_id' => $advisor->id,
+            'client_id' => $client->id,
+            'project_id' => $project->id,
+            'attention_ticket_type_id' => $ticketType->id,
+            'status' => 'pendiente',
+        ]);
+
+        AttentionTicket::create([
+            'advisor_id' => $advisor->id,
+            'client_id' => $client->id,
+            'project_id' => $project->id,
+            'attention_ticket_type_id' => $ticketType->id,
+            'status' => 'cancelado',
+        ]);
+
+        $this->actingAs($advisor, 'advisor');
+
+        $this->get(route('crm.attention-tickets.index', ['status' => 'cancelado']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('tickets.data', 1)
+                ->where('tickets.data.0.status', 'cancelado'));
+    }
 }

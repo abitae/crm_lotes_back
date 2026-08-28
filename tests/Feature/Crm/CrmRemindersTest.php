@@ -87,6 +87,29 @@ class CrmRemindersTest extends TestCase
         $this->assertModelMissing($reminder);
     }
 
+    public function test_index_paginates_reminders_instead_of_returning_everything(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $client = $this->createClientForAdvisor($advisor);
+
+        for ($i = 0; $i < 25; $i++) {
+            AdvisorReminder::create([
+                'advisor_id' => $advisor->id,
+                'client_id' => $client->id,
+                'title' => 'Recordatorio '.$i,
+                'remind_at' => now()->addDays($i),
+            ]);
+        }
+
+        $this->actingAs($advisor, 'advisor');
+
+        $this->get(route('crm.reminders.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('reminders.data', 20)
+                ->has('reminders.links'));
+    }
+
     private function createClientForAdvisor(Advisor $advisor, string $typeCode = 'PROPIO'): Client
     {
         $type = ClientType::query()->where('code', $typeCode)->firstOrFail();

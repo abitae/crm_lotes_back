@@ -7,11 +7,11 @@ import {
     UserCheck,
 } from 'lucide-react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
+import { Button } from '@/components/ui/button';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAppearance } from '@/hooks/use-appearance';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItem as BreadcrumbItemType, NavItem } from '@/types';
 
 const quickAccessItems: NavItem[] = [

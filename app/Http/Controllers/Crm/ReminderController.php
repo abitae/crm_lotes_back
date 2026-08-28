@@ -27,9 +27,11 @@ class ReminderController extends Controller
         $reminders = AdvisorReminder::query()
             ->with('client:id,name,phone')
             ->where('advisor_id', $advisor->id)
-            ->whereHas('client', fn ($clientQuery) => $clientQuery->whereHas('type', fn ($typeQuery) => $typeQuery->whereIn('code', ['PROPIO', 'DATERO'])))
+            ->visibleForAdvisor()
+            ->orderByRaw('completed_at is not null')
             ->orderBy('remind_at')
-            ->get();
+            ->paginate(20)
+            ->withQueryString();
 
         return Inertia::render('crm/reminders/index', [
             'reminders' => $reminders,
@@ -78,28 +80,31 @@ class ReminderController extends Controller
 
         /** @var Advisor $advisor */
         $advisor = $request->user('advisor');
-        $client = $this->ownedOperationalClient($advisor, $request->integer('client_id'));
+        $clientId = $request->input('client_id');
+        $client = $clientId ? $this->ownedOperationalClient($advisor, (int) $clientId) : null;
 
-        if (! $client) {
+        if ($clientId && ! $client) {
             throw ValidationException::withMessages([
                 'client_id' => 'El cliente debe pertenecer al vendedor y ser PROPIO o DATERO.',
             ]);
         }
 
         $owned->update([
-            'client_id' => $client->id,
+            'client_id' => $client?->id,
             'title' => $request->input('title'),
             'notes' => $request->input('notes'),
             'remind_at' => $request->input('remind_at'),
         ]);
 
-        $this->clientCrmService->logEvent(
-            $client,
-            'reminder.updated',
-            ClientCrmService::SOURCE_CRM,
-            $advisor,
-            meta: ['reminder_id' => $owned->id, 'title' => $owned->title],
-        );
+        if ($client) {
+            $this->clientCrmService->logEvent(
+                $client,
+                'reminder.updated',
+                ClientCrmService::SOURCE_CRM,
+                $advisor,
+                meta: ['reminder_id' => $owned->id, 'title' => $owned->title],
+            );
+        }
 
         return redirect()->route('crm.reminders.index')->with('success', 'Recordatorio actualizado.');
     }
@@ -158,7 +163,7 @@ class ReminderController extends Controller
             ->with('client:id,name,phone')
             ->whereKey($reminder->id)
             ->where('advisor_id', $advisor->id)
-            ->whereHas('client', fn ($clientQuery) => $clientQuery->whereHas('type', fn ($typeQuery) => $typeQuery->whereIn('code', ['PROPIO', 'DATERO'])))
+            ->visibleForAdvisor()
             ->firstOrFail();
     }
 

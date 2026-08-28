@@ -1,10 +1,10 @@
 import { Head, useForm } from '@inertiajs/react';
-import { FormEvent } from 'react';
-import AppLayout from '@/layouts/app-layout';
+import type { FormEvent } from 'react';
+import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import InputError from '@/components/input-error';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 type CommissionStatus = { id: number; name: string; code: string; color?: string; sort_order?: number };

@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LotPreReservation extends Model
 {
+    public const EXPIRATION_HOURS = 48;
+
     /**
      * @var list<string>
      */
@@ -17,6 +19,7 @@ class LotPreReservation extends Model
         'advisor_id',
         'status',
         'amount',
+        'expires_at',
         'voucher_path',
         'payment_reference',
         'notes',
@@ -32,6 +35,7 @@ class LotPreReservation extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'expires_at' => 'datetime',
             'reviewed_at' => 'datetime',
         ];
     }

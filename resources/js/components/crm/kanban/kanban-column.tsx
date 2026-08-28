@@ -1,6 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
-import { cn } from '@/lib/utils';
 import { KanbanCard, type KanbanClient } from '@/components/crm/kanban/kanban-card';
+import { StatusBadge } from '@/components/crm/status-badge';
+import { cn } from '@/lib/utils';
 
 export type KanbanStatus = {
     id: number;
@@ -36,12 +37,10 @@ export function KanbanColumn({
             )}
         >
             <div className="flex items-center justify-between gap-2 px-3 py-2.5">
-                <div className="flex min-w-0 items-center gap-2">
-                    <span
-                        className="size-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: status.color ?? '#94a3b8' }}
-                    />
-                    <span className="truncate text-sm font-semibold">{status.name}</span>
+                <div className="min-w-0">
+                    <StatusBadge color={status.color}>
+                        <span className="truncate text-sm font-semibold">{status.name}</span>
+                    </StatusBadge>
                 </div>
                 <span className="shrink-0 rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
                     {clients.length}

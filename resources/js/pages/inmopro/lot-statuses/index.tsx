@@ -1,7 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Tag, Plus, Eye, Pencil, Trash2 } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
 import Pagination, { type PaginationLink } from '@/components/pagination';
+import AppLayout from '@/layouts/app-layout';
 import { confirmDelete } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
 

@@ -1,8 +1,8 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Edit, Plus, Search, Trash2 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
-import InputError from '@/components/input-error';
 import { InmoproMetricCard } from '@/components/inmopro/metric-card';
+import InputError from '@/components/input-error';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
 import {

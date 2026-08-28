@@ -1,10 +1,13 @@
 import { Head, router } from '@inertiajs/react';
-import { CheckCircle2, Pencil, PlusCircle, Trash2 } from 'lucide-react';
+import { Bell, CheckCircle2, Pencil, PlusCircle, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { EmptyState } from '@/components/crm/empty-state';
 import { ReminderFormModal, type ReminderFormValues } from '@/components/crm/reminders/reminder-form-modal';
+import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
+import { confirmDelete } from '@/lib/swal';
 import reminders from '@/routes/crm/reminders';
 import type { BreadcrumbItem } from '@/types';
 
@@ -23,12 +26,14 @@ type ClientOption = { id: number; name: string };
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Recordatorios', href: '/crm/reminders' }];
 
 export default function CrmRemindersIndex({
-    reminders: reminderList,
+    reminders: remindersPage,
     clients,
 }: {
-    reminders: ReminderRow[];
+    reminders: { data: ReminderRow[]; links: PaginationLink[] };
     clients: ClientOption[];
 }) {
+    const reminderList = remindersPage.data;
+
     const [modalOpen, setModalOpen] = useState(false);
     const [editingReminder, setEditingReminder] = useState<ReminderFormValues | null>(null);
 
@@ -49,8 +54,10 @@ export default function CrmRemindersIndex({
     };
 
     const complete = (id: number) => router.post(reminders.complete(id).url);
-    const remove = (id: number) => {
-        if (confirm('¿Eliminar este recordatorio?')) {
+    const remove = async (id: number) => {
+        const confirmed = await confirmDelete('¿Eliminar este recordatorio?');
+
+        if (confirmed) {
             router.delete(reminders.destroy(id).url);
         }
     };
@@ -90,20 +97,45 @@ export default function CrmRemindersIndex({
                                     )}
                                 </div>
                                 <div className="flex shrink-0 gap-1">
-                                    <Button size="icon" variant="ghost" onClick={() => openEditModal(reminder)}>
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        aria-label={`Editar recordatorio: ${reminder.title}`}
+                                        onClick={() => openEditModal(reminder)}
+                                    >
                                         <Pencil className="h-4 w-4" />
                                     </Button>
-                                    <Button size="icon" variant="ghost" onClick={() => complete(reminder.id)}>
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        aria-label={`Completar recordatorio: ${reminder.title}`}
+                                        onClick={() => complete(reminder.id)}
+                                    >
                                         <CheckCircle2 className="h-4 w-4" />
                                     </Button>
-                                    <Button size="icon" variant="ghost" onClick={() => remove(reminder.id)}>
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        aria-label={`Eliminar recordatorio: ${reminder.title}`}
+                                        onClick={() => remove(reminder.id)}
+                                    >
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
                                 </div>
                             </div>
                         ))}
                         {pending.length === 0 && (
-                            <p className="text-sm text-muted-foreground">No tienes recordatorios pendientes.</p>
+                            <EmptyState
+                                icon={Bell}
+                                title="No tienes recordatorios pendientes"
+                                description="Crea un recordatorio para no perder el seguimiento de un cliente."
+                                action={
+                                    <Button size="sm" onClick={openCreateModal}>
+                                        <PlusCircle className="mr-2 h-4 w-4" />
+                                        Nuevo recordatorio
+                                    </Button>
+                                }
+                            />
                         )}
                     </CardContent>
                 </Card>
@@ -123,6 +155,8 @@ export default function CrmRemindersIndex({
                         </CardContent>
                     </Card>
                 )}
+
+                <Pagination links={remindersPage.links} />
             </div>
 
             <ReminderFormModal

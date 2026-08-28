@@ -296,6 +296,19 @@ class InmoproClientsTest extends TestCase
         ]);
     }
 
+    public function test_edit_client_redirects_to_index_with_edit_modal(): void
+    {
+        $user = User::factory()->create();
+        $client = Client::firstOrFail();
+        $this->actingAs($user);
+
+        $this->get(route('inmopro.clients.edit', $client))
+            ->assertRedirect(route('inmopro.clients.index', [
+                'modal' => 'edit_client',
+                'client_id' => $client->id,
+            ]));
+    }
+
     public function test_update_client_requires_city(): void
     {
         $user = User::factory()->create();

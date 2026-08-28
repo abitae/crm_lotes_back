@@ -22,8 +22,8 @@ import {
 } from 'recharts';
 import { InmoproMetricCard } from '@/components/inmopro/metric-card';
 import { Badge } from '@/components/ui/badge';
-import { inmoproUi } from '@/lib/inmopro-ui';
 import AppLayout from '@/layouts/app-layout';
+import { inmoproUi } from '@/lib/inmopro-ui';
 import type { BreadcrumbItem } from '@/types';
 
 const COLORS = ['#10b981', '#0ea5e9', '#f59e0b', '#64748b', '#6366f1'];

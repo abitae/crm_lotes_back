@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\v1\Cazador\ClientStatusController;
 use App\Http\Controllers\Api\v1\Cazador\ClientTagController;
 use App\Http\Controllers\Api\v1\Cazador\DashboardController;
 use App\Http\Controllers\Api\v1\Cazador\DateroController;
+use App\Http\Controllers\Api\v1\Cazador\GoogleAuthController as CazadorGoogleAuthController;
+use App\Http\Controllers\Api\v1\Cazador\InboxController as CazadorInboxController;
 use App\Http\Controllers\Api\v1\Cazador\LotController;
 use App\Http\Controllers\Api\v1\Cazador\PreReservationController;
 use App\Http\Controllers\Api\v1\Cazador\ProfileController;
@@ -20,8 +22,10 @@ use App\Http\Controllers\Api\v1\Cazador\SharedProjectAssetController;
 use App\Http\Controllers\Api\v1\Datero\AuthController as DateroAuthController;
 use App\Http\Controllers\Api\v1\Datero\CityController as DateroCityController;
 use App\Http\Controllers\Api\v1\Datero\ClientController as DateroClientController;
+use App\Http\Controllers\Api\v1\Datero\GoogleAuthController as DateroGoogleAuthController;
 use App\Http\Controllers\Api\v1\Datero\ProfileController as DateroProfileController;
 use App\Http\Controllers\Api\v1\Datero\ProjectController as DateroProjectController;
+use App\Http\Controllers\Api\v1\Datero\RegistrationLookupController;
 use App\Http\Controllers\Api\v1\Web\Project360Controller as WebProject360Controller;
 use App\Http\Controllers\Api\v1\Web\WebController;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +45,10 @@ Route::prefix('v1/cazador')->name('api.v1.cazador.')->group(function (): void {
         ->middleware('throttle:cazador-login')
         ->name('auth.login');
 
+    Route::post('auth/google', [CazadorGoogleAuthController::class, 'login'])
+        ->middleware('throttle:google-auth')
+        ->name('auth.google');
+
     Route::get('app-version', [AppVersionController::class, 'show'])
         ->middleware('throttle:60,1')
         ->name('app-version.show');
@@ -56,6 +64,8 @@ Route::prefix('v1/cazador')->name('api.v1.cazador.')->group(function (): void {
         Route::put('me/pin', [ProfileController::class, 'updatePin'])->name('me.pin.update');
 
         Route::get('dashboard', [DashboardController::class, 'show'])->name('dashboard.show');
+
+        Route::get('inbox', [CazadorInboxController::class, 'index'])->name('inbox.index');
 
         Route::get('cities', [CityController::class, 'index'])->name('cities.index');
 
@@ -98,6 +108,22 @@ Route::prefix('v1/cazador')->name('api.v1.cazador.')->group(function (): void {
 });
 
 Route::prefix('v1/datero')->name('api.v1.datero.')->group(function (): void {
+    Route::get('auth/cities', [RegistrationLookupController::class, 'cities'])
+        ->middleware('throttle:google-auth')
+        ->name('auth.cities');
+
+    Route::get('auth/advisors', [RegistrationLookupController::class, 'advisors'])
+        ->middleware('throttle:google-auth')
+        ->name('auth.advisors');
+
+    Route::post('auth/google/register', [DateroGoogleAuthController::class, 'register'])
+        ->middleware('throttle:google-auth')
+        ->name('auth.google.register');
+
+    Route::post('auth/google', [DateroGoogleAuthController::class, 'login'])
+        ->middleware('throttle:google-auth')
+        ->name('auth.google');
+
     Route::post('auth/login', [DateroAuthController::class, 'login'])
         ->middleware('throttle:datero-login')
         ->name('auth.login');

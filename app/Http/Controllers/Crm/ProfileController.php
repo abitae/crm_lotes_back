@@ -44,7 +44,7 @@ class ProfileController extends Controller
             throw ValidationException::withMessages(['current_pin' => 'El PIN actual no es válido.']);
         }
 
-        $advisor->update(['pin' => $request->input('pin')]);
+        $advisor->update(['pin' => $request->input('pin'), 'must_change_pin' => false]);
 
         return redirect()->route('crm.profile.edit')->with('success', 'PIN actualizado correctamente.');
     }

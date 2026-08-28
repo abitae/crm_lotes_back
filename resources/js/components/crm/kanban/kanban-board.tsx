@@ -60,7 +60,7 @@ export function KanbanBoard({
 
     useEffect(() => {
         setColumns(groupByStatus(clients, statuses));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [clients, statuses]);
 
     const sensors = useSensors(

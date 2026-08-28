@@ -75,15 +75,24 @@ class ClientController extends Controller
 
         $clients = $query->paginate($this->clientsIndexQuery->perPage($request))->withQueryString();
 
+        $clientForModal = null;
+        if ($request->filled('modal') && $request->input('modal') === 'edit_client' && $request->filled('client_id')) {
+            $clientForModal = Client::query()
+                ->with(['tags:id'])
+                ->find($request->integer('client_id'));
+        }
+
         return Inertia::render('inmopro/clients/index', [
             'clients' => $clients,
             'filters' => $this->clientsIndexQuery->filtersFromRequest($request),
             'clientTypes' => ClientType::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
             'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
-            'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
-            'advisors' => Advisor::query()->orderBy('name')->get(['id', 'name']),
+            'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'department']),
+            'advisors' => Advisor::query()->with('team')->orderBy('name')->get(['id', 'name', 'team_id']),
             'perPageOptions' => ClientsIndexQuery::PER_PAGE_OPTIONS,
+            'clientForModal' => $clientForModal,
+            'openModal' => $request->input('modal'),
         ]);
     }
 
@@ -207,18 +216,15 @@ class ClientController extends Controller
         ]);
     }
 
-    public function edit(Client $client): Response
+    public function edit(Request $request, Client $client): RedirectResponse
     {
-        $client->load('tags:id');
-
-        return Inertia::render('inmopro/clients/edit', [
-            'client' => $client,
-            'clientTypes' => ClientType::orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
-            'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
-            'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
-            'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'department']),
-            'advisors' => Advisor::query()->with('team')->orderBy('name')->get(['id', 'name', 'team_id']),
-        ]);
+        return redirect()->route('inmopro.clients.index', array_merge(
+            InertiaListingRedirect::clientsIndexQuery($request),
+            [
+                'modal' => 'edit_client',
+                'client_id' => $client->id,
+            ],
+        ));
     }
 
     public function update(UpdateClientRequest $request, Client $client): RedirectResponse

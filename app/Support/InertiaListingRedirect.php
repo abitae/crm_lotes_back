@@ -62,6 +62,26 @@ final class InertiaListingRedirect
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public static function daterosIndexQuery(Request $request): array
+    {
+        return collect($request->query())
+            ->only([
+                'page',
+                'per_page',
+                'search',
+                'advisor_id',
+                'city_id',
+                'is_active',
+                'created_from',
+                'created_to',
+            ])
+            ->filter(fn ($value) => $value !== null && $value !== '')
+            ->all();
+    }
+
+    /**
      * @param  array<int, string>  $keys
      * @return array<string, mixed>
      */

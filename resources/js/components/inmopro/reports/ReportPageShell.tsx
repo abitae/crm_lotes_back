@@ -1,8 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
-import type { ReactNode } from 'react';
 import { ArrowLeft, Info } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
+import type { ReactNode } from 'react';
 import { ReportExportActions } from '@/components/inmopro/reports/ReportExportActions';
+import AppLayout from '@/layouts/app-layout';
 import { inmoproUi } from '@/lib/inmopro-ui';
 import type { BreadcrumbItem } from '@/types';
 

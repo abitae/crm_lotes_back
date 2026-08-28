@@ -29,10 +29,14 @@ class AttentionTicketController extends Controller
         $tickets = AttentionTicket::query()
             ->with(['client:id,name,dni', 'project:id,name', 'type:id,name,code,color'])
             ->where('advisor_id', $advisor->id)
+            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->toString()))
+            ->when($request->filled('created_from'), fn ($query) => $query->whereDate('created_at', '>=', $request->date('created_from')))
+            ->when($request->filled('created_to'), fn ($query) => $query->whereDate('created_at', '<=', $request->date('created_to')))
             ->orderByRaw('case when scheduled_at is null then 1 else 0 end')
             ->orderByDesc('scheduled_at')
             ->orderByDesc('created_at')
-            ->get();
+            ->paginate(20)
+            ->withQueryString();
 
         return Inertia::render('crm/attention-tickets/index', [
             'tickets' => $tickets,
@@ -43,6 +47,7 @@ class AttentionTicketController extends Controller
                 ->get(['id', 'name', 'dni']),
             'projects' => Project::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'ticketTypes' => AttentionTicketType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'code']),
+            'filters' => $request->only(['status', 'created_from', 'created_to']),
         ]);
     }
 

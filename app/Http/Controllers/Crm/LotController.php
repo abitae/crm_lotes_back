@@ -58,7 +58,8 @@ class LotController extends Controller
             ->orderBy('project_id')
             ->orderBy('block')
             ->orderBy('number')
-            ->get(['id', 'project_id', 'block', 'number', 'area', 'price', 'lot_status_id']);
+            ->paginate(20, ['id', 'project_id', 'block', 'number', 'area', 'price', 'lot_status_id'])
+            ->withQueryString();
 
         return Inertia::render('crm/lots/index', [
             'lots' => $lots,

@@ -83,6 +83,29 @@ class CrmAuthTest extends TestCase
         Cache::flush();
     }
 
+    public function test_login_rate_limit_cannot_be_bypassed_by_rotating_ip(): void
+    {
+        Cache::flush();
+
+        $advisor = Advisor::firstOrFail();
+
+        // 20 failed attempts against the same username, each from a distinct IP, exhausts the
+        // account-level limiter even though no single IP ever crosses its own per-IP threshold.
+        for ($i = 0; $i < 20; $i++) {
+            $this->call('POST', route('crm.login.store'), [
+                'username' => $advisor->username,
+                'pin' => '000000',
+            ], [], [], ['REMOTE_ADDR' => '203.0.113.'.$i]);
+        }
+
+        $this->call('POST', route('crm.login.store'), [
+            'username' => $advisor->username,
+            'pin' => '000000',
+        ], [], [], ['REMOTE_ADDR' => '203.0.113.99'])->assertStatus(429);
+
+        Cache::flush();
+    }
+
     public function test_guest_middleware_redirects_authenticated_advisor_away_from_login(): void
     {
         $advisor = Advisor::firstOrFail();

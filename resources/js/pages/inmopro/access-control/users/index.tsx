@@ -1,8 +1,8 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Pencil, Search, UserPlus, Users } from 'lucide-react';
 import { useState } from 'react';
-import AppLayout from '@/layouts/app-layout';
 import Pagination, { type PaginationLink } from '@/components/pagination';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 type Role = { id: number; name: string };

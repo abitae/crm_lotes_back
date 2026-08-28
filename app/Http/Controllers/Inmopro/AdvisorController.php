@@ -398,7 +398,9 @@ class AdvisorController extends Controller
         unset($validated['material_items'], $validated['profile']);
 
         $validated['username'] = $validated['username'] ?? str((string) $validated['email'])->before('@')->slug('_')->value();
+        $pinWasProvided = filled($validated['pin'] ?? null);
         $validated['pin'] = $validated['pin'] ?? '123456';
+        $validated['must_change_pin'] = ! $pinWasProvided;
         $validated['is_active'] = $validated['is_active'] ?? true;
 
         DB::transaction(function () use ($validated, $materialItems, $profileData, $request, $profileService): void {

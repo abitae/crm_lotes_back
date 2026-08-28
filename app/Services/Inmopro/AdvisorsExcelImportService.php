@@ -300,6 +300,7 @@ class AdvisorsExcelImportService
                     Advisor::query()->create(array_merge($payload, [
                         'username' => $username,
                         'pin' => '123456',
+                        'must_change_pin' => true,
                     ]));
                 } else {
                     $advisor = Advisor::query()->where('dni', $dni)->firstOrFail();

@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
 import { PreReservationFormModal } from '@/components/crm/pre-reservations/pre-reservation-form-modal';
+import { StatusBadge } from '@/components/crm/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
@@ -50,13 +51,7 @@ export default function CrmLotsShow({ lot, clients }: { lot: LotDetail; clients:
                         <p>
                             <span className="text-muted-foreground">Estado: </span>
                             {lot.status ? (
-                                <span className="inline-flex items-center gap-1.5">
-                                    <span
-                                        className="size-2 rounded-full"
-                                        style={{ backgroundColor: lot.status.color ?? '#94a3b8' }}
-                                    />
-                                    {lot.status.name}
-                                </span>
+                                <StatusBadge color={lot.status.color}>{lot.status.name}</StatusBadge>
                             ) : (
                                 '—'
                             )}

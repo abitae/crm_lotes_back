@@ -30,12 +30,17 @@ class PreReservationController extends Controller
 
         $preReservations = LotPreReservation::query()
             ->where('advisor_id', $advisor->id)
+            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->toString()))
+            ->when($request->filled('created_from'), fn ($query) => $query->whereDate('created_at', '>=', $request->date('created_from')))
+            ->when($request->filled('created_to'), fn ($query) => $query->whereDate('created_at', '<=', $request->date('created_to')))
             ->with(['lot.project', 'client:id,name'])
             ->latest()
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
         return Inertia::render('crm/pre-reservations/index', [
             'preReservations' => $preReservations,
+            'filters' => $request->only(['status', 'created_from', 'created_to']),
         ]);
     }
 
@@ -83,8 +88,6 @@ class PreReservationController extends Controller
             ]);
         }
 
-        $lot->loadMissing(['status', 'project']);
-
         if ($request->integer('lot_id') !== $lot->id) {
             throw ValidationException::withMessages(['lot_id' => 'El lote enviado no coincide con la ruta.']);
         }
@@ -93,24 +96,31 @@ class PreReservationController extends Controller
             throw ValidationException::withMessages(['project_id' => 'El lote no pertenece al proyecto enviado.']);
         }
 
-        if ($lot->status?->code !== 'LIBRE') {
-            throw ValidationException::withMessages(['lot_id' => 'La unidad no está disponible para pre-reserva.']);
-        }
-
-        $hasActiveRequest = LotPreReservation::query()
-            ->where('lot_id', $lot->id)
-            ->whereIn('status', ['PENDIENTE', 'APROBADA'])
-            ->exists();
-
-        if ($hasActiveRequest) {
-            throw ValidationException::withMessages(['lot_id' => 'La unidad ya tiene una pre-reserva activa.']);
-        }
-
         $preReservationStatusId = LotStatus::query()->where('code', 'PRERESERVA')->value('id');
 
         abort_unless($preReservationStatusId, 500, 'No existe el estado de pre-reserva configurado.');
 
-        $preReservation = DB::transaction(function () use ($advisor, $client, $lot, $request, $preReservationStatusId) {
+        // The lot row is locked for the entire check-then-act sequence below so two
+        // concurrent requests for the same lot cannot both pass the availability
+        // checks before either commits (the second request blocks until the first
+        // transaction releases the lock, then re-reads the now-updated state).
+        $preReservation = DB::transaction(function () use ($advisor, $client, $request, $preReservationStatusId) {
+            $lockedLot = Lot::query()->whereKey($request->integer('lot_id'))->lockForUpdate()->firstOrFail();
+            $lockedLot->loadMissing('status');
+
+            if ($lockedLot->status?->code !== 'LIBRE') {
+                throw ValidationException::withMessages(['lot_id' => 'La unidad no está disponible para pre-reserva.']);
+            }
+
+            $hasActiveRequest = LotPreReservation::query()
+                ->where('lot_id', $lockedLot->id)
+                ->whereIn('status', ['PENDIENTE', 'APROBADA'])
+                ->exists();
+
+            if ($hasActiveRequest) {
+                throw ValidationException::withMessages(['lot_id' => 'La unidad ya tiene una pre-reserva activa.']);
+            }
+
             $storedPath = FileStorage::storeUploadedFile(
                 $request->file('voucher_image'),
                 'pre-reservations/crm',
@@ -118,17 +128,18 @@ class PreReservationController extends Controller
 
             try {
                 $preReservation = LotPreReservation::create([
-                    'lot_id' => $lot->id,
+                    'lot_id' => $lockedLot->id,
                     'client_id' => $client->id,
                     'advisor_id' => $advisor->id,
                     'status' => 'PENDIENTE',
                     'amount' => $request->input('amount'),
+                    'expires_at' => now()->addHours(LotPreReservation::EXPIRATION_HOURS),
                     'voucher_path' => $storedPath,
                     'payment_reference' => $request->input('payment_reference'),
                     'notes' => $request->input('notes'),
                 ]);
 
-                $lot->update([
+                $lockedLot->update([
                     'lot_status_id' => $preReservationStatusId,
                     'client_id' => $client->id,
                     'advisor_id' => $advisor->id,

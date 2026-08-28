@@ -172,4 +172,50 @@ class CrmClientsScopingTest extends TestCase
             ->has('kanbanClients', 1)
             ->where('kanbanClients.0.name', 'Busqueda Kanban Alfa'));
     }
+
+    public function test_advisor_can_delete_own_client(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+
+        $client = Client::create([
+            'name' => 'Cliente a eliminar',
+            'dni' => '30000001',
+            'phone' => '900000201',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+        ]);
+
+        $this->actingAs($advisor, 'advisor');
+
+        $this->delete(route('crm.clients.destroy', $client))
+            ->assertRedirect(route('crm.clients.index'));
+
+        $this->assertModelMissing($client);
+    }
+
+    public function test_advisor_cannot_delete_another_advisors_client(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $otherAdvisor = Advisor::query()->whereKeyNot($advisor->id)->firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+
+        $client = Client::create([
+            'name' => 'Cliente ajeno a eliminar',
+            'dni' => '30000002',
+            'phone' => '900000202',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $otherAdvisor->id,
+            'city_id' => $city->id,
+        ]);
+
+        $this->actingAs($advisor, 'advisor');
+
+        $this->delete(route('crm.clients.destroy', $client))->assertNotFound();
+
+        $this->assertModelExists($client);
+    }
 }

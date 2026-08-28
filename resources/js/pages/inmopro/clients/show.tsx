@@ -1,5 +1,5 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { FormEvent } from 'react';
+import type { FormEvent } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { clientsListingQuerySuffix } from '@/lib/inmopro-listing-query';
 import type { BreadcrumbItem } from '@/types';

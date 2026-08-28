@@ -30,14 +30,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import {
-    analyzePanoramaFiles,
-    formatBytes,
-    formatRatio,
-    PROJECT_360_PANORAMA_RULES,
-    type PanoramaFileReport,
-    type PanoramaSelectionAnalysis,
-} from '@/lib/project-360-panorama-validation';
-import {
     polygonCentroid,
     polygonHasSelfIntersection,
     polylineHasSelfIntersection,
@@ -53,6 +45,14 @@ import {
     type Project360LabelShape,
     type Project360LabelStyle,
 } from '@/lib/project-360-label-style';
+import {
+    analyzePanoramaFiles,
+    formatBytes,
+    formatRatio,
+    PROJECT_360_PANORAMA_RULES,
+    type PanoramaFileReport,
+    type PanoramaSelectionAnalysis,
+} from '@/lib/project-360-panorama-validation';
 import { confirmDelete } from '@/lib/swal';
 import project360 from '@/routes/inmopro/project-360';
 import hotspotRoutes from '@/routes/inmopro/project-360/hotspots';

@@ -1,14 +1,19 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     Bell,
     Calendar,
     FileCheck,
+    LandPlot,
     LayoutGrid,
     LifeBuoy,
     MapPin,
+    Megaphone,
+    MessageSquare,
     Percent,
     Users,
+    Workflow,
 } from 'lucide-react';
+import AppLogo from '@/components/app-logo';
 import { CrmNavUser } from '@/components/crm/crm-nav-user';
 import {
     Sidebar,
@@ -20,21 +25,22 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
-import agenda from '@/routes/crm/agenda';
 import crm from '@/routes/crm';
+import agenda from '@/routes/crm/agenda';
 import attentionTickets from '@/routes/crm/attention-tickets';
 import clients from '@/routes/crm/clients';
 import commissions from '@/routes/crm/commissions';
+import { mine as myLots } from '@/routes/crm/lots';
 import preReservations from '@/routes/crm/pre-reservations';
 import projects from '@/routes/crm/projects';
 import reminders from '@/routes/crm/reminders';
 import type { NavItem } from '@/types';
-import AppLogo from '@/components/app-logo';
 
-const navItems: NavItem[] = [
+const baseNavItems: NavItem[] = [
     { title: 'Dashboard', href: crm.dashboard(), icon: LayoutGrid },
     { title: 'Clientes', href: clients.index(), icon: Users },
     { title: 'Proyectos', href: projects.index(), icon: MapPin },
+    { title: 'Mis lotes', href: myLots(), icon: LandPlot },
     { title: 'Pre-reservas', href: preReservations.index(), icon: FileCheck },
     { title: 'Tickets', href: attentionTickets.index(), icon: LifeBuoy },
     { title: 'Recordatorios', href: reminders.index(), icon: Bell },
@@ -42,8 +48,16 @@ const navItems: NavItem[] = [
     { title: 'Comisiones', href: commissions.index(), icon: Percent },
 ];
 
+const metaNavItems: NavItem[] = [
+    { title: 'Inbox', href: '/crm/inbox', icon: MessageSquare },
+    { title: 'Automatizaciones', href: '/crm/automations', icon: Workflow },
+    { title: 'Broadcasts', href: '/crm/broadcasts', icon: Megaphone },
+];
+
 export function CrmSidebar() {
     const { isCurrentUrl } = useCurrentUrl();
+    const { meta } = usePage<{ meta?: { connected?: boolean } }>().props;
+    const navItems = meta?.connected ? [...baseNavItems.slice(0, 2), ...metaNavItems, ...baseNavItems.slice(2)] : baseNavItems;
 
     return (
         <Sidebar collapsible="icon" variant="inset">

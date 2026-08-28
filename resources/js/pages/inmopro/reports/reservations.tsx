@@ -1,9 +1,9 @@
 import { router } from '@inertiajs/react';
-import { ReportDateFilters } from '@/components/inmopro/reports/ReportDateFilters';
 import { projectOptionLabel } from '@/components/inmopro/reports/IncludeInactiveProjectsField';
 import { LotDetailTable } from '@/components/inmopro/reports/LotDetailTable';
-import { ReportPageShell } from '@/components/inmopro/reports/ReportPageShell';
 import type { LotDetailRow } from '@/components/inmopro/reports/LotDetailTable';
+import { ReportDateFilters } from '@/components/inmopro/reports/ReportDateFilters';
+import { ReportPageShell } from '@/components/inmopro/reports/ReportPageShell';
 
 export default function ReservationsReport({
     title,

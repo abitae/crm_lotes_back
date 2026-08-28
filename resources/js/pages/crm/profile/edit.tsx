@@ -1,13 +1,15 @@
-import { Head, useForm } from '@inertiajs/react';
-import { FormEvent } from 'react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { CalendarSync, MessageCircle, ShieldAlert } from 'lucide-react';
+import type { FormEvent } from 'react';
 import InputError from '@/components/input-error';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import CrmLayout from '@/layouts/crm/crm-layout';
 import profile from '@/routes/crm/profile';
-import type { BreadcrumbItem } from '@/types';
+import type { Auth, BreadcrumbItem } from '@/types';
 
 type AdvisorData = {
     id: number;
@@ -15,13 +17,37 @@ type AdvisorData = {
     phone: string | null;
     email: string | null;
     username: string;
+    must_change_pin: boolean;
     team: { id: number; name: string } | null;
     level: { id: number; name: string } | null;
+};
+
+type GoogleShared = {
+    connected: boolean;
+    calendar_connected: boolean;
+    email?: string | null;
+};
+
+type MetaShared = {
+    connected: boolean;
+    whatsapp: boolean;
+    messenger: boolean;
+    instagram: boolean;
+    display_phone?: string | null;
+    page_name?: string | null;
+    status?: string;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Mi perfil', href: '/crm/profile' }];
 
 export default function CrmProfileEdit({ advisor }: { advisor: AdvisorData }) {
+    const { google, meta, errors: pageErrors } = usePage<{
+        google: GoogleShared;
+        meta: MetaShared;
+        auth: Auth;
+        errors: Record<string, string>;
+    }>().props;
+
     const profileForm = useForm({
         name: advisor.name,
         phone: advisor.phone ?? '',
@@ -40,11 +66,31 @@ export default function CrmProfileEdit({ advisor }: { advisor: AdvisorData }) {
         profileForm.patch(profile.update().url);
     };
 
+    const pinMismatch =
+        pinForm.data.pin_confirmation.length > 0 && pinForm.data.pin !== pinForm.data.pin_confirmation;
+
     const submitPin = (e: FormEvent) => {
         e.preventDefault();
+
+        if (pinForm.data.pin !== pinForm.data.pin_confirmation) {
+            return;
+        }
+
         pinForm.put(profile.pin.update().url, {
             onSuccess: () => pinForm.reset(),
         });
+    };
+
+    const disconnectCalendar = () => {
+        router.post('/crm/google/calendar/disconnect');
+    };
+
+    const disconnectMeta = () => {
+        router.post('/crm/meta/disconnect');
+    };
+
+    const syncTemplates = () => {
+        router.post('/crm/meta/whatsapp/sync-templates');
     };
 
     return (
@@ -52,6 +98,107 @@ export default function CrmProfileEdit({ advisor }: { advisor: AdvisorData }) {
             <Head title="Mi perfil" />
 
             <div className="flex flex-col gap-6 p-6">
+                {advisor.must_change_pin && (
+                    <Alert variant="destructive" className="max-w-xl border-amber-300 bg-amber-50 text-amber-900">
+                        <ShieldAlert />
+                        <AlertTitle>Debes establecer un nuevo PIN</AlertTitle>
+                        <AlertDescription>
+                            Tu cuenta tiene un PIN temporal asignado por un administrador. Cámbialo antes de continuar
+                            usando el sistema.
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+                <Card className="max-w-xl">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <CalendarSync className="h-5 w-5" />
+                            Google Calendar
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {google.connected ? (
+                            <p className="text-sm text-muted-foreground">
+                                Cuenta Google vinculada: <span className="font-medium text-foreground">{google.email}</span>
+                            </p>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">
+                                Inicia sesión con Google desde el login para vincular tu cuenta.
+                            </p>
+                        )}
+
+                        {google.calendar_connected ? (
+                            <div className="flex flex-wrap gap-2">
+                                <Button type="button" variant="outline" onClick={disconnectCalendar}>
+                                    Desconectar Calendar
+                                </Button>
+                                <Button type="button" variant="secondary" asChild>
+                                    <Link href="/crm/agenda">Ver agenda</Link>
+                                </Button>
+                            </div>
+                        ) : (
+                            <Button type="button" asChild disabled={!google.connected}>
+                                <Link href="/crm/google/calendar/connect">Conectar Google Calendar</Link>
+                            </Button>
+                        )}
+
+                        <InputError message={pageErrors.google_calendar} />
+                    </CardContent>
+                </Card>
+
+                <Card className="max-w-xl">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <MessageCircle className="h-5 w-5" />
+                            Meta Business
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {meta.connected ? (
+                            <>
+                                <p className="text-sm text-muted-foreground">
+                                    Canales: {meta.whatsapp ? 'WhatsApp ✓' : 'WhatsApp —'} ·{' '}
+                                    {meta.messenger ? 'Messenger ✓' : 'Messenger —'} ·{' '}
+                                    {meta.instagram ? 'Instagram ✓' : 'Instagram —'}
+                                </p>
+                                {meta.display_phone && (
+                                    <p className="text-sm">
+                                        WhatsApp: <span className="font-medium">{meta.display_phone}</span>
+                                    </p>
+                                )}
+                                {meta.page_name && (
+                                    <p className="text-sm">
+                                        Página: <span className="font-medium">{meta.page_name}</span>
+                                    </p>
+                                )}
+                                <div className="flex flex-wrap gap-2">
+                                    <Button type="button" variant="outline" onClick={disconnectMeta}>
+                                        Desconectar Meta
+                                    </Button>
+                                    {meta.whatsapp && (
+                                        <Button type="button" variant="secondary" onClick={syncTemplates}>
+                                            Sincronizar plantillas
+                                        </Button>
+                                    )}
+                                    <Button type="button" asChild>
+                                        <Link href="/crm/inbox">Abrir inbox</Link>
+                                    </Button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-sm text-muted-foreground">
+                                    Conecta tu cuenta Meta para recibir y enviar mensajes de WhatsApp, Messenger e Instagram desde el CRM.
+                                </p>
+                                <Button type="button" asChild>
+                                    <Link href="/crm/meta/connect">Conectar Meta Business</Link>
+                                </Button>
+                            </>
+                        )}
+                        <InputError message={pageErrors.meta} />
+                    </CardContent>
+                </Card>
+
                 <Card className="max-w-xl">
                     <CardHeader>
                         <CardTitle>Datos personales</CardTitle>
@@ -156,10 +303,13 @@ export default function CrmProfileEdit({ advisor }: { advisor: AdvisorData }) {
                                         onChange={(e) => pinForm.setData('pin_confirmation', e.target.value)}
                                         className="mt-1"
                                     />
+                                    {pinMismatch && (
+                                        <p className="mt-1 text-sm text-destructive">Los PIN no coinciden.</p>
+                                    )}
                                 </div>
                             </div>
 
-                            <Button type="submit" disabled={pinForm.processing}>
+                            <Button type="submit" disabled={pinForm.processing || pinMismatch}>
                                 Actualizar PIN
                             </Button>
                         </form>

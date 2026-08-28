@@ -110,6 +110,13 @@ return [
             'expire' => 60,
             'throttle' => 60,
         ],
+
+        'advisors' => [
+            'provider' => 'advisors',
+            'table' => 'advisor_pin_reset_tokens',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
     ],
 
     /*

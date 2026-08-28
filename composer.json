@@ -11,10 +11,12 @@
     "require": {
         "php": "^8.3",
         "endroid/qr-code": "^6.0",
+        "google/apiclient": "^2.19",
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/ai": "^0.3.2",
         "laravel/fortify": "^1.30",
         "laravel/framework": "^13.0",
+        "laravel/socialite": "^5.30",
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1.9",
         "maatwebsite/excel": "^3.1",

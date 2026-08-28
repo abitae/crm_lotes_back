@@ -26,7 +26,7 @@ class ReminderController extends Controller
         $query = AdvisorReminder::query()
             ->with('client:id,name,phone')
             ->where('advisor_id', $advisor->id)
-            ->whereHas('client', fn ($clientQuery) => $clientQuery->whereHas('type', fn ($typeQuery) => $typeQuery->whereIn('code', ['PROPIO', 'DATERO'])))
+            ->visibleForAdvisor()
             ->orderBy('remind_at');
 
         if ($request->boolean('pending_only')) {
@@ -229,7 +229,7 @@ class ReminderController extends Controller
             ->with('client:id,name,phone')
             ->whereKey($reminder->id)
             ->where('advisor_id', $advisor->id)
-            ->whereHas('client', fn ($clientQuery) => $clientQuery->whereHas('type', fn ($typeQuery) => $typeQuery->whereIn('code', ['PROPIO', 'DATERO'])))
+            ->visibleForAdvisor()
             ->first();
     }
 

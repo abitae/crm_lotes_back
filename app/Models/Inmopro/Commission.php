@@ -18,6 +18,8 @@ class Commission extends Model
         'type',
         'commission_status_id',
         'date',
+        'paid_at',
+        'paid_amount',
     ];
 
     /**
@@ -29,6 +31,8 @@ class Commission extends Model
             'amount' => 'decimal:2',
             'percentage' => 'decimal:2',
             'date' => 'date',
+            'paid_at' => 'datetime',
+            'paid_amount' => 'decimal:2',
         ];
     }
 

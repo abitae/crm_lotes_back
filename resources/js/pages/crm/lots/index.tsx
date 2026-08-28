@@ -1,4 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
+import { LandPlot } from 'lucide-react';
+import { EmptyState } from '@/components/crm/empty-state';
+import { StatusBadge } from '@/components/crm/status-badge';
+import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Card, CardContent } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
 import lots from '@/routes/crm/lots';
@@ -16,7 +20,11 @@ type LotRow = {
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Mis lotes', href: '/crm/my-lots' }];
 
-export default function CrmLotsIndex({ lots: lotList }: { lots: LotRow[] }) {
+type LotsPage = { data: LotRow[]; links: PaginationLink[] };
+
+export default function CrmLotsIndex({ lots: lotsPage }: { lots: LotsPage }) {
+    const lotList = lotsPage.data;
+
     return (
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Mis lotes" />
@@ -24,60 +32,57 @@ export default function CrmLotsIndex({ lots: lotList }: { lots: LotRow[] }) {
             <div className="p-6">
                 <Card>
                     <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead className="border-b border-border text-left text-muted-foreground">
-                                    <tr>
-                                        <th className="px-4 py-3 font-medium">Proyecto</th>
-                                        <th className="px-4 py-3 font-medium">Manzana / Lote</th>
-                                        <th className="px-4 py-3 font-medium">Área</th>
-                                        <th className="px-4 py-3 font-medium">Precio</th>
-                                        <th className="px-4 py-3 font-medium">Estado</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {lotList.map((lot) => (
-                                        <tr key={lot.id} className="border-b border-border last:border-0">
-                                            <td className="px-4 py-3">{lot.project?.name ?? '—'}</td>
-                                            <td className="px-4 py-3">
-                                                <Link
-                                                    href={lots.show(lot.id)}
-                                                    className="font-medium text-primary hover:underline"
-                                                >
-                                                    Mz. {lot.block ?? '—'} Lt. {lot.number ?? '—'}
-                                                </Link>
-                                            </td>
-                                            <td className="px-4 py-3">{lot.area ?? '—'}</td>
-                                            <td className="px-4 py-3">{lot.price ?? '—'}</td>
-                                            <td className="px-4 py-3">
-                                                {lot.status ? (
-                                                    <span className="inline-flex items-center gap-1.5">
-                                                        <span
-                                                            className="size-2 rounded-full"
-                                                            style={{
-                                                                backgroundColor: lot.status.color ?? '#94a3b8',
-                                                            }}
-                                                        />
-                                                        {lot.status.name}
-                                                    </span>
-                                                ) : (
-                                                    '—'
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {lotList.length === 0 && (
+                        {lotList.length === 0 ? (
+                            <EmptyState
+                                icon={LandPlot}
+                                title="Aún no tienes lotes asignados"
+                                description="Cuando se te asigne un lote, aparecerá aquí."
+                            />
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="border-b border-border text-left text-muted-foreground">
                                         <tr>
-                                            <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                                                Aún no tienes lotes asignados.
-                                            </td>
+                                            <th className="hidden px-4 py-3 font-medium sm:table-cell">Proyecto</th>
+                                            <th className="px-4 py-3 font-medium">Manzana / Lote</th>
+                                            <th className="hidden px-4 py-3 font-medium md:table-cell">Área</th>
+                                            <th className="px-4 py-3 font-medium">Precio</th>
+                                            <th className="px-4 py-3 font-medium">Estado</th>
                                         </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        {lotList.map((lot) => (
+                                            <tr key={lot.id} className="border-b border-border last:border-0">
+                                                <td className="hidden px-4 py-3 sm:table-cell">{lot.project?.name ?? '—'}</td>
+                                                <td className="px-4 py-3">
+                                                    <Link
+                                                        href={lots.show(lot.id)}
+                                                        className="font-medium text-primary hover:underline"
+                                                    >
+                                                        Mz. {lot.block ?? '—'} Lt. {lot.number ?? '—'}
+                                                    </Link>
+                                                </td>
+                                                <td className="hidden px-4 py-3 md:table-cell">{lot.area ?? '—'}</td>
+                                                <td className="px-4 py-3">{lot.price ?? '—'}</td>
+                                                <td className="px-4 py-3">
+                                                    {lot.status ? (
+                                                        <StatusBadge color={lot.status.color}>{lot.status.name}</StatusBadge>
+                                                    ) : (
+                                                        '—'
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
+
+                <div className="mt-4">
+                    <Pagination links={lotsPage.links} />
+                </div>
             </div>
         </CrmLayout>
     );

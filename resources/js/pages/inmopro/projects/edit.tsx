@@ -2,16 +2,16 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import InputError from '@/components/input-error';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import AppLayout from '@/layouts/app-layout';
 import {
     ProjectAdministrativeLocationFields,
     ProjectGoogleMapsCoordinatesField,
     ProjectWebPublicationFields,
     type CityOption,
 } from '@/pages/inmopro/projects/project-form-fields';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 type ProjectAsset = {

@@ -3,7 +3,11 @@
 namespace App\Providers;
 
 use App\Console\ServeCommand;
+use App\Contracts\Google\GoogleIdTokenVerifier;
+use App\Models\Inmopro\AdvisorReminder;
 use App\Models\User;
+use App\Observers\AdvisorReminderObserver;
+use App\Services\Google\GoogleIdTokenVerifierService;
 use App\Support\AppBrandingResolver;
 use App\Support\OpenAiCazadorConfigResolver;
 use Carbon\CarbonImmutable;
@@ -25,6 +29,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(GoogleIdTokenVerifier::class, GoogleIdTokenVerifierService::class);
+
         $this->app->extend(LaravelServeCommand::class, function ($command) {
             return $command instanceof ServeCommand
                 ? $command
@@ -41,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
         OpenAiCazadorConfigResolver::applyRuntimeConfig();
         $this->configureRateLimiting();
         $this->configureViewComposers();
+        AdvisorReminder::observe(AdvisorReminderObserver::class);
     }
 
     protected function configureViewComposers(): void
@@ -98,10 +105,26 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->ip());
         });
 
-        RateLimiter::for('crm-login', function (Request $request) {
-            $key = strtolower((string) $request->input('username')).'|'.$request->ip();
+        RateLimiter::for('google-auth', function (Request $request) {
+            return Limit::perMinute(20)->by($request->ip());
+        });
 
-            return Limit::perMinute(10)->by($key);
+        RateLimiter::for('crm-login', function (Request $request) {
+            $username = strtolower((string) $request->input('username'));
+
+            return [
+                // Fast per-connection throttle: stops a single client from hammering the endpoint.
+                Limit::perMinute(10)->by($username.'|'.$request->ip()),
+                // Account-level throttle, independent of source IP: caps total PIN guesses
+                // against one username even if an attacker rotates IPs to dodge the limit above.
+                Limit::perMinutes(30, 20)->by('username:'.$username),
+            ];
+        });
+
+        RateLimiter::for('crm-forgot-pin', function (Request $request) {
+            $email = strtolower((string) $request->input('email'));
+
+            return Limit::perHour(5)->by($email.'|'.$request->ip());
         });
 
         RateLimiter::for('datero-public-register', function (Request $request) {

@@ -8,6 +8,8 @@ use App\Http\Requests\Inmopro\UpdateDateroRequest;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\City;
 use App\Models\Inmopro\Datero;
+use App\Services\Inmopro\DaterosIndexQuery;
+use App\Support\InertiaListingRedirect;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,21 +17,23 @@ use Inertia\Response;
 
 class DateroController extends Controller
 {
-    public function index(Request $request): Response
-    {
-        $query = Datero::query()->with(['assignedAdvisor:id,name', 'city']);
+    public function __construct(private DaterosIndexQuery $daterosIndexQuery) {}
 
-        if ($request->filled('search')) {
-            $term = (string) $request->input('search');
-            $query->where(function ($q) use ($term) {
-                $q->where('name', 'like', "%{$term}%")
-                    ->orWhere('email', 'like', "%{$term}%")
-                    ->orWhere('dni', 'like', "%{$term}%")
-                    ->orWhere('username', 'like', "%{$term}%");
-            });
+    public function index(Request $request): Response|RedirectResponse
+    {
+        if ($this->daterosIndexQuery->shouldRedirectWithDefaultDates($request)) {
+            return redirect()->route('inmopro.dateros.index', array_merge(
+                $request->query(),
+                $this->daterosIndexQuery->defaultDateFilters(),
+            ));
         }
 
-        $dateros = $query->orderBy('name')->paginate(15)->withQueryString();
+        $query = Datero::query()->with(['assignedAdvisor:id,name', 'city']);
+
+        $this->daterosIndexQuery->apply($query, $request);
+        $this->daterosIndexQuery->applyDefaultOrdering($query);
+
+        $dateros = $query->paginate($this->daterosIndexQuery->perPage($request))->withQueryString();
 
         $cities = City::query()
             ->where('is_active', true)
@@ -52,7 +56,8 @@ class DateroController extends Controller
             'advisors' => $advisors,
             'dateroForModal' => $dateroForModal,
             'openModal' => $request->input('modal'),
-            'filters' => $request->only('search'),
+            'filters' => $this->daterosIndexQuery->filtersFromRequest($request),
+            'perPageOptions' => DaterosIndexQuery::PER_PAGE_OPTIONS,
         ]);
     }
 
@@ -65,23 +70,31 @@ class DateroController extends Controller
     {
         Datero::create($request->validated());
 
-        return redirect()->route('inmopro.dateros.index')->with('success', 'Datero registrado correctamente.');
+        return redirect()
+            ->route('inmopro.dateros.index', InertiaListingRedirect::daterosIndexQuery($request))
+            ->with('success', 'Datero registrado correctamente.');
     }
 
-    public function show(Datero $datero): RedirectResponse
+    public function show(Request $request, Datero $datero): RedirectResponse
     {
-        return redirect()->route('inmopro.dateros.index', [
-            'modal' => 'edit_datero',
-            'datero_id' => $datero->id,
-        ]);
+        return redirect()->route('inmopro.dateros.index', array_merge(
+            InertiaListingRedirect::daterosIndexQuery($request),
+            [
+                'modal' => 'edit_datero',
+                'datero_id' => $datero->id,
+            ],
+        ));
     }
 
-    public function edit(Datero $datero): RedirectResponse
+    public function edit(Request $request, Datero $datero): RedirectResponse
     {
-        return redirect()->route('inmopro.dateros.index', [
-            'modal' => 'edit_datero',
-            'datero_id' => $datero->id,
-        ]);
+        return redirect()->route('inmopro.dateros.index', array_merge(
+            InertiaListingRedirect::daterosIndexQuery($request),
+            [
+                'modal' => 'edit_datero',
+                'datero_id' => $datero->id,
+            ],
+        ));
     }
 
     public function update(UpdateDateroRequest $request, Datero $datero): RedirectResponse
@@ -93,13 +106,17 @@ class DateroController extends Controller
 
         $datero->update($validated);
 
-        return redirect()->route('inmopro.dateros.index')->with('success', 'Datero actualizado correctamente.');
+        return redirect()
+            ->route('inmopro.dateros.index', InertiaListingRedirect::daterosIndexQuery($request))
+            ->with('success', 'Datero actualizado correctamente.');
     }
 
-    public function destroy(Datero $datero): RedirectResponse
+    public function destroy(Request $request, Datero $datero): RedirectResponse
     {
         $datero->delete();
 
-        return redirect()->route('inmopro.dateros.index')->with('success', 'Datero eliminado.');
+        return redirect()
+            ->route('inmopro.dateros.index', InertiaListingRedirect::daterosIndexQuery($request))
+            ->with('success', 'Datero eliminado.');
     }
 }

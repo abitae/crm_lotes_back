@@ -1,9 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { AlertTriangle, Building2, DollarSign, Search, WalletCards } from 'lucide-react';
+import { InmoproMetricCard } from '@/components/inmopro/metric-card';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import AppLayout from '@/layouts/app-layout';
 import { formatDate } from '@/lib/date';
-import { InmoproMetricCard } from '@/components/inmopro/metric-card';
 import { inmoproUi } from '@/lib/inmopro-ui';
 import type { BreadcrumbItem } from '@/types';
 

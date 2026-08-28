@@ -1,8 +1,8 @@
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
-import { ReportDateFilters } from '@/components/inmopro/reports/ReportDateFilters';
 import { LotDetailTable } from '@/components/inmopro/reports/LotDetailTable';
 import type { LotDetailRow } from '@/components/inmopro/reports/LotDetailTable';
+import { ReportDateFilters } from '@/components/inmopro/reports/ReportDateFilters';
 import { ReportPageShell } from '@/components/inmopro/reports/ReportPageShell';
 import { formatPen } from '@/lib/report-utils';
 

@@ -136,4 +136,12 @@ class Client extends Model
     {
         return $this->hasMany(AdvisorReminder::class, 'client_id');
     }
+
+    /**
+     * @return HasMany<\App\Models\Meta\MetaConversation, $this>
+     */
+    public function metaConversations(): HasMany
+    {
+        return $this->hasMany(\App\Models\Meta\MetaConversation::class, 'client_id');
+    }
 }

@@ -27,11 +27,12 @@ class ClientController extends Controller
         $advisor = $request->attributes->get('advisor');
 
         $clients = $this->advisorVisibleClientsQuery($advisor)
-            ->select(['id', 'name', 'dni', 'phone', 'client_type_id', 'client_status_id'])
+            ->select(['id', 'name', 'dni', 'phone', 'client_type_id', 'client_status_id', 'registered_by_datero_id'])
             ->with([
                 'type:id,code,name',
                 'status:id,code,name,color',
                 'tags:id,code,name,color',
+                'registeredByDatero:id,name',
             ])
             ->when($request->filled('client_type'), function (Builder $query) use ($request): void {
                 $code = (string) $request->input('client_type');
@@ -241,6 +242,10 @@ class ClientController extends Controller
             ] : null,
             'status' => $this->statusPayload($client),
             'tags' => $this->tagsPayload($client),
+            'registered_by_datero' => $client->registeredByDatero ? [
+                'id' => $client->registeredByDatero->id,
+                'name' => $client->registeredByDatero->name,
+            ] : null,
         ];
     }
 
@@ -259,7 +264,7 @@ class ClientController extends Controller
      */
     private function clientPayload(Client $client, bool $includeLots = false): array
     {
-        $client->loadMissing(['type', 'status', 'tags']);
+        $client->loadMissing(['type', 'status', 'tags', 'registeredByDatero:id,name']);
 
         return [
             'id' => $client->id,
@@ -275,6 +280,10 @@ class ClientController extends Controller
             ] : null,
             'status' => $this->statusPayload($client),
             'tags' => $this->tagsPayload($client),
+            'registered_by_datero' => $client->registeredByDatero ? [
+                'id' => $client->registeredByDatero->id,
+                'name' => $client->registeredByDatero->name,
+            ] : null,
             'city' => $client->city ? [
                 'id' => $client->city->id,
                 'name' => $client->city->name,

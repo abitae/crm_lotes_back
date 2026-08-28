@@ -1,5 +1,6 @@
 import { useForm } from '@inertiajs/react';
-import { FormEvent, useEffect } from 'react';
+import type { FormEvent} from 'react';
+import { useEffect } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
@@ -100,11 +101,13 @@ export function ReminderFormModal({ open, onOpenChange, reminder, clients, extra
                         <select
                             id="reminder-client_id"
                             value={data.client_id}
-                            onChange={(e) => setData('client_id', Number(e.target.value))}
+                            onChange={(e) =>
+                                setData('client_id', e.target.value === '' ? '' : Number(e.target.value))
+                            }
                             className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-                            required
+                            required={mode === 'create'}
                         >
-                            <option value="">Seleccionar…</option>
+                            <option value="">{mode === 'create' ? 'Seleccionar…' : 'Sin cliente (Google)'}</option>
                             {clients.map((client) => (
                                 <option key={client.id} value={client.id}>
                                     {client.name}

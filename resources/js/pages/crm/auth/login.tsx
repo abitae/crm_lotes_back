@@ -1,10 +1,12 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import InputError from '@/components/input-error';
+import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import AuthSimpleLayout from '@/layouts/auth/auth-simple-layout';
+import { forgotPin } from '@/routes/crm';
 import { store } from '@/routes/crm/login';
 
 type Props = {
@@ -42,7 +44,12 @@ export default function CrmLogin({ status }: Props) {
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="pin">PIN</Label>
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="pin">PIN</Label>
+                                <TextLink href={forgotPin()} tabIndex={4} className="text-sm">
+                                    ¿Olvidaste tu PIN?
+                                </TextLink>
+                            </div>
                             <Input
                                 id="pin"
                                 type="password"
@@ -66,6 +73,19 @@ export default function CrmLogin({ status }: Props) {
                         >
                             {processing && <Spinner />}
                             Entrar
+                        </Button>
+
+                        <div className="relative my-2">
+                            <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-background px-2 text-muted-foreground">o</span>
+                            </div>
+                        </div>
+
+                        <Button type="button" variant="outline" className="w-full" asChild tabIndex={5}>
+                            <Link href="/crm/auth/google">Continuar con Google</Link>
                         </Button>
                     </div>
                 )}

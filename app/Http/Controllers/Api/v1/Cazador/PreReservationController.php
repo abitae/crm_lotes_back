@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 class PreReservationController extends Controller
 {
     public function __construct(private ClientCrmService $clientCrmService) {}
+
     public function store(StorePreReservationRequest $request, Lot $lot): JsonResponse
     {
         /** @var Advisor $advisor */
@@ -86,6 +87,7 @@ class PreReservationController extends Controller
                     'advisor_id' => $advisor->id,
                     'status' => 'PENDIENTE',
                     'amount' => $request->input('amount'),
+                    'expires_at' => now()->addHours(LotPreReservation::EXPIRATION_HOURS),
                     'voucher_path' => $storedPath,
                     'payment_reference' => $request->input('payment_reference'),
                     'notes' => $request->input('notes'),

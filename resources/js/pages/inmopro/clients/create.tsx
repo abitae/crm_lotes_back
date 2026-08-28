@@ -1,6 +1,7 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { FormEvent } from 'react';
-import AppLayout from '@/layouts/app-layout';
+import type { FormEvent } from 'react';
+import InputError from '@/components/input-error';
+import { Button } from '@/components/ui/button';
 import {
     Card,
     CardContent,
@@ -8,10 +9,9 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import InputError from '@/components/input-error';
+import AppLayout from '@/layouts/app-layout';
 import { clientsListingQuerySuffix } from '@/lib/inmopro-listing-query';
 import type { BreadcrumbItem } from '@/types';
 

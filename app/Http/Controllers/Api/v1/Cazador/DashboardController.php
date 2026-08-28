@@ -61,7 +61,7 @@ class DashboardController extends Controller
 
         $remindersPending = AdvisorReminder::query()
             ->where('advisor_id', $advisorId)
-            ->whereHas('client', fn ($clientQuery) => $clientQuery->whereHas('type', fn ($typeQuery) => $typeQuery->whereIn('code', ['PROPIO', 'DATERO'])))
+            ->visibleForAdvisor()
             ->pending()
             ->count();
 

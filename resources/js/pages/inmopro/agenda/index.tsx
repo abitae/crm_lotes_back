@@ -1,13 +1,14 @@
-import { Head, router, useForm } from '@inertiajs/react';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import allLocales from '@fullcalendar/core/locales-all';
 import type { EventClickArg } from '@fullcalendar/core';
-import { FormEvent, useEffect, useState } from 'react';
+import allLocales from '@fullcalendar/core/locales-all';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import FullCalendar from '@fullcalendar/react';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import { Head, router, useForm } from '@inertiajs/react';
 import { Calendar, Plus, Bell } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
+import type { FormEvent} from 'react';
+import { useEffect, useState } from 'react';
+import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -16,9 +17,6 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import InputError from '@/components/input-error';
 import {
     Dialog,
     DialogContent,
@@ -27,6 +25,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 type Advisor = { id: number; name: string };

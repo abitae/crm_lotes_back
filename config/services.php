@@ -37,6 +37,9 @@ return [
 
     'google' => [
         'maps_api_key' => env('GOOGLE_MAPS_API_KEY'),
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL').'/crm/auth/google/callback'),
     ],
 
 ];

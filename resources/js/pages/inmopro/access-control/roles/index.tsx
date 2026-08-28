@@ -1,8 +1,8 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { KeyRound, Pencil, Plus, Search, Shield, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import AppLayout from '@/layouts/app-layout';
 import Pagination, { type PaginationLink } from '@/components/pagination';
+import AppLayout from '@/layouts/app-layout';
 import { confirmDelete } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
 

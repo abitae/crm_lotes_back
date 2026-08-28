@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { Pencil } from 'lucide-react';
+import { StatusBadge } from '@/components/crm/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -92,13 +93,7 @@ export default function CrmClientsShow({ client }: { client: ClientDetail }) {
                             <div>
                                 <span className="text-muted-foreground">Estado: </span>
                                 {client.status ? (
-                                    <span className="inline-flex items-center gap-1.5">
-                                        <span
-                                            className="size-2 rounded-full"
-                                            style={{ backgroundColor: client.status.color ?? '#94a3b8' }}
-                                        />
-                                        {client.status.name}
-                                    </span>
+                                    <StatusBadge color={client.status.color}>{client.status.name}</StatusBadge>
                                 ) : (
                                     '—'
                                 )}

@@ -34,8 +34,101 @@ class DateroManagementTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('inmopro.dateros.index'))
+            ->assertRedirect();
+
+        $this->actingAs($user)
+            ->get(route('inmopro.dateros.index', [
+                'created_from' => now()->startOfMonth()->toDateString(),
+                'created_to' => now()->toDateString(),
+            ]))
             ->assertOk()
-            ->assertInertia(fn ($page) => $page->component('inmopro/dateros/index')->has('dateros')->has('cities')->has('advisors'));
+            ->assertInertia(fn ($page) => $page
+                ->component('inmopro/dateros/index')
+                ->has('dateros')
+                ->has('cities')
+                ->has('advisors')
+                ->has('filters')
+                ->has('perPageOptions'));
+    }
+
+    public function test_dateros_index_filters_by_advisor_and_active_status(): void
+    {
+        $user = User::factory()->create();
+        $advisor = Advisor::query()->orderBy('id')->firstOrFail();
+        $otherAdvisor = Advisor::query()->whereKeyNot($advisor->id)->firstOrFail();
+        $city = City::firstOrFail();
+        $this->actingAs($user);
+
+        Datero::create([
+            'advisor_id' => $advisor->id,
+            'name' => 'Datero Activo Filtro',
+            'phone' => '911100001',
+            'email' => 'activo_filtro@test.com',
+            'city_id' => $city->id,
+            'dni' => '50110001',
+            'username' => 'datero_activo_filtro',
+            'pin' => '123456',
+            'is_active' => true,
+        ]);
+
+        Datero::create([
+            'advisor_id' => $otherAdvisor->id,
+            'name' => 'Datero Inactivo Otro',
+            'phone' => '911100002',
+            'email' => 'inactivo_otro@test.com',
+            'city_id' => $city->id,
+            'dni' => '50110002',
+            'username' => 'datero_inactivo_otro',
+            'pin' => '123456',
+            'is_active' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('inmopro.dateros.index', [
+                'advisor_id' => $advisor->id,
+                'is_active' => '1',
+                'created_from' => now()->subYear()->toDateString(),
+                'created_to' => now()->addDay()->toDateString(),
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('inmopro/dateros/index')
+                ->where('dateros.data', function ($data): bool {
+                    $names = collect($data)->pluck('name');
+
+                    return $names->contains('Datero Activo Filtro')
+                        && ! $names->contains('Datero Inactivo Otro');
+                }));
+    }
+
+    public function test_store_redirect_preserves_listing_filters(): void
+    {
+        $user = User::factory()->create();
+        $advisor = Advisor::query()->orderBy('id')->firstOrFail();
+        $city = City::firstOrFail();
+
+        $this->actingAs($user)
+            ->post(route('inmopro.dateros.store', [
+                'search' => 'demo',
+                'created_from' => now()->startOfMonth()->toDateString(),
+                'created_to' => now()->toDateString(),
+            ]), [
+                'advisor_id' => $advisor->id,
+                'name' => 'Datero Demo',
+                'phone' => '999888777',
+                'email' => 'datero@example.com',
+                'city_id' => $city->id,
+                'dni' => '40123456',
+                'username' => 'datero_demo',
+                'pin' => '654321',
+                'is_active' => true,
+            ])
+            ->assertRedirect(route('inmopro.dateros.index', [
+                'search' => 'demo',
+                'created_from' => now()->startOfMonth()->toDateString(),
+                'created_to' => now()->toDateString(),
+            ]))
+            ->assertSessionHas('success');
     }
 
     public function test_authenticated_user_can_create_datero(): void

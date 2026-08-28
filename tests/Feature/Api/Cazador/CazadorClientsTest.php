@@ -217,14 +217,22 @@ class CazadorClientsTest extends TestCase
             ->getJson(route('api.v1.cazador.clients.index'))
             ->assertOk()
             ->assertJsonFragment(['name' => 'Cliente captado por datero'])
-            ->assertJsonFragment(['code' => 'DATERO']);
+            ->assertJsonFragment(['code' => 'DATERO'])
+            ->assertJsonFragment([
+                'registered_by_datero' => [
+                    'id' => $datero->id,
+                    'name' => 'Datero Test Cazador',
+                ],
+            ]);
 
         $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson(route('api.v1.cazador.clients.show', $client))
             ->assertOk()
             ->assertJsonPath('data.name', 'Cliente captado por datero')
             ->assertJsonPath('data.client_type.code', 'DATERO')
-            ->assertJsonPath('data.city_id', $city->id);
+            ->assertJsonPath('data.city_id', $city->id)
+            ->assertJsonPath('data.registered_by_datero.id', $datero->id)
+            ->assertJsonPath('data.registered_by_datero.name', 'Datero Test Cazador');
 
         $this->withHeader('Authorization', 'Bearer '.$token)
             ->putJson(route('api.v1.cazador.clients.update', $client), [

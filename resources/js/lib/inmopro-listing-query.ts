@@ -32,6 +32,17 @@ const ADVISORS_LIST_KEYS = [
     'subscriptions_expiring',
 ] as const;
 
+const DATEROS_LIST_KEYS = [
+    'page',
+    'per_page',
+    'search',
+    'advisor_id',
+    'city_id',
+    'is_active',
+    'created_from',
+    'created_to',
+] as const;
+
 function listingQuerySuffix(url: string, allowedKeys: readonly string[]): string {
     const path = url.startsWith('/') ? url : `/${url}`;
     const qIndex = path.indexOf('?');
@@ -57,4 +68,8 @@ export function clientsListingQuerySuffix(url: string): string {
 
 export function advisorsListingQuerySuffix(url: string): string {
     return listingQuerySuffix(url, ADVISORS_LIST_KEYS);
+}
+
+export function daterosListingQuerySuffix(url: string): string {
+    return listingQuerySuffix(url, DATEROS_LIST_KEYS);
 }

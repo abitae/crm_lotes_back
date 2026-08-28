@@ -18,6 +18,10 @@ class AdvisorReminder extends Model
         'notes',
         'remind_at',
         'completed_at',
+        'notified_at',
+        'google_event_id',
+        'source',
+        'google_updated_at',
     ];
 
     /**
@@ -28,6 +32,8 @@ class AdvisorReminder extends Model
         return [
             'remind_at' => 'datetime',
             'completed_at' => 'datetime',
+            'notified_at' => 'datetime',
+            'google_updated_at' => 'datetime',
         ];
     }
 
@@ -48,8 +54,20 @@ class AdvisorReminder extends Model
     }
 
     /**
-     * Scope: solo recordatorios no completados.
+     * Recordatorios CRM propios o eventos importados desde Google sin cliente.
      *
+     * @param  Builder<AdvisorReminder>  $query
+     * @return Builder<AdvisorReminder>
+     */
+    public function scopeVisibleForAdvisor(Builder $query): Builder
+    {
+        return $query->where(function (Builder $nested): void {
+            $nested->whereNull('client_id')
+                ->orWhereHas('client', fn (Builder $clientQuery) => $clientQuery->whereHas('type', fn (Builder $typeQuery) => $typeQuery->whereIn('code', ['PROPIO', 'DATERO'])));
+        });
+    }
+
+    /**
      * @param  Builder<AdvisorReminder>  $query
      * @return Builder<AdvisorReminder>
      */

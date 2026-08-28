@@ -1,11 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { MapPin, Plus, Eye, Pencil, Trash2, Search } from 'lucide-react';
 import type { FormEvent } from 'react';
-import AppLayout from '@/layouts/app-layout';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import AppLayout from '@/layouts/app-layout';
 import { confirmDelete } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
 

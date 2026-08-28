@@ -18,7 +18,7 @@ class UpdateReminderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'client_id' => ['required', 'exists:clients,id'],
+            'client_id' => ['nullable', 'exists:clients,id'],
             'title' => ['required', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'remind_at' => ['required', 'date'],

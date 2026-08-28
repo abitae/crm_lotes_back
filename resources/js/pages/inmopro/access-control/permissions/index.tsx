@@ -1,8 +1,8 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { RefreshCw, Search } from 'lucide-react';
 import { useState } from 'react';
-import AppLayout from '@/layouts/app-layout';
 import Pagination, { type PaginationLink } from '@/components/pagination';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 type Perm = { id: number; name: string };

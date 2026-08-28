@@ -1,20 +1,25 @@
-import { Head, router } from '@inertiajs/react';
-import allLocales from '@fullcalendar/core/locales-all';
 import type { EventClickArg } from '@fullcalendar/core';
+import allLocales from '@fullcalendar/core/locales-all';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import { CalendarClock, PlusCircle } from 'lucide-react';
+import { Head, router, usePage } from '@inertiajs/react';
+import { CalendarClock, PlusCircle, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { ReminderFormModal, type ReminderFormValues } from '@/components/crm/reminders/reminder-form-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
 import reminders from '@/routes/crm/reminders';
-import type { BreadcrumbItem } from '@/types';
+import type { Auth, BreadcrumbItem } from '@/types';
 
 type Option = { id: number; name: string };
+
+type GoogleShared = {
+    connected: boolean;
+    calendar_connected: boolean;
+};
 
 type CalendarEvent = {
     id: string;
@@ -25,18 +30,20 @@ type CalendarEvent = {
     borderColor: string;
     extendedProps: {
         reminderId: number;
-        clientId: number;
+        clientId: number | null;
         client: string | null;
         title: string;
         notes: string | null;
         remindAt: string;
         completed: boolean;
+        source?: string;
     };
 };
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Agenda', href: '/crm/agenda' }];
 
 export default function CrmAgendaIndex({ events, clients }: { events: CalendarEvent[]; clients: Option[] }) {
+    const { google } = usePage<{ google: GoogleShared; auth: Auth }>().props;
     const [modalOpen, setModalOpen] = useState(false);
     const [editingReminder, setEditingReminder] = useState<ReminderFormValues | null>(null);
 
@@ -66,21 +73,48 @@ export default function CrmAgendaIndex({ events, clients }: { events: CalendarEv
         }
     };
 
+    const syncCalendar = () => {
+        router.post('/crm/google/calendar/sync');
+    };
+
     return (
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Agenda" />
 
             <div className="flex flex-col gap-4 p-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-semibold">Agenda</h1>
-                        <p className="text-sm text-muted-foreground">Tus recordatorios en calendario.</p>
+                        <p className="text-sm text-muted-foreground">
+                            Recordatorios del CRM{google.calendar_connected ? ' sincronizados con Google Calendar' : ''}.
+                        </p>
                     </div>
-                    <Button onClick={openCreateModal}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Nuevo recordatorio
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                        {google.calendar_connected && (
+                            <Button variant="outline" onClick={syncCalendar}>
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Sincronizar
+                            </Button>
+                        )}
+                        <Button onClick={openCreateModal}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Nuevo recordatorio
+                        </Button>
+                    </div>
                 </div>
+
+                {!google.calendar_connected && google.connected && (
+                    <Card>
+                        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
+                            <span className="text-muted-foreground">
+                                Conecta Google Calendar para sincronizar tus recordatorios en ambas direcciones.
+                            </span>
+                            <Button variant="secondary" size="sm" onClick={() => router.visit('/crm/google/calendar/connect')}>
+                                Conectar Calendar
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
 
                 <Card className="overflow-hidden">
                     <CardContent className="p-4">

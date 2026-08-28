@@ -70,4 +70,38 @@ class CrmProfileTest extends TestCase
             'pin_confirmation' => '654321',
         ])->assertSessionHasErrors('current_pin');
     }
+
+    public function test_advisor_with_pending_pin_change_is_redirected_away_from_other_crm_routes(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $advisor->forceFill(['must_change_pin' => true])->save();
+        $this->actingAs($advisor, 'advisor');
+
+        $this->get(route('crm.dashboard'))->assertRedirect(route('crm.profile.edit'));
+        $this->get(route('crm.clients.index'))->assertRedirect(route('crm.profile.edit'));
+
+        // The profile screen itself, and the PIN-update endpoint, must remain reachable.
+        $this->get(route('crm.profile.edit'))->assertOk();
+    }
+
+    public function test_changing_pin_clears_the_pending_pin_change_flag(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $advisor->forceFill(['must_change_pin' => true])->save();
+        $this->actingAs($advisor, 'advisor');
+
+        $this->put(route('crm.profile.pin.update'), [
+            'current_pin' => '123456',
+            'pin' => '654321',
+            'pin_confirmation' => '654321',
+        ])->assertRedirect(route('crm.profile.edit'));
+
+        $this->assertDatabaseHas('advisors', [
+            'id' => $advisor->id,
+            'must_change_pin' => false,
+        ]);
+
+        // The flag being cleared unblocks the rest of the portal.
+        $this->get(route('crm.dashboard'))->assertOk();
+    }
 }

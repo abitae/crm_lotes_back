@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Meta\MetaWebhookController;
 use App\Http\Controllers\Inmopro\DashboardController;
 use App\Http\Controllers\LegalDocumentController;
 use App\Http\Controllers\PublicDateroClientRegistrationController;
@@ -38,6 +39,9 @@ Route::prefix('tours/360')
     });
 
 Route::get('dashboard', DashboardController::class)->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::get('webhooks/meta', [MetaWebhookController::class, 'verify']);
+Route::post('webhooks/meta', [MetaWebhookController::class, 'receive']);
 
 require __DIR__.'/inmopro.php';
 require __DIR__.'/crm.php';

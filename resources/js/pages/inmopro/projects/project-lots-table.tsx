@@ -1,15 +1,16 @@
 import { Link } from '@inertiajs/react';
 import { ChevronDown, ChevronUp, Eye, Save, X } from 'lucide-react';
-import {
+import type {
     Dispatch,
     MutableRefObject,
-    SetStateAction,
+    SetStateAction} from 'react';
+import {
     useMemo,
     useState,
     type CSSProperties,
 } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type {

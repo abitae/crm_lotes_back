@@ -1,8 +1,8 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Calendar, Eye, Plus, UserCheck } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 type Advisor = { id: number; name: string };

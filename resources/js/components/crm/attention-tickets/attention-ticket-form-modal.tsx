@@ -1,5 +1,6 @@
 import { useForm } from '@inertiajs/react';
-import { FormEvent, useEffect } from 'react';
+import type { FormEvent} from 'react';
+import { useEffect } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {

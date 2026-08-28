@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
-import type { FormEvent } from 'react';
 import { CalendarRange } from 'lucide-react';
+import type { FormEvent } from 'react';
 import { IncludeInactiveProjectsField } from '@/components/inmopro/reports/IncludeInactiveProjectsField';
 import { Button } from '@/components/ui/button';
 import { toYmdLocal } from '@/lib/report-utils';

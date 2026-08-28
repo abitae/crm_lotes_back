@@ -66,6 +66,7 @@ export function KanbanCard({
                             type="button"
                             variant="ghost"
                             size="icon"
+                            aria-label={`Más acciones para ${client.name}`}
                             className="-mt-1 -mr-1 size-6 shrink-0 opacity-0 group-hover/card:opacity-100 data-[state=open]:opacity-100"
                             onClick={(e) => e.stopPropagation()}
                             onPointerDown={(e) => e.stopPropagation()}

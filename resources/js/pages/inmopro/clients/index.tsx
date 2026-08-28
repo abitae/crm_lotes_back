@@ -1,14 +1,15 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Check, Download, Eye, FileSpreadsheet, RotateCcw, Search, Trash2, Upload, UserPlus, Users, X } from 'lucide-react';
+import { Check, Download, Eye, FileSpreadsheet, Pencil, RotateCcw, Search, Trash2, Upload, UserPlus, Users, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import AppLayout from '@/layouts/app-layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ClientEditModal, type InmoproClientEditValues } from '@/components/inmopro/clients/client-edit-modal';
+import { InmoproMetricCard } from '@/components/inmopro/metric-card';
+import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { InmoproMetricCard } from '@/components/inmopro/metric-card';
-import Pagination, { type PaginationLink } from '@/components/pagination';
+import AppLayout from '@/layouts/app-layout';
 import { formatDateTime } from '@/lib/date';
 import { clientsListingQuerySuffix } from '@/lib/inmopro-listing-query';
 import { confirmDelete } from '@/lib/swal';
@@ -216,6 +217,8 @@ export default function ClientsIndex({
     cities,
     advisors,
     perPageOptions,
+    clientForModal,
+    openModal,
 }: {
     clients: { data: Client[]; links: PaginationLink[]; total?: number; per_page?: number };
     filters: ClientFilters;
@@ -225,6 +228,8 @@ export default function ClientsIndex({
     cities: Option[];
     advisors: Option[];
     perPageOptions: number[];
+    clientForModal: InmoproClientEditValues | null;
+    openModal: string | null;
 }) {
     const totalClients = clients.total ?? clients.data.length;
     const clientsWithLots = clients.data.filter((client) => (client.lots_count ?? 0) > 0).length;
@@ -236,6 +241,17 @@ export default function ClientsIndex({
     const advisorFilterRef = useRef<HTMLDivElement>(null);
     const listQs = clientsListingQuerySuffix(usePage().url);
     const defaultDateFilters = useMemo(() => defaultClientDateFilterValues(), []);
+
+    const editClientTarget = openModal === 'edit_client' ? clientForModal : null;
+    const editClientModalOpen = editClientTarget !== null;
+
+    const clearEditModalQuery = () => {
+        const query = Object.fromEntries(
+            CLIENT_FILTER_KEYS.map((key) => [key, filters[key]]).filter(([, value]) => value != null && value !== ''),
+        ) as Record<string, string | number>;
+
+        router.get('/inmopro/clients', query, { replace: true, preserveState: true });
+    };
 
     const createdFromValue = filters.created_from ?? defaultDateFilters.createdFrom;
     const createdToValue = filters.created_to ?? defaultDateFilters.createdTo;
@@ -749,6 +765,11 @@ export default function ClientsIndex({
                                                     <td className="px-1 py-1.5 text-right">
                                                         <div className="flex justify-end gap-0.5">
                                                             <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                                                                <Link href={`/inmopro/clients/${client.id}/edit${listQs}`} title="Editar">
+                                                                    <Pencil className="h-3.5 w-3.5" />
+                                                                </Link>
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
                                                                 <Link href={`/inmopro/clients/${client.id}${listQs}`} title="Ver">
                                                                     <Eye className="h-3.5 w-3.5" />
                                                                 </Link>
@@ -807,6 +828,22 @@ export default function ClientsIndex({
             </div>
 
             <ClientsImportModal open={importModalOpen} onOpenChange={setImportModalOpen} listQs={listQs} />
+
+            <ClientEditModal
+                open={editClientModalOpen}
+                onOpenChange={(open) => {
+                    if (!open && openModal === 'edit_client') {
+                        clearEditModalQuery();
+                    }
+                }}
+                client={editClientTarget}
+                clientTypes={clientTypes}
+                clientStatuses={clientStatuses}
+                clientTags={clientTags}
+                cities={cities}
+                advisors={advisors}
+                listQs={listQs}
+            />
         </AppLayout>
     );
 }

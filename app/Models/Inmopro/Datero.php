@@ -2,11 +2,13 @@
 
 namespace App\Models\Inmopro;
 
+use App\Models\GoogleAccount;
 use App\Support\DateroRegistrationUrl;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -126,6 +128,14 @@ class Datero extends Model
     public function apiTokens(): HasMany
     {
         return $this->hasMany(DateroApiToken::class);
+    }
+
+    /**
+     * @return HasOne<GoogleAccount, $this>
+     */
+    public function googleAccount(): HasOne
+    {
+        return $this->hasOne(GoogleAccount::class);
     }
 
     /**

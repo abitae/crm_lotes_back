@@ -32,6 +32,7 @@ use App\Http\Controllers\Inmopro\LotPreReservationController;
 use App\Http\Controllers\Inmopro\LotStatusController;
 use App\Http\Controllers\Inmopro\LotTransferConfirmationController;
 use App\Http\Controllers\Inmopro\MembershipTypeController;
+use App\Http\Controllers\Inmopro\MetaAdminController;
 use App\Http\Controllers\Inmopro\OpenAiCazadorConfigController;
 use App\Http\Controllers\Inmopro\ProcessDiagramsController;
 use App\Http\Controllers\Inmopro\Project360Controller;
@@ -253,5 +254,6 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::put('advisor-reminders/{advisor_reminder}', [AdvisorReminderController::class, 'update'])->name('advisor-reminders.update');
         Route::delete('advisor-reminders/{advisor_reminder}', [AdvisorReminderController::class, 'destroy'])->name('advisor-reminders.destroy');
         Route::post('advisor-reminders/{advisor_reminder}/complete', [AdvisorReminderController::class, 'complete'])->name('advisor-reminders.complete');
+        Route::get('meta', [MetaAdminController::class, 'index'])->name('meta.index');
     });
 });

@@ -2,11 +2,19 @@
 
 use App\Http\Controllers\Crm\AgendaController;
 use App\Http\Controllers\Crm\AttentionTicketController;
+use App\Http\Controllers\Crm\Auth\ForgotPinController;
+use App\Http\Controllers\Crm\Auth\GoogleAuthController;
 use App\Http\Controllers\Crm\Auth\LoginController;
+use App\Http\Controllers\Crm\Auth\ResetPinController;
+use App\Http\Controllers\Crm\AutomationFlowController;
+use App\Http\Controllers\Crm\BroadcastController;
 use App\Http\Controllers\Crm\ClientController;
 use App\Http\Controllers\Crm\CommissionController;
 use App\Http\Controllers\Crm\DashboardController;
+use App\Http\Controllers\Crm\GoogleCalendarController;
+use App\Http\Controllers\Crm\InboxController;
 use App\Http\Controllers\Crm\LotController;
+use App\Http\Controllers\Crm\MetaConnectionController;
 use App\Http\Controllers\Crm\PreReservationController;
 use App\Http\Controllers\Crm\ProfileController;
 use App\Http\Controllers\Crm\ProjectController;
@@ -19,9 +27,21 @@ Route::prefix('crm')->name('crm.')->group(function (): void {
         Route::post('login', [LoginController::class, 'store'])
             ->middleware('throttle:crm-login')
             ->name('login.store');
+
+        Route::get('forgot-pin', [ForgotPinController::class, 'create'])->name('forgot-pin');
+        Route::post('forgot-pin', [ForgotPinController::class, 'store'])
+            ->middleware('throttle:crm-forgot-pin')
+            ->name('forgot-pin.store');
+        Route::get('reset-pin/{token}', [ResetPinController::class, 'create'])->name('reset-pin');
+        Route::post('reset-pin', [ResetPinController::class, 'store'])
+            ->middleware('throttle:crm-forgot-pin')
+            ->name('reset-pin.store');
+
+        Route::get('auth/google', [GoogleAuthController::class, 'redirect'])->name('auth.google');
+        Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
     });
 
-    Route::middleware(['auth:advisor', 'advisor.active', 'crm.share-inertia'])->group(function (): void {
+    Route::middleware(['auth:advisor', 'advisor.active', 'advisor.pin-current', 'crm.share-inertia'])->group(function (): void {
         Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
 
         Route::get('dashboard', [DashboardController::class, 'show'])->name('dashboard');
@@ -33,6 +53,7 @@ Route::prefix('crm')->name('crm.')->group(function (): void {
         Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
         Route::match(['put', 'patch'], 'clients/{client}', [ClientController::class, 'update'])->name('clients.update');
         Route::patch('clients/{client}/crm', [ClientController::class, 'updateCrm'])->name('clients.crm.update');
+        Route::delete('clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
 
         Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
         Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
@@ -62,5 +83,32 @@ Route::prefix('crm')->name('crm.')->group(function (): void {
         Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::put('profile/pin', [ProfileController::class, 'updatePin'])->name('profile.pin.update');
+
+        Route::get('google/calendar/connect', [GoogleCalendarController::class, 'connect'])->name('google.calendar.connect');
+        Route::get('google/calendar/callback', [GoogleCalendarController::class, 'callback'])->name('google.calendar.callback');
+        Route::post('google/calendar/disconnect', [GoogleCalendarController::class, 'disconnect'])->name('google.calendar.disconnect');
+        Route::post('google/calendar/sync', [GoogleCalendarController::class, 'syncNow'])->name('google.calendar.sync');
+
+        Route::get('meta/connect', [MetaConnectionController::class, 'connect'])->name('meta.connect');
+        Route::get('meta/callback', [MetaConnectionController::class, 'callback'])->name('meta.callback');
+        Route::post('meta/disconnect', [MetaConnectionController::class, 'disconnect'])->name('meta.disconnect');
+        Route::post('meta/whatsapp/sync-templates', [MetaConnectionController::class, 'syncTemplates'])->name('meta.whatsapp.sync-templates');
+
+        Route::get('inbox', [InboxController::class, 'index'])->name('inbox.index');
+        Route::post('inbox/conversations/{conversation}/messages', [InboxController::class, 'send'])->name('inbox.messages.send');
+        Route::post('inbox/conversations/{conversation}/toggle-bot', [InboxController::class, 'toggleBot'])->name('inbox.toggle-bot');
+
+        Route::get('automations', [AutomationFlowController::class, 'index'])->name('automations.index');
+        Route::get('automations/create', [AutomationFlowController::class, 'create'])->name('automations.create');
+        Route::post('automations', [AutomationFlowController::class, 'store'])->name('automations.store');
+        Route::get('automations/{flow}/edit', [AutomationFlowController::class, 'edit'])->name('automations.edit');
+        Route::patch('automations/{flow}', [AutomationFlowController::class, 'update'])->name('automations.update');
+        Route::post('automations/{flow}/publish', [AutomationFlowController::class, 'publish'])->name('automations.publish');
+        Route::post('automations/templates/{template}/clone', [AutomationFlowController::class, 'cloneTemplate'])->name('automations.templates.clone');
+        Route::delete('automations/{flow}', [AutomationFlowController::class, 'destroy'])->name('automations.destroy');
+
+        Route::get('broadcasts', [BroadcastController::class, 'index'])->name('broadcasts.index');
+        Route::get('broadcasts/create', [BroadcastController::class, 'create'])->name('broadcasts.create');
+        Route::post('broadcasts', [BroadcastController::class, 'store'])->name('broadcasts.store');
     });
 });

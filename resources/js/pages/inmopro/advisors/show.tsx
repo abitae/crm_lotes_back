@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
-import { formatCalendarDate } from '@/lib/date';
 import AppLayout from '@/layouts/app-layout';
+import { formatCalendarDate } from '@/lib/date';
 import type { BreadcrumbItem } from '@/types';
 
 type Advisor = {

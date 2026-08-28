@@ -35,27 +35,33 @@ class DatabaseSeeder extends Seeder
                 $admin->assignRole(Role::findByName('super-admin', 'web'));
             }
         }
-        /*
-        $this->call([
-            Inmopro\AdvisorLevelSeeder::class,
-            Inmopro\LotStatusSeeder::class,
-            Inmopro\CommissionStatusSeeder::class,
-            Inmopro\AttentionTicketTypeSeeder::class,
-            Inmopro\ProjectSeeder::class,
-            Inmopro\TeamSeeder::class,
-            Inmopro\ClientTypeSeeder::class,
-            Inmopro\ClientStatusSeeder::class,
-            Inmopro\ClientTagSeeder::class,
-            Inmopro\CitySeeder::class,
-            Inmopro\AdvisorSeeder::class,
-            Inmopro\ClientSeeder::class,
-            Inmopro\LotSeeder::class,
-            Inmopro\LotPreReservationSeeder::class,
-            Inmopro\FunctionalTestingSeeder::class,
-            Inmopro\Asesor1RemindersAndTicketsSeeder::class,
-            Inmopro\Project360Seeder::class,
-        ]);
-        */
+
+        // Datos de demostración para probar Inmopro y el CRM de asesores manualmente.
+        // Nunca se ejecuta en producción: genera ~145 asesores, clientes, lotes y
+        // comisiones ficticias. Credenciales de referencia: ver FunctionalTestingSeeder
+        // (usuario web qa.funcional@crm-lotes.test / Password123!) y AdvisorSeeder
+        // (cualquier asesor, p. ej. username "asesor1", PIN "123456").
+        if (app()->environment('local', 'testing')) {
+            $this->call([
+                Inmopro\AdvisorLevelSeeder::class,
+                Inmopro\LotStatusSeeder::class,
+                Inmopro\CommissionStatusSeeder::class,
+                Inmopro\AttentionTicketTypeSeeder::class,
+                Inmopro\ProjectSeeder::class,
+                Inmopro\TeamSeeder::class,
+                Inmopro\ClientTypeSeeder::class,
+                Inmopro\ClientStatusSeeder::class,
+                Inmopro\ClientTagSeeder::class,
+                Inmopro\CitySeeder::class,
+                Inmopro\AdvisorSeeder::class,
+                Inmopro\ClientSeeder::class,
+                Inmopro\LotSeeder::class,
+                Inmopro\LotPreReservationSeeder::class,
+                Inmopro\CommissionSeeder::class,
+                Inmopro\FunctionalTestingSeeder::class,
+                Inmopro\Asesor1RemindersAndTicketsSeeder::class,
+            ]);
+        }
 
         if (app()->environment('local')) {
             $this->call(Inmopro\Project360Seeder::class);

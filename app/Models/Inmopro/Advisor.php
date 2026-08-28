@@ -2,21 +2,28 @@
 
 namespace App\Models\Inmopro;
 
+use App\Models\GoogleAccount;
+use App\Notifications\Crm\AdvisorPinResetNotification;
 use Illuminate\Auth\Authenticatable;
+use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
+use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Hash;
 
 /**
  * @property-read string $name Nombre para mostrar consolidado (nombres + apellidos).
  */
-class Advisor extends Model implements AuthenticatableContract
+class Advisor extends Model implements AuthenticatableContract, CanResetPasswordContract
 {
     use Authenticatable;
+    use CanResetPassword;
+    use Notifiable;
 
     /**
      * @var list<string>
@@ -36,6 +43,7 @@ class Advisor extends Model implements AuthenticatableContract
         'city_id',
         'username',
         'pin',
+        'must_change_pin',
         'is_active',
         'last_login_at',
         'team_id',
@@ -59,6 +67,7 @@ class Advisor extends Model implements AuthenticatableContract
         return [
             'personal_quota' => 'decimal:2',
             'is_active' => 'boolean',
+            'must_change_pin' => 'boolean',
             'last_login_at' => 'datetime',
             'birth_date' => 'date',
             'joined_at' => 'date',
@@ -91,6 +100,11 @@ class Advisor extends Model implements AuthenticatableContract
                 return Hash::needsRehash($value) ? Hash::make($value) : $value;
             },
         );
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new AdvisorPinResetNotification((string) $token));
     }
 
     /**
@@ -227,6 +241,30 @@ class Advisor extends Model implements AuthenticatableContract
     public function profile(): HasOne
     {
         return $this->hasOne(AdvisorProfile::class);
+    }
+
+    /**
+     * @return HasOne<GoogleAccount, $this>
+     */
+    public function googleAccount(): HasOne
+    {
+        return $this->hasOne(GoogleAccount::class);
+    }
+
+    /**
+     * @return HasOne<\App\Models\Meta\MetaConnection, $this>
+     */
+    public function metaConnection(): HasOne
+    {
+        return $this->hasOne(\App\Models\Meta\MetaConnection::class);
+    }
+
+    /**
+     * @return HasMany<\App\Models\Meta\MetaConversation, $this>
+     */
+    public function metaConversations(): HasMany
+    {
+        return $this->hasMany(\App\Models\Meta\MetaConversation::class);
     }
 
     public function getAuthPasswordName(): string

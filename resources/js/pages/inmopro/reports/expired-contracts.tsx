@@ -1,9 +1,9 @@
 import { router } from '@inertiajs/react';
+import type { FormEvent } from 'react';
 import { IncludeInactiveProjectsField, projectOptionLabel } from '@/components/inmopro/reports/IncludeInactiveProjectsField';
 import { LotDetailTable } from '@/components/inmopro/reports/LotDetailTable';
 import type { LotDetailRow } from '@/components/inmopro/reports/LotDetailTable';
 import { ReportPageShell } from '@/components/inmopro/reports/ReportPageShell';
-import type { FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 
 export default function ExpiredContractsReport({

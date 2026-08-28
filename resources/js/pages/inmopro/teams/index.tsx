@@ -1,9 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Download, Eye, FileSpreadsheet, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { useRef, useState } from 'react';
+import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
-import Pagination, { type PaginationLink } from '@/components/pagination';
 import { confirmDelete } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
 
