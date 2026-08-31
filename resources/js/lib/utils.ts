@@ -9,3 +9,8 @@ export function cn(...inputs: ClassValue[]) {
 export function toUrl(url: NonNullable<InertiaLinkProps['href']>): string {
     return typeof url === 'string' ? url : url.url;
 }
+
+/** Full page load so Inertia/Axios cannot follow OAuth redirects (CORS). */
+export function startOauthRedirect(path: string): void {
+    window.location.assign(path);
+}

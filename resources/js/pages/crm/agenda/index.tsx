@@ -11,6 +11,7 @@ import { ReminderFormModal, type ReminderFormValues } from '@/components/crm/rem
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
+import { startOauthRedirect } from '@/lib/utils';
 import reminders from '@/routes/crm/reminders';
 import type { Auth, BreadcrumbItem } from '@/types';
 
@@ -103,13 +104,17 @@ export default function CrmAgendaIndex({ events, clients }: { events: CalendarEv
                     </div>
                 </div>
 
-                {!google.calendar_connected && google.connected && (
+                {!google.calendar_connected && (
                     <Card>
                         <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
                             <span className="text-muted-foreground">
                                 Conecta Google Calendar para sincronizar tus recordatorios en ambas direcciones.
                             </span>
-                            <Button variant="secondary" size="sm" onClick={() => router.visit('/crm/google/calendar/connect')}>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => startOauthRedirect('/crm/google/calendar/connect')}
+                            >
                                 Conectar Calendar
                             </Button>
                         </CardContent>

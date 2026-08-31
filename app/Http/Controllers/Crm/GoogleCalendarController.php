@@ -16,6 +16,14 @@ class GoogleCalendarController extends Controller
 {
     public function connect(): RedirectResponse
     {
+        if (! filled(config('google.client_id')) || ! filled(config('google.client_secret'))) {
+            return redirect()
+                ->route('crm.profile.edit')
+                ->withErrors([
+                    'google_calendar' => 'Google Calendar no está configurado. Completa GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en el .env.',
+                ]);
+        }
+
         return Socialite::driver('google')
             ->scopes(array_merge(config('google.scopes.login'), config('google.scopes.calendar')))
             ->with([

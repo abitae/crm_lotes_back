@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import CrmLayout from '@/layouts/crm/crm-layout';
+import { startOauthRedirect } from '@/lib/utils';
 import profile from '@/routes/crm/profile';
 import type { Auth, BreadcrumbItem } from '@/types';
 
@@ -117,13 +118,10 @@ export default function CrmProfileEdit({ advisor }: { advisor: AdvisorData }) {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {google.connected ? (
+                        {google.connected && (
                             <p className="text-sm text-muted-foreground">
-                                Cuenta Google vinculada: <span className="font-medium text-foreground">{google.email}</span>
-                            </p>
-                        ) : (
-                            <p className="text-sm text-muted-foreground">
-                                Inicia sesión con Google desde el login para vincular tu cuenta.
+                                Cuenta Google vinculada:{' '}
+                                <span className="font-medium text-foreground">{google.email}</span>
                             </p>
                         )}
 
@@ -137,9 +135,18 @@ export default function CrmProfileEdit({ advisor }: { advisor: AdvisorData }) {
                                 </Button>
                             </div>
                         ) : (
-                            <Button type="button" asChild disabled={!google.connected}>
-                                <Link href="/crm/google/calendar/connect">Conectar Google Calendar</Link>
-                            </Button>
+                            <>
+                                <p className="text-sm text-muted-foreground">
+                                    Te redirigiremos a Google para autorizar el acceso a tu calendario y sincronizar
+                                    los recordatorios del CRM.
+                                </p>
+                                <Button
+                                    type="button"
+                                    onClick={() => startOauthRedirect('/crm/google/calendar/connect')}
+                                >
+                                    Conectar Google Calendar
+                                </Button>
+                            </>
                         )}
 
                         <InputError message={pageErrors.google_calendar} />
@@ -190,8 +197,8 @@ export default function CrmProfileEdit({ advisor }: { advisor: AdvisorData }) {
                                 <p className="text-sm text-muted-foreground">
                                     Conecta tu cuenta Meta para recibir y enviar mensajes de WhatsApp, Messenger e Instagram desde el CRM.
                                 </p>
-                                <Button type="button" asChild>
-                                    <Link href="/crm/meta/connect">Conectar Meta Business</Link>
+                                <Button type="button" onClick={() => startOauthRedirect('/crm/meta/connect')}>
+                                    Conectar Meta Business
                                 </Button>
                             </>
                         )}

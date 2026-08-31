@@ -49,7 +49,10 @@ return new class extends Migration
             $table->string('profile_name')->nullable();
             $table->timestamps();
 
-            $table->unique(['meta_connection_id', 'channel', 'external_user_id']);
+            $table->unique(
+                ['meta_connection_id', 'channel', 'external_user_id'],
+                'mci_conn_channel_ext_user_unique'
+            );
             $table->index(['advisor_id', 'phone_normalized']);
         });
 
@@ -98,7 +101,10 @@ return new class extends Migration
             $table->json('components')->nullable();
             $table->timestamps();
 
-            $table->unique(['meta_connection_id', 'template_name', 'language']);
+            $table->unique(
+                ['meta_connection_id', 'template_name', 'language'],
+                'mmt_conn_name_lang_unique'
+            );
         });
 
         Schema::create('meta_automation_flows', function (Blueprint $table): void {

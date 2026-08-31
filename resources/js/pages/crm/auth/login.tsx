@@ -1,4 +1,4 @@
-import { Form, Head, Link, usePage } from '@inertiajs/react';
+import { Form, Head } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import AuthSimpleLayout from '@/layouts/auth/auth-simple-layout';
+import { startOauthRedirect } from '@/lib/utils';
 import { forgotPin } from '@/routes/crm';
 import { store } from '@/routes/crm/login';
 
@@ -84,8 +85,14 @@ export default function CrmLogin({ status }: Props) {
                             </div>
                         </div>
 
-                        <Button type="button" variant="outline" className="w-full" asChild tabIndex={5}>
-                            <Link href="/crm/auth/google">Continuar con Google</Link>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full"
+                            tabIndex={5}
+                            onClick={() => startOauthRedirect('/crm/auth/google')}
+                        >
+                            Continuar con Google
                         </Button>
                     </div>
                 )}
