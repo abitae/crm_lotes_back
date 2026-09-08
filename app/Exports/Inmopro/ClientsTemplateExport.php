@@ -24,7 +24,7 @@ class ClientsTemplateExport implements FromArray, WithColumnWidths, WithHeadings
             'Email',
             'Referido por',
             'Tipo cliente (*)',
-            'Ciudad (*)',
+            'Ciudad',
             'Asesor (*)',
             'Fecha registro (DD/MM/AAAA HH:MM)',
         ];
@@ -48,7 +48,7 @@ class ClientsTemplateExport implements FromArray, WithColumnWidths, WithHeadings
                 '28/01/2026 15:23',
             ],
             [
-                'Leyenda: (*) = obligatorio. DNI es opcional. Tipo cliente, Ciudad y Asesor deben coincidir con el catalogo. Ciudad en mayusculas (se crea si no existe). Fecha vacia = fecha actual al importar. Formato fecha: DD/MM/AAAA HH:MM.',
+                'Leyenda: (*) = obligatorio. DNI y Ciudad son opcionales. Tipo cliente y Asesor deben coincidir con el catalogo. Ciudad vacia = SIN CIUDAD. Ciudad en mayusculas (se crea si no existe). DNI distinto de 8 digitos se deja en blanco. Fecha vacia = fecha actual al importar. Formato fecha: DD/MM/AAAA HH:MM.',
                 '',
                 '',
                 '',

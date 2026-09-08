@@ -24,5 +24,33 @@ class CitySeeder extends Seeder
                 $city + ['is_active' => true],
             );
         }
+
+        $this->ensureFallbackCity();
+    }
+
+    private function ensureFallbackCity(): void
+    {
+        $existing = City::query()
+            ->whereRaw('UPPER(name) = ?', ['SIN CIUDAD'])
+            ->first();
+
+        if ($existing !== null) {
+            return;
+        }
+
+        $code = 'SINCID';
+        $suffix = 1;
+        while (City::query()->where('code', $code)->exists()) {
+            $code = 'SINCID'.$suffix;
+            $suffix++;
+        }
+
+        City::query()->create([
+            'name' => 'SIN CIUDAD',
+            'code' => $code,
+            'department' => null,
+            'sort_order' => 99,
+            'is_active' => true,
+        ]);
     }
 }

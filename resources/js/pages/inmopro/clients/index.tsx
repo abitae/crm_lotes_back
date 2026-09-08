@@ -1,6 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Check, Download, Eye, FileSpreadsheet, Pencil, RotateCcw, Search, Trash2, Upload, UserPlus, Users, X } from 'lucide-react';
+import { Check, Download, Eye, FileSpreadsheet, Merge, Pencil, RotateCcw, Search, Trash2, Upload, UserPlus, Users, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ClientDuplicateMergeModal } from '@/components/inmopro/clients/client-duplicate-merge-modal';
 import { ClientEditModal, type InmoproClientEditValues } from '@/components/inmopro/clients/client-edit-modal';
 import { InmoproMetricCard } from '@/components/inmopro/metric-card';
 import Pagination, { type PaginationLink } from '@/components/pagination';
@@ -235,6 +236,7 @@ export default function ClientsIndex({
     const clientsWithLots = clients.data.filter((client) => (client.lots_count ?? 0) > 0).length;
     const clientsWithEmail = clients.data.filter((client) => Boolean(client.email)).length;
     const [importModalOpen, setImportModalOpen] = useState(false);
+    const [phoneMergeModalOpen, setPhoneMergeModalOpen] = useState(false);
     const [advisorFilterId, setAdvisorFilterId] = useState(filters.advisor_id ? String(filters.advisor_id) : '');
     const [advisorFilterSearch, setAdvisorFilterSearch] = useState('');
     const [advisorFilterOpen, setAdvisorFilterOpen] = useState(false);
@@ -386,6 +388,16 @@ export default function ClientsIndex({
                                 <Download className="h-4 w-4" />
                                 Exportar vista Excel
                             </a>
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPhoneMergeModalOpen(true)}
+                            title="Buscar y unificar clientes con el mismo teléfono o DNI"
+                        >
+                            <Merge className="h-4 w-4" />
+                            Unificar duplicados
                         </Button>
                         <Button
                             type="button"
@@ -829,6 +841,12 @@ export default function ClientsIndex({
 
             <ClientsImportModal open={importModalOpen} onOpenChange={setImportModalOpen} listQs={listQs} />
 
+            <ClientDuplicateMergeModal
+                open={phoneMergeModalOpen}
+                onOpenChange={setPhoneMergeModalOpen}
+                listQs={listQs}
+            />
+
             <ClientEditModal
                 open={editClientModalOpen}
                 onOpenChange={(open) => {
@@ -1020,12 +1038,12 @@ function ClientsImportModal({
                             <div className="space-y-2 text-sm text-slate-700">
                                 <p className="text-[11px] font-black uppercase tracking-widest text-emerald-700">Plantilla oficial</p>
                                 <p>
-                                    Columnas obligatorias (*): Nombre, Telefono, Tipo cliente, Ciudad, Asesor.
-                                    Opcionales: DNI, Email, Referido por, Fecha registro (DD/MM/AAAA HH:MM).
+                                    Columnas obligatorias (*): Nombre, Telefono, Tipo cliente, Asesor.
+                                    Opcionales: DNI, Email, Referido por, Ciudad, Fecha registro (DD/MM/AAAA HH:MM).
                                     Tipo cliente y Asesor deben coincidir con el catalogo. Fecha vacia = fecha actual.
                                 </p>
-                                <p>La ciudad se guarda en mayusculas; si no existe, se crea automaticamente.</p>
-                                <p>Si el telefono ya existe en el sistema o esta duplicado en el archivo, esa fila se omite y no se importa.</p>
+                                <p>Si la ciudad viene vacia se asigna SIN CIUDAD. Si se informa, se guarda en mayusculas y se crea si no existe.</p>
+                                <p>El DNI puede repetirse. Si no tiene 8 digitos se deja en blanco. Si el telefono ya existe en el sistema o esta duplicado en el archivo, esa fila se omite y no se importa.</p>
                             </div>
                             <Button type="button" asChild className="shrink-0 bg-emerald-600 hover:bg-emerald-700">
                                 <a href="/inmopro/clients/excel-template" download>

@@ -7,6 +7,8 @@ use App\Exports\Inmopro\ClientsTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Inmopro\ImportClientsConfirmRequest;
 use App\Http\Requests\Inmopro\ImportClientsPreviewRequest;
+use App\Http\Requests\Inmopro\MergeClientsByDniRequest;
+use App\Http\Requests\Inmopro\MergeClientsByPhoneRequest;
 use App\Http\Requests\Inmopro\StoreClientRequest;
 use App\Http\Requests\Inmopro\UpdateClientCrmRequest;
 use App\Http\Requests\Inmopro\UpdateClientRequest;
@@ -18,6 +20,7 @@ use App\Models\Inmopro\ClientTag;
 use App\Models\Inmopro\ClientType;
 use App\Models\User;
 use App\Services\Inmopro\ClientCrmService;
+use App\Services\Inmopro\ClientDuplicateMergeService;
 use App\Services\Inmopro\ClientsExcelImportService;
 use App\Services\Inmopro\ClientsIndexQuery;
 use App\Support\InertiaListingRedirect;
@@ -26,6 +29,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use InvalidArgumentException;
 use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -35,6 +39,7 @@ class ClientController extends Controller
     public function __construct(
         private ClientsIndexQuery $clientsIndexQuery,
         private ClientCrmService $clientCrmService,
+        private ClientDuplicateMergeService $clientDuplicateMergeService,
     ) {}
 
     public function search(Request $request): JsonResponse
@@ -56,6 +61,69 @@ class ClientController extends Controller
             ->get(['id', 'name', 'dni', 'phone', 'advisor_id']);
 
         return response()->json($clients);
+    }
+
+    public function phoneDuplicates(): JsonResponse
+    {
+        return response()->json([
+            'groups' => $this->clientDuplicateMergeService->duplicateGroups(ClientDuplicateMergeService::FIELD_PHONE),
+        ]);
+    }
+
+    public function dniDuplicates(): JsonResponse
+    {
+        return response()->json([
+            'groups' => $this->clientDuplicateMergeService->duplicateGroups(ClientDuplicateMergeService::FIELD_DNI),
+        ]);
+    }
+
+    public function mergeByPhone(MergeClientsByPhoneRequest $request): RedirectResponse
+    {
+        return $this->mergeDuplicates(
+            $request,
+            (int) $request->validated('keep_client_id'),
+            array_values(array_map('intval', $request->validated('merge_client_ids'))),
+            ClientDuplicateMergeService::FIELD_PHONE,
+        );
+    }
+
+    public function mergeByDni(MergeClientsByDniRequest $request): RedirectResponse
+    {
+        return $this->mergeDuplicates(
+            $request,
+            (int) $request->validated('keep_client_id'),
+            array_values(array_map('intval', $request->validated('merge_client_ids'))),
+            ClientDuplicateMergeService::FIELD_DNI,
+        );
+    }
+
+    /**
+     * @param  list<int>  $mergeClientIds
+     */
+    private function mergeDuplicates(
+        Request $request,
+        int $keepClientId,
+        array $mergeClientIds,
+        string $field,
+    ): RedirectResponse {
+        try {
+            $keep = $this->clientDuplicateMergeService->merge($keepClientId, $mergeClientIds, $field);
+        } catch (InvalidArgumentException $e) {
+            return redirect()
+                ->route('inmopro.clients.index', InertiaListingRedirect::clientsIndexQuery($request))
+                ->with('error', $e->getMessage());
+        }
+
+        $mergedCount = count($mergeClientIds);
+
+        return redirect()
+            ->route('inmopro.clients.index', InertiaListingRedirect::clientsIndexQuery($request))
+            ->with(
+                'success',
+                $mergedCount === 1
+                    ? 'Cliente unificado correctamente en «'.$keep->name.'».'
+                    : $mergedCount.' clientes unificados correctamente en «'.$keep->name.'».'
+            );
     }
 
     public function index(Request $request): Response|RedirectResponse

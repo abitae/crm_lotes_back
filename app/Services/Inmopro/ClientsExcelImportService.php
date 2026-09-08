@@ -20,6 +20,8 @@ class ClientsExcelImportService
 {
     private const CACHE_TTL_MINUTES = 20;
 
+    private const FALLBACK_CITY_NAME = 'SIN CIUDAD';
+
     /**
      * @var array<string, list<string>>
      */
@@ -88,7 +90,6 @@ class ClientsExcelImportService
         $apply = [];
         $rowsRead = 0;
         $skipped = 0;
-        $seenDnis = [];
         $seenPhones = [];
 
         foreach ($loaded['rows'] as $row) {
@@ -108,7 +109,8 @@ class ClientsExcelImportService
             $email = $this->cellStringByField($cells, $headerMap, 'email');
             $referredBy = $this->cellStringByField($cells, $headerMap, 'referred_by');
             $clientTypeName = $this->cellStringByField($cells, $headerMap, 'client_type');
-            $cityName = $this->normalizeCityName($this->cellStringByField($cells, $headerMap, 'city'));
+            $cityName = $this->normalizeCityName($this->cellStringByField($cells, $headerMap, 'city'))
+                ?? self::FALLBACK_CITY_NAME;
             $advisorName = $this->cellStringByField($cells, $headerMap, 'advisor');
             $registeredAtRaw = $this->cellRawByField($cells, $headerMap, 'registered_at');
             $registeredAt = null;
@@ -124,9 +126,6 @@ class ClientsExcelImportService
             if ($name === null) {
                 $rowErrors[] = ['field' => 'name', 'message' => 'El nombre es obligatorio.'];
             }
-            if ($rawDni !== null && $dni === null) {
-                $rowErrors[] = ['field' => 'dni', 'message' => 'El DNI debe tener 8 digitos cuando se informa.'];
-            }
             if ($phone === null) {
                 $rowErrors[] = ['field' => 'phone', 'message' => 'El telefono es obligatorio.'];
             }
@@ -136,22 +135,11 @@ class ClientsExcelImportService
             if ($advisorName === null) {
                 $rowErrors[] = ['field' => 'advisor', 'message' => 'El asesor es obligatorio.'];
             }
-            if ($cityName === null) {
-                $rowErrors[] = ['field' => 'city', 'message' => 'La ciudad es obligatoria.'];
-            }
             if ($registeredAtInvalid) {
                 $rowErrors[] = [
                     'field' => 'registered_at',
                     'message' => 'Fecha de registro no valida (use DD/MM/AAAA HH:MM, AAAA-MM-DD HH:MM o celda de fecha Excel).',
                 ];
-            }
-
-            if ($dni !== null) {
-                if (isset($seenDnis[$dni])) {
-                    $rowErrors[] = ['field' => 'dni', 'message' => 'El DNI esta duplicado dentro del archivo.'];
-                } else {
-                    $seenDnis[$dni] = true;
-                }
             }
 
             if ($phone !== null) {
@@ -180,17 +168,15 @@ class ClientsExcelImportService
                 $rowErrors[] = ['field' => 'email', 'message' => 'El email no tiene un formato valido.'];
             }
 
-            $existingByDni = $dni !== null ? ($lookups['clients_by_dni'][$dni] ?? null) : null;
             $existingByPhone = $phone !== null
                 ? ($lookups['clients_by_phone'][$this->phoneDigits($phone)] ?? null)
                 : null;
-            $phoneBelongsToOtherClient = $existingByPhone !== null
-                && ($existingByDni === null || $existingByPhone['id'] !== $existingByDni['id']);
+            $phoneAlreadyRegistered = $existingByPhone !== null;
 
             $skipReason = null;
             if ($duplicatePhoneInFile) {
                 $skipReason = 'Telefono duplicado en el archivo; se omite el registro.';
-            } elseif ($rowErrors === [] && $phoneBelongsToOtherClient) {
+            } elseif ($rowErrors === [] && $phoneAlreadyRegistered) {
                 $skipReason = 'Telefono ya registrado; se omite el registro.';
             }
 
@@ -232,14 +218,13 @@ class ClientsExcelImportService
                 'city' => $cityName,
                 'advisor' => $advisorName,
                 'registered_at' => $registeredAt,
-                'action' => $existingByDni ? 'update' : 'create',
+                'action' => 'create',
                 'errors' => array_map(fn (array $error): string => $error['message'], $rowErrors),
                 'skip_reason' => null,
             ];
 
             if ($rowErrors === []) {
                 $apply[] = [
-                    'match_dni' => $dni,
                     'payload' => [
                         'name' => $name,
                         'dni' => $dni,
@@ -301,23 +286,21 @@ class ClientsExcelImportService
 
         DB::transaction(function () use ($cached): void {
             foreach ($cached['apply'] as $row) {
-                $client = $this->resolveClientForImport($row['match_dni'] ?? null);
+                $client = new Client;
                 $payload = $row['payload'];
                 $cityName = $row['city_name'] ?? null;
 
                 if (! is_string($cityName) || $cityName === '') {
-                    throw new RuntimeException('La ciudad es obligatoria.');
+                    $cityName = self::FALLBACK_CITY_NAME;
                 }
 
-                $payload['city_id'] = $this->findOrCreateCityId($cityName);
+                $payload['city_id'] = $this->resolveImportCityId($cityName);
 
                 $client->fill($payload);
 
                 if (! empty($row['registered_at'])) {
                     $client->created_at = Carbon::parse($row['registered_at']);
-                    if (! $client->exists) {
-                        $client->updated_at = $client->created_at;
-                    }
+                    $client->updated_at = $client->created_at;
                 }
 
                 $client->save();
@@ -325,20 +308,10 @@ class ClientsExcelImportService
         });
     }
 
-    private function resolveClientForImport(?string $matchDni): Client
-    {
-        if ($matchDni !== null && $matchDni !== '') {
-            return Client::query()->firstOrNew(['dni' => $matchDni]);
-        }
-
-        return new Client;
-    }
-
     /**
      * @return array{
      *     client_types: array<string, int>,
      *     advisors: array<string, int>,
-     *     clients_by_dni: array<string, array{id: int, phone: string|null}>,
      *     clients_by_phone: array<string, array{id: int, dni: string|null}>
      * }
      */
@@ -354,17 +327,12 @@ class ClientsExcelImportService
             $advisors[mb_strtolower((string) $advisor->name)] = (int) $advisor->id;
         }
 
-        $clientsByDni = [];
         $clientsByPhone = [];
 
         foreach (Client::query()->get(['id', 'dni', 'phone']) as $client) {
             $id = (int) $client->id;
             $dni = $client->dni !== null && $client->dni !== '' ? (string) $client->dni : null;
             $phone = $client->phone !== null ? (string) $client->phone : null;
-
-            if ($dni !== null && ! isset($clientsByDni[$dni])) {
-                $clientsByDni[$dni] = ['id' => $id, 'phone' => $phone];
-            }
 
             if ($phone !== null) {
                 $digits = $this->phoneDigits($phone);
@@ -377,7 +345,6 @@ class ClientsExcelImportService
         return [
             'client_types' => $clientTypes,
             'advisors' => $advisors,
-            'clients_by_dni' => $clientsByDni,
             'clients_by_phone' => $clientsByPhone,
         ];
     }
@@ -472,7 +439,6 @@ class ClientsExcelImportService
             'name' => 'Nombre',
             'phone' => 'Telefono',
             'client_type' => 'Tipo cliente',
-            'city' => 'Ciudad',
             'advisor' => 'Asesor',
         ];
 
@@ -663,6 +629,34 @@ class ClientsExcelImportService
         $normalized = mb_strtoupper(trim($name));
 
         return $normalized === '' ? null : $normalized;
+    }
+
+    private function resolveImportCityId(string $name): int
+    {
+        $normalized = $this->normalizeCityName($name);
+        if ($normalized === null) {
+            throw new RuntimeException('La ciudad no es valida.');
+        }
+
+        if ($normalized === self::FALLBACK_CITY_NAME) {
+            return $this->findFallbackCityId();
+        }
+
+        return $this->findOrCreateCityId($normalized);
+    }
+
+    private function findFallbackCityId(): int
+    {
+        $existing = City::query()
+            ->whereRaw('UPPER(name) = ?', [self::FALLBACK_CITY_NAME])
+            ->orderBy('id')
+            ->first();
+
+        if ($existing === null) {
+            throw new RuntimeException('No se encontro la ciudad SIN CIUDAD.');
+        }
+
+        return (int) $existing->id;
     }
 
     private function findOrCreateCityId(string $name): int

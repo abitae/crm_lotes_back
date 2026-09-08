@@ -130,6 +130,10 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::put('lots/{lot}/expenses/{expense}', [LotExpenseController::class, 'update'])->name('lots.expenses.update');
         Route::delete('lots/{lot}/expenses/{expense}', [LotExpenseController::class, 'destroy'])->name('lots.expenses.destroy');
         Route::get('clients/search', [ClientController::class, 'search'])->name('clients.search');
+        Route::get('clients/phone-duplicates', [ClientController::class, 'phoneDuplicates'])->name('clients.phone-duplicates');
+        Route::get('clients/dni-duplicates', [ClientController::class, 'dniDuplicates'])->name('clients.dni-duplicates');
+        Route::post('clients/merge-by-phone', [ClientController::class, 'mergeByPhone'])->name('clients.merge-by-phone');
+        Route::post('clients/merge-by-dni', [ClientController::class, 'mergeByDni'])->name('clients.merge-by-dni');
         Route::get('clients/excel-template', [ClientController::class, 'excelTemplate'])->name('clients.excel-template');
         Route::get('clients/export-excel', [ClientController::class, 'exportExcel'])->name('clients.export-excel');
         Route::post('clients/import-preview', [ClientController::class, 'importPreview'])->name('clients.import-preview');
