@@ -1038,11 +1038,12 @@ function ClientsImportModal({
                             <div className="space-y-2 text-sm text-slate-700">
                                 <p className="text-[11px] font-black uppercase tracking-widest text-emerald-700">Plantilla oficial</p>
                                 <p>
-                                    Columnas obligatorias (*): Nombre, Telefono, Tipo cliente, Asesor.
-                                    Opcionales: DNI, Email, Referido por, Ciudad, Fecha registro (DD/MM/AAAA HH:MM).
-                                    Tipo cliente y Asesor deben coincidir con el catalogo. Fecha vacia = fecha actual.
+                                    Columnas obligatorias (*): Nombre, Telefono, Tipo cliente.
+                                    Opcionales: DNI, Email, Referido por, Ciudad, Asesor, Fecha registro (DD/MM/AAAA HH:MM).
+                                    Tipo cliente debe coincidir con el catalogo. Fecha vacia = fecha actual.
                                 </p>
                                 <p>Si la ciudad viene vacia se asigna SIN CIUDAD. Si se informa, se guarda en mayusculas y se crea si no existe.</p>
+                                <p>Si el asesor viene vacio o no existe en el catalogo se asigna ABEL ARANA.</p>
                                 <p>El DNI puede repetirse. Si no tiene 8 digitos se deja en blanco. Si el telefono ya existe en el sistema o esta duplicado en el archivo, esa fila se omite y no se importa.</p>
                             </div>
                             <Button type="button" asChild className="shrink-0 bg-emerald-600 hover:bg-emerald-700">

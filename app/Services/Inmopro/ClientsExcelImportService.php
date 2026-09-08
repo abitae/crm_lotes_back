@@ -22,6 +22,8 @@ class ClientsExcelImportService
 
     private const FALLBACK_CITY_NAME = 'SIN CIUDAD';
 
+    private const FALLBACK_ADVISOR_NAME = 'ABEL ARANA';
+
     /**
      * @var array<string, list<string>>
      */
@@ -132,9 +134,6 @@ class ClientsExcelImportService
             if ($clientTypeName === null) {
                 $rowErrors[] = ['field' => 'client_type', 'message' => 'El tipo de cliente es obligatorio.'];
             }
-            if ($advisorName === null) {
-                $rowErrors[] = ['field' => 'advisor', 'message' => 'El asesor es obligatorio.'];
-            }
             if ($registeredAtInvalid) {
                 $rowErrors[] = [
                     'field' => 'registered_at',
@@ -160,8 +159,15 @@ class ClientsExcelImportService
             }
 
             $advisorId = $this->lookupIdByName($lookups['advisors'], $advisorName);
-            if ($advisorName !== null && $advisorId === null) {
-                $rowErrors[] = ['field' => 'advisor', 'message' => 'El asesor no existe.'];
+            if ($advisorId === null) {
+                $advisorId = $lookups['fallback_advisor_id'];
+                $advisorName = self::FALLBACK_ADVISOR_NAME;
+                if ($advisorId === null) {
+                    $rowErrors[] = [
+                        'field' => 'advisor',
+                        'message' => 'No se encontro el asesor '.self::FALLBACK_ADVISOR_NAME.'.',
+                    ];
+                }
             }
 
             if ($email !== null && ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -296,6 +302,14 @@ class ClientsExcelImportService
 
                 $payload['city_id'] = $this->resolveImportCityId($cityName);
 
+                if (! isset($payload['advisor_id']) || $payload['advisor_id'] === null) {
+                    $payload['advisor_id'] = $this->findFallbackAdvisorId();
+                }
+
+                if ($payload['advisor_id'] === null) {
+                    throw new RuntimeException('No se encontro el asesor '.self::FALLBACK_ADVISOR_NAME.'.');
+                }
+
                 $client->fill($payload);
 
                 if (! empty($row['registered_at'])) {
@@ -312,6 +326,7 @@ class ClientsExcelImportService
      * @return array{
      *     client_types: array<string, int>,
      *     advisors: array<string, int>,
+     *     fallback_advisor_id: int|null,
      *     clients_by_phone: array<string, array{id: int, dni: string|null}>
      * }
      */
@@ -345,6 +360,7 @@ class ClientsExcelImportService
         return [
             'client_types' => $clientTypes,
             'advisors' => $advisors,
+            'fallback_advisor_id' => $this->findFallbackAdvisorId(),
             'clients_by_phone' => $clientsByPhone,
         ];
     }
@@ -439,7 +455,6 @@ class ClientsExcelImportService
             'name' => 'Nombre',
             'phone' => 'Telefono',
             'client_type' => 'Tipo cliente',
-            'advisor' => 'Asesor',
         ];
 
         $missing = [];
@@ -657,6 +672,16 @@ class ClientsExcelImportService
         }
 
         return (int) $existing->id;
+    }
+
+    private function findFallbackAdvisorId(): ?int
+    {
+        $existing = Advisor::query()
+            ->whereRaw('UPPER(name) = ?', [self::FALLBACK_ADVISOR_NAME])
+            ->orderBy('id')
+            ->first();
+
+        return $existing !== null ? (int) $existing->id : null;
     }
 
     private function findOrCreateCityId(string $name): int

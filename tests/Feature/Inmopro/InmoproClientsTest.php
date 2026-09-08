@@ -46,6 +46,35 @@ class InmoproClientsTest extends TestCase
         $this->seed(CitySeeder::class);
         $this->seed(AdvisorSeeder::class);
         $this->seed(ClientSeeder::class);
+        $this->ensureFallbackAdvisor();
+    }
+
+    private function ensureFallbackAdvisor(): void
+    {
+        $exists = Advisor::query()
+            ->whereRaw('UPPER(name) = ?', ['ABEL ARANA'])
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        $template = Advisor::query()->firstOrFail();
+
+        Advisor::query()->create([
+            'dni' => '19999999',
+            'first_name' => 'ABEL',
+            'last_name' => 'ARANA',
+            'phone' => '900000001',
+            'email' => 'abel.arana.import@test.com',
+            'username' => 'abel_arana_import',
+            'pin' => '123456',
+            'is_active' => true,
+            'city_id' => $template->city_id,
+            'team_id' => $template->team_id,
+            'advisor_level_id' => $template->advisor_level_id,
+            'personal_quota' => 0,
+        ]);
     }
 
     public function test_guests_cannot_visit_clients_index(): void
@@ -814,6 +843,79 @@ class InmoproClientsTest extends TestCase
             'name' => 'Cliente Sin Ciudad',
             'dni' => '11223344',
             'city_id' => $fallbackCity->id,
+        ]);
+    }
+
+    public function test_clients_import_assigns_abel_arana_when_advisor_does_not_exist(): void
+    {
+        $user = User::factory()->create();
+        $type = ClientType::query()->firstOrFail();
+        $city = City::query()->firstOrFail();
+        $fallbackAdvisor = Advisor::query()->whereRaw('UPPER(name) = ?', ['ABEL ARANA'])->firstOrFail();
+        $this->actingAs($user);
+
+        $file = $this->makeClientsExcelFile([
+            ['Nombre (*)', 'DNI', 'Telefono (*)', 'Email', 'Referido por', 'Tipo cliente (*)', 'Ciudad', 'Asesor (*)', 'Fecha registro (DD/MM/AAAA)'],
+            ['Cliente Asesor Desconocido', '11223355', '955667703', null, null, $type->name, $city->name, 'Asesor Que No Existe', null],
+        ]);
+
+        $previewResponse = $this->post(route('inmopro.clients.import-preview'), [
+            'file' => $file,
+        ]);
+
+        $previewResponse
+            ->assertOk()
+            ->assertJsonPath('can_import', true)
+            ->assertJsonPath('rows.0.advisor', 'ABEL ARANA')
+            ->assertJsonPath('rows.0.action', 'create');
+
+        $token = $previewResponse->json('token');
+        $this->assertIsString($token);
+
+        $this->post(route('inmopro.clients.import-confirm'), [
+            'token' => $token,
+        ])->assertRedirect(route('inmopro.clients.index'));
+
+        $this->assertDatabaseHas('clients', [
+            'name' => 'Cliente Asesor Desconocido',
+            'dni' => '11223355',
+            'advisor_id' => $fallbackAdvisor->id,
+        ]);
+    }
+
+    public function test_clients_import_assigns_abel_arana_when_advisor_is_empty(): void
+    {
+        $user = User::factory()->create();
+        $type = ClientType::query()->firstOrFail();
+        $city = City::query()->firstOrFail();
+        $fallbackAdvisor = Advisor::query()->whereRaw('UPPER(name) = ?', ['ABEL ARANA'])->firstOrFail();
+        $this->actingAs($user);
+
+        $file = $this->makeClientsExcelFile([
+            ['Nombre (*)', 'DNI', 'Telefono (*)', 'Email', 'Referido por', 'Tipo cliente (*)', 'Ciudad', 'Asesor (*)', 'Fecha registro (DD/MM/AAAA)'],
+            ['Cliente Sin Asesor', '11223356', '955667704', null, null, $type->name, $city->name, '', null],
+        ]);
+
+        $previewResponse = $this->post(route('inmopro.clients.import-preview'), [
+            'file' => $file,
+        ]);
+
+        $previewResponse
+            ->assertOk()
+            ->assertJsonPath('can_import', true)
+            ->assertJsonPath('rows.0.advisor', 'ABEL ARANA');
+
+        $token = $previewResponse->json('token');
+        $this->assertIsString($token);
+
+        $this->post(route('inmopro.clients.import-confirm'), [
+            'token' => $token,
+        ])->assertRedirect(route('inmopro.clients.index'));
+
+        $this->assertDatabaseHas('clients', [
+            'name' => 'Cliente Sin Asesor',
+            'dni' => '11223356',
+            'advisor_id' => $fallbackAdvisor->id,
         ]);
     }
 

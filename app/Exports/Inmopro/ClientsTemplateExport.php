@@ -25,7 +25,7 @@ class ClientsTemplateExport implements FromArray, WithColumnWidths, WithHeadings
             'Referido por',
             'Tipo cliente (*)',
             'Ciudad',
-            'Asesor (*)',
+            'Asesor',
             'Fecha registro (DD/MM/AAAA HH:MM)',
         ];
     }
@@ -48,7 +48,7 @@ class ClientsTemplateExport implements FromArray, WithColumnWidths, WithHeadings
                 '28/01/2026 15:23',
             ],
             [
-                'Leyenda: (*) = obligatorio. DNI y Ciudad son opcionales. Tipo cliente y Asesor deben coincidir con el catalogo. Ciudad vacia = SIN CIUDAD. Ciudad en mayusculas (se crea si no existe). DNI distinto de 8 digitos se deja en blanco. Fecha vacia = fecha actual al importar. Formato fecha: DD/MM/AAAA HH:MM.',
+                'Leyenda: (*) = obligatorio. DNI, Ciudad y Asesor son opcionales. Tipo cliente debe coincidir con el catalogo. Ciudad vacia = SIN CIUDAD. Asesor vacio o inexistente = ABEL ARANA. Ciudad en mayusculas (se crea si no existe). DNI distinto de 8 digitos se deja en blanco. Fecha vacia = fecha actual al importar. Formato fecha: DD/MM/AAAA HH:MM.',
                 '',
                 '',
                 '',
@@ -83,14 +83,14 @@ class ClientsTemplateExport implements FromArray, WithColumnWidths, WithHeadings
         $sheet->getStyle('A1:I1')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
         $sheet->getRowDimension(1)->setRowHeight(30);
 
-        foreach (['A1', 'C1', 'F1', 'H1'] as $cell) {
+        foreach (['A1', 'C1', 'F1'] as $cell) {
             $sheet->getStyle($cell)->getFill()
                 ->setFillType(Fill::FILL_SOLID)
                 ->getStartColor()->setRGB('DCFCE7');
             $sheet->getStyle($cell)->getFont()->getColor()->setRGB('166534');
         }
 
-        foreach (['B1', 'D1', 'E1', 'G1', 'I1'] as $cell) {
+        foreach (['B1', 'D1', 'E1', 'G1', 'H1', 'I1'] as $cell) {
             $sheet->getStyle($cell)->getFill()
                 ->setFillType(Fill::FILL_SOLID)
                 ->getStartColor()->setRGB('F1F5F9');
