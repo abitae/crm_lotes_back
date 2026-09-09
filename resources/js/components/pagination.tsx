@@ -57,8 +57,11 @@ function paginationLinkContent(label: string): ReactNode {
  * Oculta el contenedor si solo hay una página (prev, 1, next sin otras opciones).
  */
 export default function Pagination({ links, className = '' }: PaginationProps) {
-    const hasPages = links.some((l) => l.url !== null);
-    if (!hasPages) return null;
+    const canGoElsewhere = links.some((link) => link.url !== null && !link.active);
+
+    if (!canGoElsewhere) {
+        return null;
+    }
 
     return (
         <nav
@@ -68,10 +71,13 @@ export default function Pagination({ links, className = '' }: PaginationProps) {
         >
             {links.map((link, i) => {
                 const content = paginationLinkContent(link.label);
+                const a11yLabel = paginationAriaLabel(link.label);
+
                 if (link.url === null) {
                     return (
                         <span
                             key={i}
+                            aria-label={a11yLabel}
                             className={`inline-flex h-9 min-w-9 items-center justify-center rounded-md px-3 text-sm font-medium ${
                                 link.active
                                     ? 'bg-slate-900 text-white'
@@ -87,6 +93,8 @@ export default function Pagination({ links, className = '' }: PaginationProps) {
                         key={i}
                         href={link.url}
                         preserveState
+                        aria-label={a11yLabel}
+                        aria-current={link.active ? 'page' : undefined}
                         className={`inline-flex h-9 min-w-9 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors ${
                             link.active
                                 ? 'bg-slate-900 text-white'
@@ -99,4 +107,31 @@ export default function Pagination({ links, className = '' }: PaginationProps) {
             })}
         </nav>
     );
+}
+
+function paginationAriaLabel(label: string): string | undefined {
+    const key = label.trim();
+    const norm = normalizeLabel(label);
+
+    if (
+        key === 'pagination.previous' ||
+        norm === '« previous' ||
+        norm.endsWith(' anterior') ||
+        norm === '« anterior' ||
+        norm === 'anterior'
+    ) {
+        return 'Página anterior';
+    }
+
+    if (
+        key === 'pagination.next' ||
+        norm === 'next »' ||
+        norm.startsWith('siguiente') ||
+        norm === 'siguiente »' ||
+        norm === 'siguiente'
+    ) {
+        return 'Página siguiente';
+    }
+
+    return `Página ${decodePaginationLabel(label)}`;
 }

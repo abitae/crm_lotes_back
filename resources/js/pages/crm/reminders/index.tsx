@@ -43,7 +43,7 @@ type ReminderRow = {
 
 type ClientOption = { id: number; name: string };
 
-type Period = 'hoy' | 'proximos' | 'pasados';
+type Period = 'pendientes' | 'hoy' | 'proximos' | 'pasados';
 
 type Filters = {
     period?: string;
@@ -62,6 +62,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 const SEARCH_DEBOUNCE_MS = 400;
 
 const PERIODS: { id: Period; label: string }[] = [
+    { id: 'pendientes', label: 'Pendientes' },
     { id: 'hoy', label: 'Hoy' },
     { id: 'proximos', label: 'Próximos' },
     { id: 'pasados', label: 'Pasados' },
@@ -105,10 +106,42 @@ function emptyCopy(period: Period): { title: string; description: string } {
         };
     }
 
+    if (period === 'pendientes') {
+        return {
+            title: 'No hay recordatorios pendientes',
+            description:
+                'Aquí ves los no completados, incluidos los vencidos y los de otros días. Es el mismo universo que el KPI del dashboard.',
+        };
+    }
+
     return {
         title: 'No tienes recordatorios para hoy',
         description:
             'Crea un recordatorio para no perder el seguimiento de un cliente.',
+    };
+}
+
+function reminderState(reminder: ReminderRow): {
+    label: string;
+    className: string;
+} {
+    if (reminder.completed_at) {
+        return {
+            label: 'Completado',
+            className: 'bg-muted text-muted-foreground',
+        };
+    }
+
+    if (new Date(reminder.remind_at).getTime() < Date.now()) {
+        return {
+            label: 'Vencido',
+            className: 'bg-destructive/10 text-destructive',
+        };
+    }
+
+    return {
+        label: 'Pendiente',
+        className: 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
     };
 }
 
@@ -196,7 +229,7 @@ export default function CrmRemindersIndex({
             <CrmPage className="gap-4">
                 <CrmPageHeader
                     title="Recordatorios"
-                    description="Seguimientos del día, próximos y pasados."
+                    description="Pendientes no completados, el día de hoy, próximos y pasados."
                     actions={
                         <Button onClick={openCreateModal}>
                             <PlusCircle className="mr-2 h-4 w-4" />
@@ -247,6 +280,7 @@ export default function CrmRemindersIndex({
                     </div>
                     <ClientSearchSelect
                         id="reminders-client"
+                        remote
                         clients={clients}
                         value={clientId}
                         onChange={(next) =>
@@ -254,7 +288,7 @@ export default function CrmRemindersIndex({
                         }
                         allowEmpty
                         emptyLabel="Todos los clientes"
-                        placeholder="Buscar cliente…"
+                        placeholder="Buscar por nombre, DNI o teléfono…"
                     />
                     {hasExtraFilters && (
                         <div className="flex items-center">
@@ -295,6 +329,7 @@ export default function CrmRemindersIndex({
                         )}
                         {reminderList.map((reminder) => {
                             const completed = reminder.completed_at !== null;
+                            const state = reminderState(reminder);
 
                             return (
                                 <div
@@ -321,6 +356,11 @@ export default function CrmRemindersIndex({
                                                 'Sin cliente'}
                                         </p>
                                     </div>
+                                    <span
+                                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${state.className}`}
+                                    >
+                                        {state.label}
+                                    </span>
                                     {reminder.google_event_id && (
                                         <span title="Sincronizado con Google Calendar">
                                             <CalendarCheck

@@ -21,6 +21,7 @@ export function KanbanColumn({
     onToggleTag,
     droppable = true,
     emptyLabel = 'Sin clientes en este estado.',
+    totalCount,
 }: {
     status: KanbanStatus;
     clients: KanbanClient[];
@@ -32,6 +33,7 @@ export function KanbanColumn({
     onToggleTag?: (client: KanbanClient, tagId: number) => void;
     droppable?: boolean;
     emptyLabel?: string;
+    totalCount?: number;
 }) {
     const { setNodeRef, isOver } = useDroppable({ id: status.id, disabled: !droppable });
 
@@ -49,7 +51,7 @@ export function KanbanColumn({
                     </StatusBadge>
                 </div>
                 <span className="shrink-0 rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                    {clients.length}
+                    {totalCount ?? clients.length}
                 </span>
             </div>
 

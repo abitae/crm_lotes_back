@@ -30,6 +30,7 @@ class CrmPreReservationsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutVite();
         $this->seed(TeamSeeder::class);
         $this->seed(ClientTypeSeeder::class);
         $this->seed(AdvisorLevelSeeder::class);
@@ -209,6 +210,37 @@ class CrmPreReservationsTest extends TestCase
         $this->assertDatabaseMissing('lots', [
             'id' => $lot->id,
             'client_id' => $secondClient->id,
+        ]);
+    }
+
+    public function test_store_rejects_pre_reservation_without_an_explicit_client(): void
+    {
+        Storage::fake('public');
+
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $client = Client::where('client_type_id', $ownType->id)->firstOrFail();
+        $advisor = Advisor::findOrFail($client->advisor_id);
+        $lot = Lot::whereHas('status', fn ($query) => $query->where('code', 'LIBRE'))->firstOrFail();
+
+        $this->actingAs($advisor, 'advisor');
+
+        $this->post(route('crm.lots.pre-reservations.store', $lot), [
+            'project_id' => $lot->project_id,
+            'lot_id' => $lot->id,
+            'amount' => 1500,
+            'voucher_image' => UploadedFile::fake()->image('voucher.png'),
+        ])->assertSessionHasErrors('client_id');
+
+        $this->post(route('crm.lots.pre-reservations.store', $lot), [
+            'client_id' => '',
+            'project_id' => $lot->project_id,
+            'lot_id' => $lot->id,
+            'amount' => 1500,
+            'voucher_image' => UploadedFile::fake()->image('voucher.png'),
+        ])->assertSessionHasErrors('client_id');
+
+        $this->assertDatabaseMissing('lot_pre_reservations', [
+            'lot_id' => $lot->id,
         ]);
     }
 

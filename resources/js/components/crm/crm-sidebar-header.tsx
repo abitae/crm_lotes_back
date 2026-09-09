@@ -1,5 +1,6 @@
 import { Moon, Sun } from 'lucide-react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
+import { CrmRemindersBell } from '@/components/crm/crm-reminders-bell';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAppearance } from '@/hooks/use-appearance';
@@ -19,6 +20,7 @@ export function CrmSidebarHeader({
             <div className="min-w-0 flex-1">
                 <Breadcrumbs breadcrumbs={breadcrumbs} />
             </div>
+            <CrmRemindersBell />
             <Button
                 type="button"
                 variant="ghost"

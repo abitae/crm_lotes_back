@@ -1,6 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { LayoutGrid, Pencil, PlusCircle, Search, Table as TableIcon, Trash2, Users, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AttentionTicketFormModal } from '@/components/crm/attention-tickets/attention-ticket-form-modal';
 import { ClientFormModal, type ClientFormValues } from '@/components/crm/clients/client-form-modal';
 import { ClientTagToggles, toggleTagId } from '@/components/crm/clients/client-tag-toggles';
@@ -37,6 +37,12 @@ type Props = {
         links: PaginationLink[];
     };
     kanbanClients: KanbanClient[] | null;
+    kanbanMeta: {
+        shown: number;
+        total: number;
+        limit: number;
+        counts: Record<string, number>;
+    } | null;
     view: 'kanban' | 'table';
     statuses: ClientStatus[];
     tags: ClientTag[];
@@ -62,6 +68,7 @@ const SEARCH_DEBOUNCE_MS = 400;
 export default function CrmClientsIndex({
     clients: paginated,
     kanbanClients,
+    kanbanMeta,
     view,
     statuses,
     tags,
@@ -177,6 +184,13 @@ export default function CrmClientsIndex({
     const modalClientOptions = kanbanClients ?? paginated.data;
     const reminderClientOptions: Option[] = modalClientOptions.map((c) => ({ id: c.id, name: c.name }));
     const ticketClientOptions = modalClientOptions.map((c) => ({ id: c.id, name: c.name, dni: c.dni }));
+    const kanbanCounts = useMemo(
+        () =>
+            Object.fromEntries(
+                Object.entries(kanbanMeta?.counts ?? {}).map(([key, value]) => [Number(key), value]),
+            ),
+        [kanbanMeta],
+    );
 
     return (
         <CrmLayout breadcrumbs={breadcrumbs}>
@@ -351,16 +365,27 @@ export default function CrmClientsIndex({
                             }
                         />
                     ) : (
-                    <KanbanBoard
-                        clients={kanbanClients ?? []}
-                        statuses={statuses}
-                        availableTags={tags}
-                        onViewClient={(client) => router.visit(clients.show(client.id).url)}
-                        onEditClient={openEditModal}
-                        onCreateReminder={openReminderModal}
-                        onCreateTicket={openTicketModal}
-                        onToggleTag={toggleClientTag}
-                    />
+                    <>
+                        {kanbanMeta && kanbanMeta.shown < kanbanMeta.total ? (
+                            <p className="text-sm text-muted-foreground">
+                                Mostrando {kanbanMeta.shown.toLocaleString('es-PE')} de{' '}
+                                {kanbanMeta.total.toLocaleString('es-PE')} clientes. El tablero tiene un
+                                tope de {kanbanMeta.limit}. Usa la búsqueda o la vista tabla para ver el
+                                resto; los números de cada columna sí cuentan toda la cartera filtrada.
+                            </p>
+                        ) : null}
+                        <KanbanBoard
+                            clients={kanbanClients ?? []}
+                            statuses={statuses}
+                            availableTags={tags}
+                            counts={kanbanCounts}
+                            onViewClient={(client) => router.visit(clients.show(client.id).url)}
+                            onEditClient={openEditModal}
+                            onCreateReminder={openReminderModal}
+                            onCreateTicket={openTicketModal}
+                            onToggleTag={toggleClientTag}
+                        />
+                    </>
                     )
                 ) : (
                     <>

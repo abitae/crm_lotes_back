@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Crm;
 
 use App\Http\Controllers\Controller;
 use App\Models\Inmopro\Advisor;
-use App\Models\Inmopro\Client;
 use App\Models\Inmopro\Lot;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,10 +11,8 @@ use Inertia\Response;
 
 class LotController extends Controller
 {
-    public function show(Request $request, Lot $lot): Response
+    public function show(Lot $lot): Response
     {
-        /** @var Advisor $advisor */
-        $advisor = $request->user('advisor');
         $lot->load(['project', 'status']);
 
         abort_unless($lot->project?->is_active, 404);
@@ -38,11 +35,6 @@ class LotController extends Controller
                 ] : null,
                 'can_pre_reserve' => $lot->status?->code === 'LIBRE',
             ],
-            'clients' => Client::query()
-                ->where('advisor_id', $advisor->id)
-                ->whereHas('type', fn ($query) => $query->whereIn('code', ['PROPIO', 'DATERO']))
-                ->orderBy('name')
-                ->get(['id', 'name', 'dni']),
         ]);
     }
 

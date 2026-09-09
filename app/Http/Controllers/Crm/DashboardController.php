@@ -69,6 +69,7 @@ class DashboardController extends Controller
             ->count();
 
         $clientCountsByStatus = $this->clientCountsByStatusForAdvisor($advisorId);
+        $unassignedClientsCount = (clone $visibleClients)->whereNull('client_status_id')->count();
 
         $metaConnected = $advisor->metaConnection?->isActive() ?? false;
         $metaStats = null;
@@ -105,7 +106,17 @@ class DashboardController extends Controller
                 'color' => $status->color,
                 'count' => $clientCountsByStatus->get($status->id, 0),
             ])
-            ->all();
+            ->values();
+
+        if ($unassignedClientsCount > 0) {
+            $clientsByStatus->prepend([
+                'id' => 0,
+                'code' => 'SIN_ESTADO',
+                'name' => 'Sin estado',
+                'color' => '#94a3b8',
+                'count' => $unassignedClientsCount,
+            ]);
+        }
 
         return Inertia::render('crm/dashboard/index', [
             'kpis' => [
@@ -114,7 +125,7 @@ class DashboardController extends Controller
                     'propio' => $propioClientsCount,
                     'datero' => $dateroClientsCount,
                 ],
-                'clients_by_status' => $clientsByStatus,
+                'clients_by_status' => $clientsByStatus->all(),
                 'pre_reservations' => [
                     'active' => $preReservationActive,
                     'pending' => $preReservationPending,

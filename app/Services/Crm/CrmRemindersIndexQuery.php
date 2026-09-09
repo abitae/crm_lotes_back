@@ -18,7 +18,7 @@ class CrmRemindersIndexQuery
     /**
      * @var list<string>
      */
-    public const PERIODS = ['hoy', 'proximos', 'pasados'];
+    public const PERIODS = ['pendientes', 'hoy', 'proximos', 'pasados'];
 
     public const DEFAULT_PER_PAGE = 20;
 
@@ -43,8 +43,16 @@ class CrmRemindersIndexQuery
      */
     public function applyOrdering(Builder $query, Request $request): void
     {
-        if ($this->period($request) === 'pasados') {
+        $period = $this->period($request);
+
+        if ($period === 'pasados') {
             $query->orderByDesc('remind_at')->orderByDesc('id');
+
+            return;
+        }
+
+        if ($period === 'pendientes') {
+            $query->orderBy('remind_at')->orderBy('id');
 
             return;
         }
@@ -87,6 +95,7 @@ class CrmRemindersIndexQuery
         $todayEnd = now()->endOfDay();
 
         match ($period) {
+            'pendientes' => $query->whereNull('completed_at'),
             'proximos' => $query->where('remind_at', '>', $todayEnd),
             'pasados' => $query->where('remind_at', '<', $todayStart),
             default => $query->whereBetween('remind_at', [$todayStart, $todayEnd]),

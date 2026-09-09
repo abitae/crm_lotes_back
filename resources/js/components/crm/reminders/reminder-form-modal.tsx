@@ -55,7 +55,7 @@ export function ReminderFormModal({
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } =
         useForm({
-            client_id: clients[0]?.id ?? ('' as number | ''),
+            client_id: '' as number | '',
             title: '',
             notes: '',
             remind_at: '',
@@ -68,9 +68,7 @@ export function ReminderFormModal({
 
         clearErrors();
         setData({
-            client_id: reminder
-                ? (reminder.client_id ?? '')
-                : (clients[0]?.id ?? ''),
+            client_id: reminder ? (reminder.client_id ?? '') : '',
             title: reminder?.title ?? '',
             notes: reminder?.notes ?? '',
             remind_at: reminder?.remind_at
@@ -117,6 +115,7 @@ export function ReminderFormModal({
                         <div className="mt-1">
                             <ClientSearchSelect
                                 id="reminder-client_id"
+                                remote
                                 clients={clients}
                                 value={data.client_id}
                                 onChange={(next) => setData('client_id', next)}
@@ -126,7 +125,7 @@ export function ReminderFormModal({
                                         ? 'Sin cliente (Google)'
                                         : 'Seleccionar…'
                                 }
-                                placeholder="Buscar cliente…"
+                                placeholder="Buscar por nombre, DNI o teléfono…"
                                 required={mode === 'create'}
                             />
                         </div>

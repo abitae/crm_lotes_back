@@ -1,4 +1,4 @@
-import type { Auth } from '@/types/auth';
+import type { Auth, PendingRemindersShared } from '@/types/auth';
 
 declare module '@inertiajs/core' {
     export interface InertiaConfig {
@@ -7,6 +7,7 @@ declare module '@inertiajs/core' {
             brandingLogoUrl: string | null;
             auth: Auth;
             sidebarOpen: boolean;
+            pendingReminders?: PendingRemindersShared;
             [key: string]: unknown;
         };
     }

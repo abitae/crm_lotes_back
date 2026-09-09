@@ -305,4 +305,55 @@ class CrmClientsScopingTest extends TestCase
 
         $this->assertTrue($client->fresh()->tags->contains('id', $tag->id));
     }
+
+    public function test_client_search_is_scoped_and_matches_name_dni_and_phone(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $otherAdvisor = Advisor::query()->whereKeyNot($advisor->id)->firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+
+        Client::create([
+            'name' => 'Zulema Perez',
+            'dni' => '44556677',
+            'phone' => '999111222',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+        ]);
+
+        Client::create([
+            'name' => 'Zulema Ajena',
+            'dni' => '44556678',
+            'phone' => '999111223',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $otherAdvisor->id,
+            'city_id' => $city->id,
+        ]);
+
+        $this->actingAs($advisor, 'advisor');
+
+        $this->getJson(route('crm.clients.search'))
+            ->assertOk()
+            ->assertExactJson([]);
+
+        $this->getJson(route('crm.clients.search', ['q' => 'Z']))
+            ->assertOk()
+            ->assertExactJson([]);
+
+        $this->getJson(route('crm.clients.search', ['q' => 'Zu']))
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.name', 'Zulema Perez');
+
+        $this->getJson(route('crm.clients.search', ['q' => '44556677']))
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.dni', '44556677');
+
+        $this->getJson(route('crm.clients.search', ['q' => '999111222']))
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.phone', '999111222');
+    }
 }

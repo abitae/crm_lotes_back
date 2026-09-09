@@ -6,7 +6,7 @@ import { StatusBadge } from '@/components/crm/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
-import { formatMoney } from '@/lib/crm-format';
+import { formatArea, formatMoney } from '@/lib/crm-format';
 import type { BreadcrumbItem } from '@/types';
 
 type LotDetail = {
@@ -20,9 +20,7 @@ type LotDetail = {
     can_pre_reserve: boolean;
 };
 
-type ClientOption = { id: number; name: string; dni: string | null };
-
-export default function CrmLotsShow({ lot, clients }: { lot: LotDetail; clients: ClientOption[] }) {
+export default function CrmLotsShow({ lot }: { lot: LotDetail }) {
     const [modalOpen, setModalOpen] = useState(false);
     const title = `Mz. ${lot.block ?? '—'} Lt. ${lot.number ?? '—'}`;
     const breadcrumbs: BreadcrumbItem[] = [
@@ -49,7 +47,7 @@ export default function CrmLotsShow({ lot, clients }: { lot: LotDetail; clients:
                     <CardContent className="space-y-3 p-5 text-sm">
                         <p>
                             <span className="text-muted-foreground">Área: </span>
-                            {lot.area ?? '—'} m²
+                            {formatArea(lot.area)}
                         </p>
                         <p>
                             <span className="text-muted-foreground">Precio: </span>
@@ -75,10 +73,10 @@ export default function CrmLotsShow({ lot, clients }: { lot: LotDetail; clients:
                         id: lot.id,
                         block: lot.block,
                         number: lot.number,
+                        area: lot.area,
                         price: lot.price,
                         project: lot.project,
                     }}
-                    clients={clients}
                 />
             )}
         </CrmLayout>

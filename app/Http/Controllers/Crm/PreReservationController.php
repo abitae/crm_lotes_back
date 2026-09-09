@@ -44,30 +44,22 @@ class PreReservationController extends Controller
         ]);
     }
 
-    public function create(Request $request, Lot $lot): Response
+    public function create(Lot $lot): Response
     {
-        /** @var Advisor $advisor */
-        $advisor = $request->user('advisor');
         $lot->load(['project', 'status']);
 
         abort_unless($lot->project?->is_active, 404);
         abort_unless($lot->status?->code === 'LIBRE', 422, 'La unidad no está disponible para pre-reserva.');
-
-        $clients = Client::query()
-            ->where('advisor_id', $advisor->id)
-            ->whereHas('type', fn ($query) => $query->whereIn('code', ['PROPIO', 'DATERO']))
-            ->orderBy('name')
-            ->get(['id', 'name', 'dni']);
 
         return Inertia::render('crm/pre-reservations/create', [
             'lot' => [
                 'id' => $lot->id,
                 'block' => $lot->block,
                 'number' => $lot->number,
+                'area' => $lot->area,
                 'price' => $lot->price,
                 'project' => ['id' => $lot->project->id, 'name' => $lot->project->name],
             ],
-            'clients' => $clients,
         ]);
     }
 

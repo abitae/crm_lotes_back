@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { FileCheck, X } from 'lucide-react';
 import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
 import { EmptyState } from '@/components/crm/empty-state';
@@ -120,6 +120,13 @@ export default function CrmPreReservationsIndex({ preReservations, filters }: Pr
                                     hasActiveFilters
                                         ? 'Prueba ajustando o limpiando los filtros aplicados.'
                                         : 'Abre un lote disponible y registra una pre-reserva para verla aquí.'
+                                }
+                                action={
+                                    !hasActiveFilters ? (
+                                        <Button size="sm" asChild>
+                                            <Link href="/crm/projects">Ver proyectos</Link>
+                                        </Button>
+                                    ) : undefined
                                 }
                             />
                         ) : (

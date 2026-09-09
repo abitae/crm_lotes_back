@@ -18,13 +18,24 @@ class StorePreReservationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'client_id' => ['required', 'exists:clients,id'],
+            'client_id' => ['required', 'integer', 'min:1', 'exists:clients,id'],
             'project_id' => ['required', 'exists:projects,id'],
             'lot_id' => ['required', 'exists:lots,id'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'voucher_image' => ['required', 'image', 'max:5120'],
             'payment_reference' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:1000'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'client_id.required' => 'Selecciona un cliente. No se registra una pre-reserva sin comprador.',
+            'client_id.min' => 'Selecciona un cliente. No se registra una pre-reserva sin comprador.',
         ];
     }
 }

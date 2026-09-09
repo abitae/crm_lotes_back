@@ -62,7 +62,7 @@ class CrmClientsIndexQuery
             })
             ->when($request->filled('city_id'), fn (Builder $builder) => $builder->where('city_id', $request->integer('city_id')))
             ->when($request->filled('search'), function (Builder $builder) use ($request): void {
-                $this->applySearch($builder, (string) $request->input('search'));
+                $this->applySearchTerm($builder, (string) $request->input('search'));
             });
 
         $createdFrom = $this->parseDateInput($request->input('created_from'));
@@ -138,7 +138,7 @@ class CrmClientsIndexQuery
     /**
      * @param  Builder<Client>  $query
      */
-    private function applySearch(Builder $query, string $term): void
+    public function applySearchTerm(Builder $query, string $term): void
     {
         $trimmedTerm = trim($term);
         $numericTerm = preg_replace('/\D+/', '', $trimmedTerm) ?? '';

@@ -23,6 +23,7 @@ class CrmLotsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutVite();
         $this->seed(TeamSeeder::class);
         $this->seed(ClientTypeSeeder::class);
         $this->seed(CitySeeder::class);

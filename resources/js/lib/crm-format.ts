@@ -1,6 +1,8 @@
 const moneyFormatter = new Intl.NumberFormat('es-PE', {
     currency: 'PEN',
-    maximumFractionDigits: 0,
+    currencyDisplay: 'narrowSymbol',
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
     style: 'currency',
 });
 
@@ -28,6 +30,20 @@ export function formatMoney(value: string | number | null | undefined): string {
     const amount = Number(value);
 
     return Number.isFinite(amount) ? moneyFormatter.format(amount) : '—';
+}
+
+export function formatArea(value: string | number | null | undefined): string {
+    if (value === null || value === undefined || value === '') {
+        return '—';
+    }
+
+    const area = Number(value);
+
+    if (!Number.isFinite(area)) {
+        return '—';
+    }
+
+    return `${area.toLocaleString('es-PE', { maximumFractionDigits: 2 })} m²`;
 }
 
 export function formatDate(value: string | null | undefined): string {

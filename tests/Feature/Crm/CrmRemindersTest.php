@@ -210,6 +210,47 @@ class CrmRemindersTest extends TestCase
                 ->where('filters.period', 'proximos'));
     }
 
+    public function test_pendientes_period_lists_incomplete_reminders_across_days(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $client = $this->createClientForAdvisor($advisor);
+
+        AdvisorReminder::create([
+            'advisor_id' => $advisor->id,
+            'client_id' => $client->id,
+            'title' => 'Ayer',
+            'remind_at' => now()->subDay(),
+        ]);
+        AdvisorReminder::create([
+            'advisor_id' => $advisor->id,
+            'client_id' => $client->id,
+            'title' => 'Hoy',
+            'remind_at' => now(),
+        ]);
+        AdvisorReminder::create([
+            'advisor_id' => $advisor->id,
+            'client_id' => $client->id,
+            'title' => 'Mañana',
+            'remind_at' => now()->addDay(),
+        ]);
+        AdvisorReminder::create([
+            'advisor_id' => $advisor->id,
+            'client_id' => $client->id,
+            'title' => 'Hecho',
+            'remind_at' => now()->subHour(),
+            'completed_at' => now(),
+        ]);
+
+        $this->actingAs($advisor, 'advisor');
+
+        $this->get(route('crm.reminders.index', ['period' => 'pendientes']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('reminders.data', 3)
+                ->where('filters.period', 'pendientes')
+                ->where('reminders.data', fn ($rows) => collect($rows)->pluck('title')->sort()->values()->all() === ['Ayer', 'Hoy', 'Mañana']));
+    }
+
     public function test_index_search_matches_title_and_client_name(): void
     {
         $advisor = Advisor::firstOrFail();

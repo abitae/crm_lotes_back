@@ -6,7 +6,7 @@ import { StatusBadge } from '@/components/crm/status-badge';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Card, CardContent } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
-import { formatMoney } from '@/lib/crm-format';
+import { formatArea, formatMoney } from '@/lib/crm-format';
 import { crmTableCellClass, crmTableHeadClass, crmTableRowClass } from '@/lib/crm-ui';
 import lots from '@/routes/crm/lots';
 import type { BreadcrumbItem } from '@/types';
@@ -73,7 +73,7 @@ export default function CrmLotsIndex({ lots: lotsPage }: { lots: LotsPage }) {
                                                     </Link>
                                                 </td>
                                                 <td className={`hidden ${crmTableCellClass} md:table-cell`}>
-                                                    {lot.area ?? '—'}
+                                                    {formatArea(lot.area)}
                                                 </td>
                                                 <td className={crmTableCellClass}>{formatMoney(lot.price)}</td>
                                                 <td className={crmTableCellClass}>

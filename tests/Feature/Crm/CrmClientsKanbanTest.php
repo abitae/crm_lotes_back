@@ -23,6 +23,7 @@ class CrmClientsKanbanTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutVite();
         $this->seed(TeamSeeder::class);
         $this->seed(ClientTypeSeeder::class);
         $this->seed(ClientStatusSeeder::class);
@@ -114,12 +115,88 @@ class CrmClientsKanbanTest extends TestCase
         ])->assertSessionHasErrors('client_status_id');
     }
 
-    private function createClientForAdvisor(Advisor $advisor, string $typeCode = 'PROPIO'): Client
+    public function test_kanban_reports_column_counts_including_unassigned(): void
+    {
+        $this->withoutVite();
+
+        $advisor = Advisor::firstOrFail();
+        $status = ClientStatus::query()->forAdvisor($advisor->id)->where('is_active', true)->firstOrFail();
+
+        for ($i = 0; $i < 2; $i++) {
+            $this->createClientForAdvisor($advisor, 'PROPIO', [
+                'name' => 'Con estado '.$i,
+                'dni' => (string) (81100000 + $i),
+                'phone' => '97700000'.$i,
+                'email' => 'kanban-status-'.$i.'@test.com',
+                'client_status_id' => $status->id,
+            ]);
+        }
+
+        $this->createClientForAdvisor($advisor, 'PROPIO', [
+            'name' => 'Sin estado',
+            'dni' => '81100099',
+            'phone' => '977000099',
+            'email' => 'kanban-unassigned@test.com',
+        ]);
+
+        $this->actingAs($advisor, 'advisor');
+
+        $this->get(route('crm.clients.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('kanbanMeta.total', 3)
+                ->where('kanbanMeta.shown', 3)
+                ->where('kanbanMeta.counts.0', 1)
+                ->where('kanbanMeta.counts.'.$status->id, 2));
+    }
+
+    public function test_kanban_render_limit_does_not_change_reported_total(): void
+    {
+        $this->withoutVite();
+
+        $advisor = Advisor::firstOrFail();
+        $type = ClientType::query()->where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+        $now = now();
+
+        $rows = [];
+        for ($i = 0; $i < 301; $i++) {
+            $rows[] = [
+                'name' => sprintf('Cliente tope %03d', $i),
+                'dni' => (string) (83000000 + $i),
+                'phone' => '912'.str_pad((string) $i, 6, '0', STR_PAD_LEFT),
+                'client_type_id' => $type->id,
+                'city_id' => $city->id,
+                'advisor_id' => $advisor->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        foreach (array_chunk($rows, 100) as $chunk) {
+            Client::query()->insert($chunk);
+        }
+
+        $this->actingAs($advisor, 'advisor');
+
+        $this->get(route('crm.clients.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('kanbanMeta.total', 301)
+                ->where('kanbanMeta.shown', 300)
+                ->where('kanbanMeta.limit', 300)
+                ->has('kanbanClients', 300));
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    private function createClientForAdvisor(Advisor $advisor, string $typeCode = 'PROPIO', array $overrides = []): Client
     {
         $type = ClientType::query()->where('code', $typeCode)->firstOrFail();
         $city = City::firstOrFail();
 
-        return Client::create([
+        return Client::create(array_merge([
             'name' => 'Cliente kanban test',
             'dni' => (string) (81000000 + $advisor->id),
             'phone' => '988888888',
@@ -127,6 +204,6 @@ class CrmClientsKanbanTest extends TestCase
             'client_type_id' => $type->id,
             'city_id' => $city->id,
             'advisor_id' => $advisor->id,
-        ]);
+        ], $overrides));
     }
 }

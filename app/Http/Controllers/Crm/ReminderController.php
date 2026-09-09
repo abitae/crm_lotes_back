@@ -12,6 +12,7 @@ use App\Services\Crm\CrmRemindersIndexQuery;
 use App\Services\Inmopro\ClientCrmService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -42,11 +43,7 @@ class ReminderController extends Controller
 
         return Inertia::render('crm/reminders/index', [
             'reminders' => $reminders,
-            'clients' => Client::query()
-                ->where('advisor_id', $advisor->id)
-                ->whereHas('type', fn ($query) => $query->whereIn('code', ['PROPIO', 'DATERO']))
-                ->orderBy('name')
-                ->get(['id', 'name']),
+            'clients' => $this->filterClientsForIndex($advisor, $request),
             'filters' => $this->remindersIndexQuery->filtersFromRequest($request),
         ]);
     }
@@ -182,5 +179,23 @@ class ReminderController extends Controller
             ->where('advisor_id', $advisor->id)
             ->whereHas('type', fn ($query) => $query->whereIn('code', ['PROPIO', 'DATERO']))
             ->first();
+    }
+
+    /**
+     * Seed the client picker with the currently filtered client only.
+     * Full search goes through GET /crm/clients/search so the page does not
+     * preload the entire cartera.
+     *
+     * @return Collection<int, Client>
+     */
+    private function filterClientsForIndex(Advisor $advisor, Request $request)
+    {
+        $clientId = $request->filled('client_id') ? $request->integer('client_id') : 0;
+
+        if ($clientId < 1 || ! $this->ownedOperationalClient($advisor, $clientId)) {
+            return collect();
+        }
+
+        return Client::query()->whereKey($clientId)->get(['id', 'name', 'dni', 'phone']);
     }
 }

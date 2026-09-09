@@ -18,6 +18,7 @@ use App\Models\Inmopro\Project;
 use App\Services\Crm\CrmClientsIndexQuery;
 use App\Services\Inmopro\ClientCrmService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -53,6 +54,7 @@ class ClientController extends Controller
         // load no longer also runs the full kanban query (and vice versa).
         $clients = ['data' => [], 'links' => []];
         $kanbanClients = null;
+        $kanbanMeta = null;
 
         if ($view === 'table') {
             $query = $this->advisorVisibleClientsQuery($advisor);
@@ -66,17 +68,34 @@ class ClientController extends Controller
         } else {
             $query = $this->advisorVisibleClientsQuery($advisor);
             $this->clientsIndexQuery->apply($query, $request);
+
+            $kanbanTotal = (clone $query)->count();
+            $kanbanCounts = (clone $query)
+                ->reorder()
+                ->selectRaw('COALESCE(client_status_id, 0) as status_key, COUNT(*) as aggregate')
+                ->groupByRaw('COALESCE(client_status_id, 0)')
+                ->pluck('aggregate', 'status_key')
+                ->mapWithKeys(fn ($count, $key): array => [(int) $key => (int) $count]);
+
             $this->clientsIndexQuery->applyDefaultOrdering($query);
 
             $kanbanClients = $query
                 ->with(['type:id,code,name', 'status:id,code,name,color', 'tags:id,code,name,color'])
                 ->limit(self::KANBAN_MAX_CLIENTS)
                 ->get(self::CLIENT_ROW_COLUMNS);
+
+            $kanbanMeta = [
+                'shown' => $kanbanClients->count(),
+                'total' => $kanbanTotal,
+                'limit' => self::KANBAN_MAX_CLIENTS,
+                'counts' => (object) $kanbanCounts->all(),
+            ];
         }
 
         return Inertia::render('crm/clients/index', [
             'clients' => $clients,
             'kanbanClients' => $kanbanClients,
+            'kanbanMeta' => $kanbanMeta,
             'view' => $view,
             'statuses' => ClientStatus::query()
                 ->forAdvisor($advisor->id)
@@ -94,6 +113,28 @@ class ClientController extends Controller
             'perPageOptions' => CrmClientsIndexQuery::PER_PAGE_OPTIONS,
             'filters' => $this->clientsIndexQuery->filtersFromRequest($request),
         ]);
+    }
+
+    public function search(Request $request): JsonResponse
+    {
+        /** @var Advisor $advisor */
+        $advisor = $request->user('advisor');
+        $term = trim((string) $request->query('q', ''));
+
+        if (mb_strlen($term) < 2) {
+            return response()->json([]);
+        }
+
+        $query = $this->advisorVisibleClientsQuery($advisor);
+        $this->clientsIndexQuery->applySearchTerm($query, $term);
+
+        $clients = $query
+            ->orderBy('name')
+            ->orderBy('id')
+            ->limit(20)
+            ->get(['id', 'name', 'dni', 'phone']);
+
+        return response()->json($clients);
     }
 
     public function create(): Response

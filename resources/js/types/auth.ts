@@ -27,6 +27,18 @@ export type Auth = {
     advisor?: Advisor | null;
 };
 
+export type PendingReminderItem = {
+    id: number;
+    title: string;
+    remind_at: string | null;
+    client: { id: number; name: string } | null;
+};
+
+export type PendingRemindersShared = {
+    count: number;
+    items: PendingReminderItem[];
+};
+
 export type TwoFactorSetupData = {
     svg: string;
     url: string;

@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\GoogleAccount;
 use App\Models\Inmopro\Advisor;
+use App\Models\Inmopro\AdvisorReminder;
 use App\Services\Crm\AdvisorCrmCatalogService;
 use App\Services\Meta\MetaOAuthService;
 use Closure;
@@ -86,6 +87,44 @@ class ShareCrmInertiaData
             }
 
             return app(MetaOAuthService::class)->statusForAdvisor($advisor);
+        });
+
+        Inertia::share('pendingReminders', function () use ($request): array {
+            /** @var Advisor|null $advisor */
+            $advisor = $request->user('advisor');
+
+            if (! $advisor) {
+                return [
+                    'count' => 0,
+                    'items' => [],
+                ];
+            }
+
+            $query = AdvisorReminder::query()
+                ->where('advisor_id', $advisor->id)
+                ->visibleForAdvisor()
+                ->pending();
+
+            $items = (clone $query)
+                ->with('client:id,name')
+                ->orderBy('remind_at')
+                ->limit(8)
+                ->get(['id', 'title', 'remind_at', 'client_id']);
+
+            return [
+                'count' => (clone $query)->count(),
+                'items' => $items
+                    ->map(fn (AdvisorReminder $reminder): array => [
+                        'id' => $reminder->id,
+                        'title' => $reminder->title,
+                        'remind_at' => $reminder->remind_at?->toIso8601String(),
+                        'client' => $reminder->client ? [
+                            'id' => $reminder->client->id,
+                            'name' => $reminder->client->name,
+                        ] : null,
+                    ])
+                    ->all(),
+            ];
         });
 
         return $next($request);

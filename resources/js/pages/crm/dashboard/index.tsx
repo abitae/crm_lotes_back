@@ -154,7 +154,8 @@ export default function CrmDashboard({ kpis }: { kpis: Kpis }) {
                         label="Recordatorios pendientes"
                         value={kpis.reminders_pending}
                         icon={CalendarClock}
-                        href="/crm/reminders"
+                        href="/crm/reminders?period=pendientes"
+                        hint="No completados, incluidos vencidos"
                     />
                 </div>
 

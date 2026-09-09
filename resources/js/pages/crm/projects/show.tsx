@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/crm/empty-state';
 import { StatusBadge } from '@/components/crm/status-badge';
 import { Card, CardContent } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
-import { formatMoney } from '@/lib/crm-format';
+import { formatArea, formatMoney } from '@/lib/crm-format';
 import { crmTableCellClass, crmTableHeadClass, crmTableRowClass } from '@/lib/crm-ui';
 import lots from '@/routes/crm/lots';
 import type { BreadcrumbItem } from '@/types';
@@ -77,7 +77,7 @@ export default function CrmProjectsShow({ project, lots: lotList }: { project: P
                                                     </Link>
                                                 </td>
                                                 <td className={`hidden ${crmTableCellClass} md:table-cell`}>
-                                                    {lot.area ?? '—'}
+                                                    {formatArea(lot.area)}
                                                 </td>
                                                 <td className={crmTableCellClass}>{formatMoney(lot.price)}</td>
                                                 <td className={crmTableCellClass}>

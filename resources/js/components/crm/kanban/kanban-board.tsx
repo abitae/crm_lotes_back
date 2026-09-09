@@ -46,6 +46,7 @@ export function KanbanBoard({
     clients,
     statuses,
     availableTags = [],
+    counts,
     onViewClient,
     onEditClient,
     onCreateReminder,
@@ -55,6 +56,7 @@ export function KanbanBoard({
     clients: KanbanClient[];
     statuses: KanbanStatus[];
     availableTags?: { id: number; name: string; color: string | null }[];
+    counts?: Record<number, number>;
     onViewClient?: (client: KanbanClient) => void;
     onEditClient: (client: KanbanClient) => void;
     onCreateReminder: (client: KanbanClient) => void;
@@ -62,13 +64,14 @@ export function KanbanBoard({
     onToggleTag?: (client: KanbanClient, tagId: number) => void;
 }) {
     const [columns, setColumns] = useState<ColumnsState>(() => groupByStatus(clients, statuses));
+    const [columnCounts, setColumnCounts] = useState<Record<number, number>>(() => counts ?? {});
     const [activeClient, setActiveClient] = useState<KanbanClient | null>(null);
-    const snapshotRef = useRef<ColumnsState | null>(null);
+    const snapshotRef = useRef<{ columns: ColumnsState; counts: Record<number, number> } | null>(null);
 
     useEffect(() => {
         setColumns(groupByStatus(clients, statuses));
-         
-    }, [clients, statuses]);
+        setColumnCounts(counts ?? {});
+    }, [clients, statuses, counts]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -112,7 +115,7 @@ export function KanbanBoard({
             return;
         }
 
-        snapshotRef.current = columns;
+        snapshotRef.current = { columns, counts: columnCounts };
 
         setColumns((prev) => {
             const next: ColumnsState = {};
@@ -126,6 +129,13 @@ export function KanbanBoard({
             return next;
         });
 
+        const sourceStatusId = client.client_status_id ?? UNASSIGNED_COLUMN_ID;
+        setColumnCounts((prev) => ({
+            ...prev,
+            [sourceStatusId]: Math.max(0, (prev[sourceStatusId] ?? 0) - 1),
+            [targetStatusId]: (prev[targetStatusId] ?? 0) + 1,
+        }));
+
         router.patch(
             clientsCrm.update(clientId).url,
             { client_status_id: targetStatusId },
@@ -134,7 +144,8 @@ export function KanbanBoard({
                 preserveState: true,
                 onError: () => {
                     if (snapshotRef.current) {
-                        setColumns(snapshotRef.current);
+                        setColumns(snapshotRef.current.columns);
+                        setColumnCounts(snapshotRef.current.counts);
                     }
                 },
             },
@@ -144,10 +155,12 @@ export function KanbanBoard({
     return (
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="flex gap-3 overflow-x-auto pb-2">
-                {columns[UNASSIGNED_COLUMN_ID]?.length > 0 && (
+                {((columnCounts[UNASSIGNED_COLUMN_ID] ?? 0) > 0 ||
+                    (columns[UNASSIGNED_COLUMN_ID]?.length ?? 0) > 0) && (
                     <KanbanColumn
                         status={UNASSIGNED_STATUS}
-                        clients={columns[UNASSIGNED_COLUMN_ID]}
+                        clients={columns[UNASSIGNED_COLUMN_ID] ?? []}
+                        totalCount={columnCounts[UNASSIGNED_COLUMN_ID]}
                         availableTags={availableTags}
                         onViewClient={onViewClient}
                         onEditClient={onEditClient}
@@ -155,7 +168,7 @@ export function KanbanBoard({
                         onCreateTicket={onCreateTicket}
                         onToggleTag={handleToggleTag}
                         droppable={false}
-                        emptyLabel="Todos los clientes tienen una etapa asignada."
+                        emptyLabel="Hay clientes sin etapa que no caben en este tablero. Usa la búsqueda o la vista tabla."
                     />
                 )}
                 {statuses.map((status) => (
@@ -163,6 +176,7 @@ export function KanbanBoard({
                         key={status.id}
                         status={status}
                         clients={columns[status.id] ?? []}
+                        totalCount={columnCounts[status.id]}
                         availableTags={availableTags}
                         onViewClient={onViewClient}
                         onEditClient={onEditClient}
