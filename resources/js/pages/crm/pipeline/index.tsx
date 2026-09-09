@@ -113,10 +113,6 @@ function CatalogList({
             return;
         }
 
-        const { router } = await import('@inertiajs/react');
-
-        const { router } = await import('@inertiajs/react');
-
         if (kind === 'status') {
             router.delete(pipeline.statuses.destroy(item.id).url);
         } else {
