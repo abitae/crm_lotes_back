@@ -3,14 +3,22 @@
 namespace App\Http\Controllers\Api\v1\Cazador;
 
 use App\Http\Controllers\Controller;
+use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\ClientStatus;
+use App\Services\Crm\AdvisorCrmCatalogService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ClientStatusController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request, AdvisorCrmCatalogService $catalog): JsonResponse
     {
+        /** @var Advisor $advisor */
+        $advisor = $request->attributes->get('advisor');
+        $catalog->ensureDefaults($advisor);
+
         $statuses = ClientStatus::query()
+            ->forAdvisor($advisor->id)
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('name')

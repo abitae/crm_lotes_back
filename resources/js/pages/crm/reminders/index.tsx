@@ -1,15 +1,31 @@
-import { Head, router } from '@inertiajs/react';
-import { Bell, CheckCircle2, Pencil, PlusCircle, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { Head, router, usePage } from '@inertiajs/react';
+import {
+    Bell,
+    CalendarCheck,
+    CheckCircle2,
+    Pencil,
+    PlusCircle,
+    Search,
+    Trash2,
+    X,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ClientSearchSelect } from '@/components/crm/clients/client-search-select';
 import { EmptyState } from '@/components/crm/empty-state';
-import { ReminderFormModal, type ReminderFormValues } from '@/components/crm/reminders/reminder-form-modal';
+import {
+    ReminderFormModal,
+    type ReminderFormValues,
+} from '@/components/crm/reminders/reminder-form-modal';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { useDebounce } from '@/hooks/use-debounce';
 import CrmLayout from '@/layouts/crm/crm-layout';
 import { confirmDelete } from '@/lib/swal';
+import { startOauthRedirect } from '@/lib/utils';
+import type { Auth, BreadcrumbItem } from '@/types';
 import reminders from '@/routes/crm/reminders';
-import type { BreadcrumbItem } from '@/types';
 
 type ReminderRow = {
     id: number;
@@ -18,24 +34,131 @@ type ReminderRow = {
     remind_at: string;
     completed_at: string | null;
     client: { id: number; name: string } | null;
-    client_id: number;
+    client_id: number | null;
+    google_event_id: string | null;
+    source: string | null;
 };
 
 type ClientOption = { id: number; name: string };
 
-const breadcrumbs: BreadcrumbItem[] = [{ title: 'Recordatorios', href: '/crm/reminders' }];
+type Period = 'hoy' | 'proximos' | 'pasados';
+
+type Filters = {
+    period?: string;
+    search?: string;
+    client_id?: string;
+};
+
+type GoogleShared = {
+    connected: boolean;
+    calendar_connected: boolean;
+};
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Recordatorios', href: '/crm/reminders' },
+];
+const SEARCH_DEBOUNCE_MS = 400;
+
+const PERIODS: { id: Period; label: string }[] = [
+    { id: 'hoy', label: 'Hoy' },
+    { id: 'proximos', label: 'Próximos' },
+    { id: 'pasados', label: 'Pasados' },
+];
+
+function formatRemindAt(value: string, period: Period): string {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    if (period === 'hoy') {
+        return date.toLocaleTimeString('es-PE', {
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    }
+
+    return date.toLocaleString('es-PE', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
+function emptyCopy(period: Period): { title: string; description: string } {
+    if (period === 'pasados') {
+        return {
+            title: 'No hay recordatorios pasados',
+            description:
+                'Los vencidos y los de días anteriores aparecerán aquí.',
+        };
+    }
+
+    if (period === 'proximos') {
+        return {
+            title: 'No hay recordatorios próximos',
+            description: 'Los de mañana en adelante aparecerán en esta lista.',
+        };
+    }
+
+    return {
+        title: 'No tienes recordatorios para hoy',
+        description:
+            'Crea un recordatorio para no perder el seguimiento de un cliente.',
+    };
+}
 
 export default function CrmRemindersIndex({
     reminders: remindersPage,
     clients,
+    filters,
 }: {
     reminders: { data: ReminderRow[]; links: PaginationLink[] };
     clients: ClientOption[];
+    filters: Filters;
 }) {
+    const { google } = usePage<{ google: GoogleShared; auth: Auth }>().props;
+    const period = (
+        PERIODS.some((item) => item.id === filters.period)
+            ? filters.period
+            : 'hoy'
+    ) as Period;
     const reminderList = remindersPage.data;
-
+    const [search, setSearch] = useState(filters.search ?? '');
     const [modalOpen, setModalOpen] = useState(false);
-    const [editingReminder, setEditingReminder] = useState<ReminderFormValues | null>(null);
+    const [editingReminder, setEditingReminder] =
+        useState<ReminderFormValues | null>(null);
+    const isFirstRender = useRef(true);
+    const debouncedSearch = useDebounce(search, SEARCH_DEBOUNCE_MS);
+    const clientId = filters.client_id ? Number(filters.client_id) : '';
+    const hasExtraFilters = Boolean(filters.search || filters.client_id);
+
+    const navigate = (params: Record<string, unknown>) => {
+        router.get(
+            reminders.index().url,
+            { ...filters, ...params },
+            { preserveState: true, replace: true },
+        );
+    };
+
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+
+            return;
+        }
+
+        const nextSearch = debouncedSearch.trim();
+
+        if ((filters.search ?? '') === nextSearch) {
+            return;
+        }
+
+        navigate({ search: nextSearch || undefined });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [debouncedSearch]);
 
     const openCreateModal = () => {
         setEditingReminder(null);
@@ -62,73 +185,110 @@ export default function CrmRemindersIndex({
         }
     };
 
-    const pending = reminderList.filter((r) => !r.completed_at);
-    const completed = reminderList.filter((r) => r.completed_at);
+    const empty = emptyCopy(period);
 
     return (
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Recordatorios" />
 
             <div className="flex flex-col gap-4 p-6">
-                <div className="flex justify-end">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap gap-1 rounded-lg border border-border p-0.5">
+                        {PERIODS.map((item) => (
+                            <Button
+                                key={item.id}
+                                type="button"
+                                size="sm"
+                                variant={
+                                    period === item.id ? 'default' : 'ghost'
+                                }
+                                className="h-8"
+                                onClick={() => navigate({ period: item.id })}
+                            >
+                                {item.label}
+                            </Button>
+                        ))}
+                    </div>
                     <Button onClick={openCreateModal}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Nuevo recordatorio
                     </Button>
                 </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Pendientes</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                        {pending.map((reminder) => (
-                            <div
-                                key={reminder.id}
-                                className="flex items-start justify-between gap-3 rounded-lg border border-border px-4 py-3"
+                {!google.calendar_connected && (
+                    <Card>
+                        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
+                            <span className="text-muted-foreground">
+                                Conecta Google Calendar para sincronizar tus
+                                recordatorios en ambas direcciones.
+                            </span>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() =>
+                                    startOauthRedirect(
+                                        '/crm/google/calendar/connect',
+                                    )
+                                }
                             >
-                                <div className="min-w-0">
-                                    <p className="font-medium">{reminder.title}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {reminder.client?.name} · {new Date(reminder.remind_at).toLocaleString()}
-                                    </p>
-                                    {reminder.notes && (
-                                        <p className="mt-1 text-sm text-muted-foreground">{reminder.notes}</p>
-                                    )}
-                                </div>
-                                <div className="flex shrink-0 gap-1">
-                                    <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        aria-label={`Editar recordatorio: ${reminder.title}`}
-                                        onClick={() => openEditModal(reminder)}
-                                    >
-                                        <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        aria-label={`Completar recordatorio: ${reminder.title}`}
-                                        onClick={() => complete(reminder.id)}
-                                    >
-                                        <CheckCircle2 className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        aria-label={`Eliminar recordatorio: ${reminder.title}`}
-                                        onClick={() => remove(reminder.id)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
-                        {pending.length === 0 && (
+                                Conectar Calendar
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="relative">
+                        <Search className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            id="reminders-search"
+                            aria-label="Buscar recordatorios"
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Buscar por título, notas o cliente"
+                            className="pl-8"
+                        />
+                    </div>
+                    <ClientSearchSelect
+                        id="reminders-client"
+                        clients={clients}
+                        value={clientId}
+                        onChange={(next) =>
+                            navigate({ client_id: next || undefined })
+                        }
+                        allowEmpty
+                        emptyLabel="Todos los clientes"
+                        placeholder="Buscar cliente…"
+                    />
+                    {hasExtraFilters && (
+                        <div className="flex items-center">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                    setSearch('');
+                                    router.get(
+                                        reminders.index().url,
+                                        { period },
+                                        { preserveState: true, replace: true },
+                                    );
+                                }}
+                            >
+                                <X className="mr-1.5 h-3.5 w-3.5" />
+                                Limpiar filtros
+                            </Button>
+                        </div>
+                    )}
+                </div>
+
+                <Card className="gap-0 py-0">
+                    <CardContent className="divide-y divide-border p-0">
+                        {reminderList.length === 0 && (
                             <EmptyState
                                 icon={Bell}
-                                title="No tienes recordatorios pendientes"
-                                description="Crea un recordatorio para no perder el seguimiento de un cliente."
+                                title={empty.title}
+                                description={empty.description}
                                 action={
                                     <Button size="sm" onClick={openCreateModal}>
                                         <PlusCircle className="mr-2 h-4 w-4" />
@@ -137,24 +297,82 @@ export default function CrmRemindersIndex({
                                 }
                             />
                         )}
+                        {reminderList.map((reminder) => {
+                            const completed = reminder.completed_at !== null;
+
+                            return (
+                                <div
+                                    key={reminder.id}
+                                    className={`flex items-center gap-3 px-4 py-2 ${completed ? 'opacity-60' : ''}`}
+                                >
+                                    <time
+                                        dateTime={reminder.remind_at}
+                                        className="w-24 shrink-0 text-xs font-medium text-muted-foreground tabular-nums"
+                                    >
+                                        {formatRemindAt(
+                                            reminder.remind_at,
+                                            period,
+                                        )}
+                                    </time>
+                                    <div className="min-w-0 flex-1">
+                                        <p
+                                            className={`truncate text-sm font-medium ${completed ? 'line-through' : ''}`}
+                                        >
+                                            {reminder.title}
+                                        </p>
+                                        <p className="truncate text-xs text-muted-foreground">
+                                            {reminder.client?.name ??
+                                                'Sin cliente'}
+                                        </p>
+                                    </div>
+                                    {reminder.google_event_id && (
+                                        <span title="Sincronizado con Google Calendar">
+                                            <CalendarCheck
+                                                className="size-4 shrink-0 text-muted-foreground"
+                                                aria-label="Sincronizado con Google Calendar"
+                                            />
+                                        </span>
+                                    )}
+                                    <div className="flex shrink-0 gap-0.5">
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="size-7"
+                                            aria-label={`Editar recordatorio: ${reminder.title}`}
+                                            onClick={() =>
+                                                openEditModal(reminder)
+                                            }
+                                        >
+                                            <Pencil className="h-3.5 w-3.5" />
+                                        </Button>
+                                        {!completed && (
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="size-7"
+                                                aria-label={`Completar recordatorio: ${reminder.title}`}
+                                                onClick={() =>
+                                                    complete(reminder.id)
+                                                }
+                                            >
+                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                        )}
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="size-7"
+                                            aria-label={`Eliminar recordatorio: ${reminder.title}`}
+                                            onClick={() => remove(reminder.id)}
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </CardContent>
                 </Card>
-
-                {completed.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Completados</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            {completed.map((reminder) => (
-                                <div key={reminder.id} className="rounded-lg border border-border px-4 py-3 opacity-60">
-                                    <p className="font-medium line-through">{reminder.title}</p>
-                                    <p className="text-xs text-muted-foreground">{reminder.client?.name}</p>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-                )}
 
                 <Pagination links={remindersPage.links} />
             </div>

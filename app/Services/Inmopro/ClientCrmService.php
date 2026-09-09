@@ -122,6 +122,7 @@ class ClientCrmService
             $exists = ClientStatus::query()
                 ->whereKey($toStatusId)
                 ->where('is_active', true)
+                ->when($client->advisor_id, fn ($query) => $query->where('advisor_id', $client->advisor_id))
                 ->exists();
 
             if (! $exists) {
@@ -180,6 +181,7 @@ class ClientCrmService
         $validIds = ClientTag::query()
             ->whereIn('id', $uniqueIds)
             ->where('is_active', true)
+            ->when($client->advisor_id, fn ($query) => $query->where('advisor_id', $client->advisor_id))
             ->pluck('id')
             ->all();
 

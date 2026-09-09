@@ -70,8 +70,8 @@ class InboxController extends Controller
                 'q' => $request->string('q')->toString(),
                 'conversation' => $request->integer('conversation') ?: null,
             ],
-            'statuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->get(['id', 'code', 'name', 'color']),
-            'tags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->get(['id', 'code', 'name', 'color']),
+            'statuses' => ClientStatus::query()->forAdvisor($advisor->id)->where('is_active', true)->orderBy('sort_order')->get(['id', 'code', 'name', 'color']),
+            'tags' => ClientTag::query()->forAdvisor($advisor->id)->where('is_active', true)->orderBy('sort_order')->get(['id', 'code', 'name', 'color']),
             'meta' => [
                 'whatsapp' => $connection->hasWhatsApp(),
                 'messenger' => $connection->hasMessenger(),

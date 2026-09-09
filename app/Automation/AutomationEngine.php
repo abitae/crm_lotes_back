@@ -2,6 +2,7 @@
 
 namespace App\Automation;
 
+use App\Models\Inmopro\ClientStatus;
 use App\Models\Meta\MetaAutomationFlow;
 use App\Models\Meta\MetaAutomationSession;
 use App\Models\Meta\MetaAutomationStep;
@@ -145,11 +146,39 @@ class AutomationEngine
 
     private function executeSetStatus(MetaConversation $conversation, MetaAutomationStep $step): void
     {
-        $statusId = $step->config['client_status_id'] ?? null;
         $client = $conversation->client;
 
-        if ($client && $statusId) {
-            $client->update(['client_status_id' => $statusId]);
+        if (! $client) {
+            return;
+        }
+
+        $statusId = $step->config['client_status_id'] ?? null;
+        $statusCode = $step->config['client_status_code'] ?? null;
+
+        if ($statusId) {
+            $ownedId = ClientStatus::query()
+                ->forAdvisor((int) $client->advisor_id)
+                ->whereKey($statusId)
+                ->where('is_active', true)
+                ->value('id');
+
+            if ($ownedId) {
+                $client->update(['client_status_id' => $ownedId]);
+            }
+
+            return;
+        }
+
+        if (is_string($statusCode) && $statusCode !== '') {
+            $ownedId = ClientStatus::query()
+                ->forAdvisor((int) $client->advisor_id)
+                ->where('code', $statusCode)
+                ->where('is_active', true)
+                ->value('id');
+
+            if ($ownedId) {
+                $client->update(['client_status_id' => $ownedId]);
+            }
         }
     }
 }

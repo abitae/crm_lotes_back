@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { LayoutGrid, Pencil, PlusCircle, Search, Table as TableIcon, Trash2, Users, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { AttentionTicketFormModal } from '@/components/crm/attention-tickets/attention-ticket-form-modal';
@@ -332,6 +332,18 @@ export default function CrmClientsIndex({
                 )}
 
                 {view === 'kanban' ? (
+                    statuses.length === 0 ? (
+                        <EmptyState
+                            icon={Users}
+                            title="Crea tus estados de seguimiento"
+                            description="Cada vendedor arma su propio kanban. Empieza creando estados."
+                            action={
+                                <Button size="sm" asChild>
+                                    <Link href="/crm/pipeline">Estados y etiquetas</Link>
+                                </Button>
+                            }
+                        />
+                    ) : (
                     <KanbanBoard
                         clients={kanbanClients ?? []}
                         statuses={statuses}
@@ -339,6 +351,7 @@ export default function CrmClientsIndex({
                         onCreateReminder={openReminderModal}
                         onCreateTicket={openTicketModal}
                     />
+                    )
                 ) : (
                     <>
                         <Card>

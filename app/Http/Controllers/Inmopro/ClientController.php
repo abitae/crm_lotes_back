@@ -154,8 +154,8 @@ class ClientController extends Controller
             'clients' => $clients,
             'filters' => $this->clientsIndexQuery->filtersFromRequest($request),
             'clientTypes' => ClientType::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
-            'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
-            'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
+            'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'advisor_id', 'name', 'color']),
+            'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'advisor_id', 'name', 'color']),
             'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'department']),
             'advisors' => Advisor::query()->with('team')->orderBy('name')->get(['id', 'name', 'team_id']),
             'perPageOptions' => ClientsIndexQuery::PER_PAGE_OPTIONS,
@@ -234,8 +234,8 @@ class ClientController extends Controller
     {
         return Inertia::render('inmopro/clients/create', [
             'clientTypes' => ClientType::orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
-            'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
-            'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
+            'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'advisor_id', 'name', 'color']),
+            'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'advisor_id', 'name', 'color']),
             'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'department']),
             'advisors' => Advisor::query()->with('team')->orderBy('name')->get(['id', 'name', 'team_id']),
         ]);
@@ -277,10 +277,22 @@ class ClientController extends Controller
             'crmEvents' => fn ($query) => $query->with('advisor')->limit(50),
         ]);
 
+        $advisorId = (int) $client->advisor_id;
+
         return Inertia::render('inmopro/clients/show', [
             'client' => $client,
-            'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
-            'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
+            'clientStatuses' => ClientStatus::query()
+                ->forAdvisor($advisorId)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'advisor_id', 'name', 'color']),
+            'clientTags' => ClientTag::query()
+                ->forAdvisor($advisorId)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'advisor_id', 'name', 'color']),
         ]);
     }
 

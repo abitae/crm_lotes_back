@@ -8,6 +8,7 @@ use App\Http\Requests\Crm\UpdateReminderRequest;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\AdvisorReminder;
 use App\Models\Inmopro\Client;
+use App\Services\Crm\CrmRemindersIndexQuery;
 use App\Services\Inmopro\ClientCrmService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,20 +18,26 @@ use Inertia\Response;
 
 class ReminderController extends Controller
 {
-    public function __construct(private ClientCrmService $clientCrmService) {}
+    public function __construct(
+        private ClientCrmService $clientCrmService,
+        private CrmRemindersIndexQuery $remindersIndexQuery,
+    ) {}
 
     public function index(Request $request): Response
     {
         /** @var Advisor $advisor */
         $advisor = $request->user('advisor');
 
-        $reminders = AdvisorReminder::query()
+        $query = AdvisorReminder::query()
             ->with('client:id,name,phone')
             ->where('advisor_id', $advisor->id)
-            ->visibleForAdvisor()
-            ->orderByRaw('completed_at is not null')
-            ->orderBy('remind_at')
-            ->paginate(20)
+            ->visibleForAdvisor();
+
+        $this->remindersIndexQuery->apply($query, $request);
+        $this->remindersIndexQuery->applyOrdering($query, $request);
+
+        $reminders = $query
+            ->paginate(CrmRemindersIndexQuery::DEFAULT_PER_PAGE)
             ->withQueryString();
 
         return Inertia::render('crm/reminders/index', [
@@ -40,6 +47,7 @@ class ReminderController extends Controller
                 ->whereHas('type', fn ($query) => $query->whereIn('code', ['PROPIO', 'DATERO']))
                 ->orderBy('name')
                 ->get(['id', 'name']),
+            'filters' => $this->remindersIndexQuery->filtersFromRequest($request),
         ]);
     }
 

@@ -2,11 +2,14 @@
 
 namespace Tests\Feature\Inmopro;
 
-use App\Models\Inmopro\ClientStatus;
-use App\Models\Inmopro\ClientTag;
+use App\Models\Inmopro\Advisor;
 use App\Models\User;
+use Database\Seeders\Inmopro\AdvisorLevelSeeder;
+use Database\Seeders\Inmopro\AdvisorSeeder;
+use Database\Seeders\Inmopro\CitySeeder;
 use Database\Seeders\Inmopro\ClientStatusSeeder;
 use Database\Seeders\Inmopro\ClientTagSeeder;
+use Database\Seeders\Inmopro\TeamSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,6 +21,10 @@ class InmoproClientCrmCatalogsTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+        $this->seed(TeamSeeder::class);
+        $this->seed(AdvisorLevelSeeder::class);
+        $this->seed(CitySeeder::class);
+        $this->seed(AdvisorSeeder::class);
         $this->seed(ClientStatusSeeder::class);
         $this->seed(ClientTagSeeder::class);
     }
@@ -29,10 +36,13 @@ class InmoproClientCrmCatalogsTest extends TestCase
         $this->actingAs($user)
             ->get(route('inmopro.client-statuses.index'))
             ->assertOk()
-            ->assertInertia(fn ($page) => $page->component('inmopro/client-statuses/index')->has('clientStatuses'));
+            ->assertInertia(fn ($page) => $page
+                ->component('inmopro/client-statuses/index')
+                ->has('clientStatuses')
+                ->where('clientStatuses.data.0.advisor.name', Advisor::query()->orderBy('id')->value('name')));
     }
 
-    public function test_authenticated_users_can_create_client_status(): void
+    public function test_authenticated_users_cannot_create_client_status(): void
     {
         $user = User::factory()->create();
 
@@ -45,12 +55,7 @@ class InmoproClientCrmCatalogsTest extends TestCase
                 'sort_order' => 9,
                 'is_active' => true,
             ])
-            ->assertRedirect(route('inmopro.client-statuses.index'));
-
-        $this->assertDatabaseHas('client_statuses', [
-            'name' => 'En espera',
-            'code' => 'EN_ESPERA',
-        ]);
+            ->assertForbidden();
     }
 
     public function test_authenticated_users_can_visit_client_tags_index(): void
@@ -63,7 +68,7 @@ class InmoproClientCrmCatalogsTest extends TestCase
             ->assertInertia(fn ($page) => $page->component('inmopro/client-tags/index')->has('clientTags'));
     }
 
-    public function test_authenticated_users_can_create_client_tag(): void
+    public function test_authenticated_users_cannot_create_client_tag(): void
     {
         $user = User::factory()->create();
 
@@ -76,19 +81,15 @@ class InmoproClientCrmCatalogsTest extends TestCase
                 'sort_order' => 9,
                 'is_active' => true,
             ])
-            ->assertRedirect(route('inmopro.client-tags.index'));
-
-        $this->assertDatabaseHas('client_tags', [
-            'name' => 'Prioridad',
-            'code' => 'PRIORIDAD',
-        ]);
+            ->assertForbidden();
     }
 
-    public function test_authenticated_users_can_update_seeded_status_and_tag(): void
+    public function test_authenticated_users_cannot_update_or_delete_seeded_status_and_tag(): void
     {
         $user = User::factory()->create();
-        $status = ClientStatus::query()->where('code', 'NUEVO')->firstOrFail();
-        $tag = ClientTag::query()->where('code', 'FRIO')->firstOrFail();
+        $advisor = Advisor::query()->firstOrFail();
+        $status = $advisor->clientStatuses()->where('code', 'NUEVO')->firstOrFail();
+        $tag = $advisor->clientTags()->where('code', 'FRIO')->firstOrFail();
 
         $this->actingAs($user)
             ->put(route('inmopro.client-statuses.update', $status), [
@@ -99,7 +100,7 @@ class InmoproClientCrmCatalogsTest extends TestCase
                 'sort_order' => 1,
                 'is_active' => true,
             ])
-            ->assertRedirect(route('inmopro.client-statuses.index'));
+            ->assertForbidden();
 
         $this->actingAs($user)
             ->put(route('inmopro.client-tags.update', $tag), [
@@ -110,15 +111,14 @@ class InmoproClientCrmCatalogsTest extends TestCase
                 'sort_order' => 4,
                 'is_active' => true,
             ])
-            ->assertRedirect(route('inmopro.client-tags.index'));
+            ->assertForbidden();
 
-        $this->assertDatabaseHas('client_statuses', [
-            'id' => $status->id,
-            'name' => 'Nuevo actualizado',
-        ]);
-        $this->assertDatabaseHas('client_tags', [
-            'id' => $tag->id,
-            'name' => 'Frío actualizado',
-        ]);
+        $this->actingAs($user)
+            ->delete(route('inmopro.client-statuses.destroy', $status))
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->delete(route('inmopro.client-tags.destroy', $tag))
+            ->assertForbidden();
     }
 }

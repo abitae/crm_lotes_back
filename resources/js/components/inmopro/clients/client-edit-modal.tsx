@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 
-type ClientType = { id: number; name: string; color?: string };
+type ClientType = { id: number; name: string; color?: string; advisor_id?: number };
 type City = { id: number; name: string; department?: string | null };
 type Advisor = { id: number; name: string; team?: { name: string } | null };
 
@@ -68,6 +68,14 @@ export function ClientEditModal({
         city_id: '',
         advisor_id: advisors[0]?.id ?? 0,
     });
+
+    const advisorId = Number(data.advisor_id);
+    const visibleStatuses = clientStatuses.filter(
+        (status) => status.advisor_id == null || status.advisor_id === advisorId,
+    );
+    const visibleTags = clientTags.filter(
+        (tag) => tag.advisor_id == null || tag.advisor_id === advisorId,
+    );
 
     useEffect(() => {
         if (!open || !client) {
@@ -150,7 +158,13 @@ export function ClientEditModal({
                                 <select
                                     id="modal-client-advisor"
                                     value={data.advisor_id}
-                                    onChange={(e) => setData('advisor_id', Number(e.target.value))}
+                                    onChange={(e) => {
+                                        setData({
+                                            advisor_id: Number(e.target.value),
+                                            client_status_id: '',
+                                            tag_ids: [],
+                                        });
+                                    }}
                                     className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
                                 >
                                     {advisors.map((advisor) => (
@@ -173,7 +187,7 @@ export function ClientEditModal({
                                     className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
                                 >
                                     <option value="">Sin estado</option>
-                                    {clientStatuses.map((status) => (
+                                    {visibleStatuses.map((status) => (
                                         <option key={status.id} value={String(status.id)}>
                                             {status.name}
                                         </option>
@@ -184,7 +198,7 @@ export function ClientEditModal({
                             <div>
                                 <Label>Etiquetas CRM</Label>
                                 <div className="mt-2 flex flex-wrap gap-2">
-                                    {clientTags.map((tag) => {
+                                    {visibleTags.map((tag) => {
                                         const selected = (data.tag_ids as number[]).includes(tag.id);
                                         return (
                                             <button

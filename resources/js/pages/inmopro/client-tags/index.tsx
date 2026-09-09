@@ -1,8 +1,7 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { Tags, Plus, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Head, Link } from '@inertiajs/react';
+import { Tags, Eye } from 'lucide-react';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import AppLayout from '@/layouts/app-layout';
-import { confirmDelete } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
 
 type ClientTag = {
@@ -12,6 +11,7 @@ type ClientTag = {
     color?: string | null;
     is_active: boolean;
     clients_count?: number;
+    advisor?: { id: number; name: string } | null;
 };
 
 export default function ClientTagsIndex({
@@ -25,27 +25,16 @@ export default function ClientTagsIndex({
         { title: 'Etiquetas CRM', href: '/inmopro/client-tags' },
     ];
 
-    const handleDestroy = async (id: number, name: string) => {
-        if (await confirmDelete(`Eliminar etiqueta "${name}"?`)) {
-            router.delete(`/inmopro/client-tags/${id}`);
-        }
-    };
-
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Etiquetas CRM - Inmopro" />
             <div className="space-y-6 p-4">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-2xl font-black text-slate-800">Etiquetas CRM</h2>
-                        <p className="text-sm text-slate-500">Etiquetas multi-valor para seguimiento del cliente.</p>
-                    </div>
-                    <Link
-                        href="/inmopro/client-tags/create"
-                        className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 font-bold text-white hover:bg-emerald-700"
-                    >
-                        <Plus className="h-5 w-5" /> Nueva
-                    </Link>
+                <div>
+                    <h2 className="text-2xl font-black text-slate-800">Etiquetas CRM</h2>
+                    <p className="text-sm text-slate-500">
+                        Cada vendedor gestiona sus etiquetas desde el CRM. Aquí solo puedes
+                        consultarlas.
+                    </p>
                 </div>
 
                 <div className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground">
@@ -53,6 +42,7 @@ export default function ClientTagsIndex({
                         <thead className="border-b border-slate-200 bg-slate-50">
                             <tr>
                                 <th className="px-4 py-3 text-left text-sm font-bold text-slate-600">Etiqueta</th>
+                                <th className="px-4 py-3 text-left text-sm font-bold text-slate-600">Vendedor</th>
                                 <th className="px-4 py-3 text-left text-sm font-bold text-slate-600">Codigo</th>
                                 <th className="px-4 py-3 text-left text-sm font-bold text-slate-600">Clientes</th>
                                 <th className="px-4 py-3 text-left text-sm font-bold text-slate-600">Activo</th>
@@ -70,6 +60,9 @@ export default function ClientTagsIndex({
                                             />
                                             {clientTag.name}
                                         </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-600">
+                                        {clientTag.advisor?.name ?? '—'}
                                     </td>
                                     <td className="px-4 py-3 text-slate-600">{clientTag.code}</td>
                                     <td className="px-4 py-3 text-slate-600">{clientTag.clients_count ?? 0}</td>
@@ -92,19 +85,6 @@ export default function ClientTagsIndex({
                                             >
                                                 <Eye className="h-4 w-4" />
                                             </Link>
-                                            <Link
-                                                href={`/inmopro/client-tags/${clientTag.id}/edit`}
-                                                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                            </Link>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDestroy(clientTag.id, clientTag.name)}
-                                                className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
                                         </div>
                                     </td>
                                 </tr>

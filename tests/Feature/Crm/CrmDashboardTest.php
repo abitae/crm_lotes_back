@@ -26,6 +26,7 @@ class CrmDashboardTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutVite();
         $this->seed(TeamSeeder::class);
         $this->seed(ClientTypeSeeder::class);
         $this->seed(ClientStatusSeeder::class);
@@ -41,7 +42,8 @@ class CrmDashboardTest extends TestCase
     {
         $advisor = Advisor::firstOrFail();
         $otherAdvisor = Advisor::query()->whereKeyNot($advisor->id)->firstOrFail();
-        $status = ClientStatus::query()->where('is_active', true)->firstOrFail();
+        $status = ClientStatus::query()->forAdvisor($advisor->id)->where('is_active', true)->firstOrFail();
+        $otherStatus = ClientStatus::query()->forAdvisor($otherAdvisor->id)->where('is_active', true)->firstOrFail();
         $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
         $city = City::firstOrFail();
 
@@ -64,7 +66,7 @@ class CrmDashboardTest extends TestCase
             'dni' => (string) (70000000 + $otherAdvisor->id * 10 + 99),
             'phone' => '977777777',
             'client_type_id' => $ownType->id,
-            'client_status_id' => $status->id,
+            'client_status_id' => $otherStatus->id,
             'city_id' => $city->id,
             'advisor_id' => $otherAdvisor->id,
         ]);

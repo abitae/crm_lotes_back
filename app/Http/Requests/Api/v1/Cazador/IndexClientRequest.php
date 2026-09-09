@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\v1\Cazador;
 
+use App\Support\AdvisorCatalogRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Pagination\Cursor;
@@ -24,6 +25,8 @@ class IndexClientRequest extends FormRequest
      */
     public function rules(): array
     {
+        $advisorId = (int) $this->attributes->get('advisor')?->id;
+
         return [
             'cursor' => [
                 'sometimes',
@@ -38,8 +41,8 @@ class IndexClientRequest extends FormRequest
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'search' => ['sometimes', 'nullable', 'string', 'min:2', 'max:255'],
             'client_type' => ['sometimes', 'nullable', 'string', Rule::in(['PROPIO', 'DATERO'])],
-            'client_status_id' => ['sometimes', 'nullable', 'integer', 'exists:client_statuses,id'],
-            'tag_id' => ['sometimes', 'nullable', 'integer', 'exists:client_tags,id'],
+            'client_status_id' => ['sometimes', 'nullable', 'integer', AdvisorCatalogRules::statusId($advisorId, false)],
+            'tag_id' => ['sometimes', 'nullable', 'integer', AdvisorCatalogRules::tagId($advisorId, false)],
         ];
     }
 }

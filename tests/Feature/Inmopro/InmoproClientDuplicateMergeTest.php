@@ -140,8 +140,8 @@ class InmoproClientDuplicateMergeTest extends TestCase
         $city = City::query()->firstOrFail();
         $project = Project::query()->firstOrFail();
         $lotStatus = LotStatus::query()->firstOrFail();
-        $tagKeep = ClientTag::query()->where('code', 'WHATSAPP')->firstOrFail();
-        $tagMerge = ClientTag::query()->where('code', 'CALIENTE')->firstOrFail();
+        $tagKeep = ClientTag::query()->forAdvisor($advisor->id)->where('code', 'WHATSAPP')->firstOrFail();
+        $tagMerge = ClientTag::query()->forAdvisor($advisor->id)->where('code', 'CALIENTE')->firstOrFail();
 
         $keep = Client::create([
             'name' => 'Principal Merge',
@@ -212,8 +212,8 @@ class InmoproClientDuplicateMergeTest extends TestCase
         $city = City::query()->firstOrFail();
         $project = Project::query()->firstOrFail();
         $lotStatus = LotStatus::query()->firstOrFail();
-        $tagKeep = ClientTag::query()->where('code', 'WHATSAPP')->firstOrFail();
-        $tagMerge = ClientTag::query()->where('code', 'FRIO')->firstOrFail();
+        $tagKeep = ClientTag::query()->forAdvisor($advisor->id)->where('code', 'WHATSAPP')->firstOrFail();
+        $tagMerge = ClientTag::query()->forAdvisor($advisor->id)->where('code', 'FRIO')->firstOrFail();
 
         $keep = Client::create([
             'name' => 'Principal DNI',

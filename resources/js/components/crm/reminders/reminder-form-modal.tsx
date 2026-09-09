@@ -1,6 +1,7 @@
 import { useForm } from '@inertiajs/react';
-import type { FormEvent} from 'react';
+import type { FormEvent } from 'react';
 import { useEffect } from 'react';
+import { ClientSearchSelect } from '@/components/crm/clients/client-search-select';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,15 +44,22 @@ function toDatetimeLocal(value: string): string {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function ReminderFormModal({ open, onOpenChange, reminder, clients, extraFooterAction }: Props) {
+export function ReminderFormModal({
+    open,
+    onOpenChange,
+    reminder,
+    clients,
+    extraFooterAction,
+}: Props) {
     const mode = reminder?.id ? 'edit' : 'create';
 
-    const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
-        client_id: clients[0]?.id ?? ('' as number | ''),
-        title: '',
-        notes: '',
-        remind_at: '',
-    });
+    const { data, setData, post, put, processing, errors, reset, clearErrors } =
+        useForm({
+            client_id: clients[0]?.id ?? ('' as number | ''),
+            title: '',
+            notes: '',
+            remind_at: '',
+        });
 
     useEffect(() => {
         if (!open) {
@@ -60,10 +68,14 @@ export function ReminderFormModal({ open, onOpenChange, reminder, clients, extra
 
         clearErrors();
         setData({
-            client_id: reminder?.client_id ?? clients[0]?.id ?? '',
+            client_id: reminder
+                ? (reminder.client_id ?? '')
+                : (clients[0]?.id ?? ''),
             title: reminder?.title ?? '',
             notes: reminder?.notes ?? '',
-            remind_at: reminder?.remind_at ? toDatetimeLocal(reminder.remind_at) : '',
+            remind_at: reminder?.remind_at
+                ? toDatetimeLocal(reminder.remind_at)
+                : '',
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, reminder?.id]);
@@ -87,7 +99,11 @@ export function ReminderFormModal({ open, onOpenChange, reminder, clients, extra
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>{mode === 'edit' ? 'Editar recordatorio' : 'Nuevo recordatorio'}</DialogTitle>
+                    <DialogTitle>
+                        {mode === 'edit'
+                            ? 'Editar recordatorio'
+                            : 'Nuevo recordatorio'}
+                    </DialogTitle>
                     <DialogDescription>
                         {mode === 'edit'
                             ? 'Actualiza la fecha o los detalles del recordatorio.'
@@ -98,22 +114,22 @@ export function ReminderFormModal({ open, onOpenChange, reminder, clients, extra
                 <form onSubmit={submit} className="space-y-4">
                     <div>
                         <Label htmlFor="reminder-client_id">Cliente</Label>
-                        <select
-                            id="reminder-client_id"
-                            value={data.client_id}
-                            onChange={(e) =>
-                                setData('client_id', e.target.value === '' ? '' : Number(e.target.value))
-                            }
-                            className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
-                            required={mode === 'create'}
-                        >
-                            <option value="">{mode === 'create' ? 'Seleccionar…' : 'Sin cliente (Google)'}</option>
-                            {clients.map((client) => (
-                                <option key={client.id} value={client.id}>
-                                    {client.name}
-                                </option>
-                            ))}
-                        </select>
+                        <div className="mt-1">
+                            <ClientSearchSelect
+                                id="reminder-client_id"
+                                clients={clients}
+                                value={data.client_id}
+                                onChange={(next) => setData('client_id', next)}
+                                allowEmpty={mode === 'edit'}
+                                emptyLabel={
+                                    mode === 'edit'
+                                        ? 'Sin cliente (Google)'
+                                        : 'Seleccionar…'
+                                }
+                                placeholder="Buscar cliente…"
+                                required={mode === 'create'}
+                            />
+                        </div>
                         <InputError message={errors.client_id} />
                     </div>
 
@@ -134,7 +150,9 @@ export function ReminderFormModal({ open, onOpenChange, reminder, clients, extra
                             id="reminder-remind_at"
                             type="datetime-local"
                             value={data.remind_at}
-                            onChange={(e) => setData('remind_at', e.target.value)}
+                            onChange={(e) =>
+                                setData('remind_at', e.target.value)
+                            }
                             className="mt-1"
                         />
                         <InputError message={errors.remind_at} />
@@ -153,19 +171,29 @@ export function ReminderFormModal({ open, onOpenChange, reminder, clients, extra
 
                     <DialogFooter className="flex-wrap gap-2 sm:justify-between">
                         {extraFooterAction ? (
-                            <Button type="button" variant="outline" onClick={extraFooterAction.onClick}>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={extraFooterAction.onClick}
+                            >
                                 {extraFooterAction.label}
                             </Button>
                         ) : (
                             <span />
                         )}
                         <div className="flex gap-2">
-                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => onOpenChange(false)}
+                            >
                                 Cancelar
                             </Button>
                             <Button type="submit" disabled={processing}>
                                 {processing && <Spinner />}
-                                {mode === 'edit' ? 'Guardar cambios' : 'Crear recordatorio'}
+                                {mode === 'edit'
+                                    ? 'Guardar cambios'
+                                    : 'Crear recordatorio'}
                             </Button>
                         </div>
                     </DialogFooter>

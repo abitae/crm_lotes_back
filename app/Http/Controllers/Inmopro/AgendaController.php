@@ -103,8 +103,8 @@ class AgendaController extends Controller
             'clients' => $clients,
             'events' => $events,
             'remindersPending' => $remindersPending,
-            'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
-            'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
+            'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'advisor_id', 'name']),
+            'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'advisor_id', 'name']),
             'filters' => $request->only('advisor_id', 'start', 'end'),
         ]);
     }

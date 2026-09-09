@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\GoogleAccount;
 use App\Models\Inmopro\Advisor;
+use App\Services\Crm\AdvisorCrmCatalogService;
 use App\Services\Meta\MetaOAuthService;
 use Closure;
 use Illuminate\Http\Request;
@@ -17,6 +18,13 @@ class ShareCrmInertiaData
      */
     public function handle(Request $request, Closure $next): Response
     {
+        /** @var Advisor|null $advisor */
+        $advisor = $request->user('advisor');
+
+        if ($advisor) {
+            app(AdvisorCrmCatalogService::class)->ensureDefaults($advisor);
+        }
+
         Inertia::share('auth.advisor', function () use ($request): ?array {
             /** @var Advisor|null $advisor */
             $advisor = $request->user('advisor');

@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use App\Console\ServeCommand;
 use App\Contracts\Google\GoogleIdTokenVerifier;
+use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\AdvisorReminder;
 use App\Models\User;
+use App\Observers\AdvisorObserver;
 use App\Observers\AdvisorReminderObserver;
 use App\Services\Google\GoogleIdTokenVerifierService;
 use App\Support\AppBrandingResolver;
@@ -47,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
         OpenAiCazadorConfigResolver::applyRuntimeConfig();
         $this->configureRateLimiting();
         $this->configureViewComposers();
+        Advisor::observe(AdvisorObserver::class);
         AdvisorReminder::observe(AdvisorReminderObserver::class);
     }
 

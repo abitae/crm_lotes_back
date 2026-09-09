@@ -3,6 +3,8 @@
 namespace App\Models\Inmopro;
 
 use App\Models\GoogleAccount;
+use App\Models\Meta\MetaConnection;
+use App\Models\Meta\MetaConversation;
 use App\Notifications\Crm\AdvisorPinResetNotification;
 use Illuminate\Auth\Authenticatable;
 use Illuminate\Auth\Passwords\CanResetPassword;
@@ -156,6 +158,22 @@ class Advisor extends Model implements AuthenticatableContract, CanResetPassword
     }
 
     /**
+     * @return HasMany<ClientStatus, $this>
+     */
+    public function clientStatuses(): HasMany
+    {
+        return $this->hasMany(ClientStatus::class);
+    }
+
+    /**
+     * @return HasMany<ClientTag, $this>
+     */
+    public function clientTags(): HasMany
+    {
+        return $this->hasMany(ClientTag::class);
+    }
+
+    /**
      * @return HasMany<Client, $this>
      */
     public function clients(): HasMany
@@ -252,19 +270,19 @@ class Advisor extends Model implements AuthenticatableContract, CanResetPassword
     }
 
     /**
-     * @return HasOne<\App\Models\Meta\MetaConnection, $this>
+     * @return HasOne<MetaConnection, $this>
      */
     public function metaConnection(): HasOne
     {
-        return $this->hasOne(\App\Models\Meta\MetaConnection::class);
+        return $this->hasOne(MetaConnection::class);
     }
 
     /**
-     * @return HasMany<\App\Models\Meta\MetaConversation, $this>
+     * @return HasMany<MetaConversation, $this>
      */
     public function metaConversations(): HasMany
     {
-        return $this->hasMany(\App\Models\Meta\MetaConversation::class);
+        return $this->hasMany(MetaConversation::class);
     }
 
     public function getAuthPasswordName(): string

@@ -8,6 +8,7 @@ use App\Models\Inmopro\ClientTag;
 use App\Models\Inmopro\ClientType;
 use App\Models\Meta\MetaConnection;
 use App\Models\Meta\MetaContactIdentity;
+use App\Services\Crm\AdvisorCrmCatalogService;
 use App\Services\Inmopro\ClientDuplicateRegistrationChecker;
 use Illuminate\Support\Facades\DB;
 
@@ -69,8 +70,14 @@ class ContactMatcherService
         ?string $profileName,
     ): Client {
         return DB::transaction(function () use ($connection, $identity, $profileName): Client {
+            if ($connection->advisor) {
+                app(AdvisorCrmCatalogService::class)->ensureDefaults($connection->advisor);
+            }
             $prospectTypeId = ClientType::query()->where('code', 'PROSPECTO')->value('id');
-            $nuevoStatusId = ClientStatus::query()->where('code', 'NUEVO')->value('id');
+            $nuevoStatusId = ClientStatus::query()
+                ->where('advisor_id', $connection->advisor_id)
+                ->where('code', 'NUEVO')
+                ->value('id');
 
             $client = Client::query()->create([
                 'name' => $profileName ?: $identity->profile_name ?: 'Contacto Meta',
@@ -83,7 +90,10 @@ class ContactMatcherService
             $tagCode = $identity->channel === 'whatsapp' ? 'WHATSAPP' : null;
 
             if ($tagCode) {
-                $tagId = ClientTag::query()->where('code', $tagCode)->value('id');
+                $tagId = ClientTag::query()
+                    ->where('advisor_id', $connection->advisor_id)
+                    ->where('code', $tagCode)
+                    ->value('id');
                 if ($tagId) {
                     $client->tags()->syncWithoutDetaching([$tagId]);
                 }

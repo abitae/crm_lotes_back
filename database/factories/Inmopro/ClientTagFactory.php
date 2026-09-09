@@ -2,11 +2,12 @@
 
 namespace Database\Factories\Inmopro;
 
+use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\ClientTag;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Inmopro\ClientTag>
+ * @extends Factory<ClientTag>
  */
 class ClientTagFactory extends Factory
 {
@@ -18,6 +19,7 @@ class ClientTagFactory extends Factory
     public function definition(): array
     {
         return [
+            'advisor_id' => Advisor::query()->value('id') ?? 1,
             'name' => $this->faker->unique()->word(),
             'code' => strtoupper($this->faker->unique()->lexify('TAG_????')),
             'description' => $this->faker->sentence(),

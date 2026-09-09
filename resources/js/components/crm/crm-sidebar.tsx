@@ -10,6 +10,7 @@ import {
     Megaphone,
     MessageSquare,
     Percent,
+    Tags,
     Users,
     Workflow,
 } from 'lucide-react';
@@ -31,6 +32,7 @@ import attentionTickets from '@/routes/crm/attention-tickets';
 import clients from '@/routes/crm/clients';
 import commissions from '@/routes/crm/commissions';
 import { mine as myLots } from '@/routes/crm/lots';
+import pipeline from '@/routes/crm/pipeline';
 import preReservations from '@/routes/crm/pre-reservations';
 import projects from '@/routes/crm/projects';
 import reminders from '@/routes/crm/reminders';
@@ -39,6 +41,7 @@ import type { NavItem } from '@/types';
 const baseNavItems: NavItem[] = [
     { title: 'Dashboard', href: crm.dashboard(), icon: LayoutGrid },
     { title: 'Clientes', href: clients.index(), icon: Users },
+    { title: 'Estados y etiquetas', href: pipeline.index(), icon: Tags },
     { title: 'Proyectos', href: projects.index(), icon: MapPin },
     { title: 'Mis lotes', href: myLots(), icon: LandPlot },
     { title: 'Pre-reservas', href: preReservations.index(), icon: FileCheck },

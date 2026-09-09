@@ -1,11 +1,11 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Pencil } from 'lucide-react';
-import { StatusBadge } from '@/components/crm/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
 import clients from '@/routes/crm/clients';
+import clientsCrm from '@/routes/crm/clients/crm';
 import type { BreadcrumbItem } from '@/types';
 
 type Lot = {
@@ -30,12 +30,34 @@ type ClientDetail = {
     lots: Lot[];
 };
 
+type CatalogOption = { id: number; code: string; name: string; color: string | null };
+
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Clientes', href: '/crm/clients' },
     { title: 'Detalle', href: '#' },
 ];
 
-export default function CrmClientsShow({ client }: { client: ClientDetail }) {
+export default function CrmClientsShow({
+    client,
+    statuses,
+    tags,
+}: {
+    client: ClientDetail;
+    statuses: CatalogOption[];
+    tags: CatalogOption[];
+}) {
+    const selectedTagIds = client.tags.map((tag) => tag.id);
+
+    const updateCrm = (payload: Record<string, unknown>) => {
+        router.patch(clientsCrm.update(client.id).url, payload, { preserveScroll: true });
+    };
+
+    const toggleTag = (tagId: number) => {
+        const next = selectedTagIds.includes(tagId)
+            ? selectedTagIds.filter((id) => id !== tagId)
+            : [...selectedTagIds, tagId];
+        updateCrm({ tag_ids: next });
+    };
     return (
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title={client.name} />
@@ -91,22 +113,46 @@ export default function CrmClientsShow({ client }: { client: ClientDetail }) {
                         </CardHeader>
                         <CardContent className="space-y-3 text-sm">
                             <div>
-                                <span className="text-muted-foreground">Estado: </span>
-                                {client.status ? (
-                                    <StatusBadge color={client.status.color}>{client.status.name}</StatusBadge>
-                                ) : (
-                                    '—'
-                                )}
+                                <label htmlFor="client-status" className="mb-1 block text-muted-foreground">
+                                    Estado
+                                </label>
+                                <select
+                                    id="client-status"
+                                    value={client.status?.id ?? ''}
+                                    onChange={(event) => {
+                                        if (event.target.value) {
+                                            updateCrm({ client_status_id: Number(event.target.value) });
+                                        }
+                                    }}
+                                    className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
+                                >
+                                    <option value="">{client.status ? client.status.name : 'Sin estado'}</option>
+                                    {statuses.map((status) => (
+                                        <option key={status.id} value={status.id}>
+                                            {status.name}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                             <div>
-                                <span className="text-muted-foreground">Etiquetas: </span>
+                                <span className="text-muted-foreground">Etiquetas</span>
                                 <div className="mt-1 flex flex-wrap gap-1.5">
-                                    {client.tags.length === 0 && '—'}
-                                    {client.tags.map((tag) => (
-                                        <Badge key={tag.id} variant="secondary">
-                                            {tag.name}
-                                        </Badge>
-                                    ))}
+                                    {tags.length === 0 && '—'}
+                                    {tags.map((tag) => {
+                                        const selected = selectedTagIds.includes(tag.id);
+
+                                        return (
+                                            <button
+                                                key={tag.id}
+                                                type="button"
+                                                onClick={() => toggleTag(tag.id)}
+                                            >
+                                                <Badge variant={selected ? 'default' : 'secondary'}>
+                                                    {tag.name}
+                                                </Badge>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </CardContent>

@@ -10,6 +10,7 @@ type ClientStatus = {
     sort_order?: number;
     is_active: boolean;
     clients_count?: number;
+    advisor?: { id: number; name: string } | null;
 };
 
 export default function ClientStatusesShow({ clientStatus }: { clientStatus: ClientStatus }) {
@@ -26,13 +27,14 @@ export default function ClientStatusesShow({ clientStatus }: { clientStatus: Cli
                 <div className="mb-6 flex items-center justify-between">
                     <h2 className="text-2xl font-black text-slate-800">{clientStatus.name}</h2>
                     <Link
-                        href={`/inmopro/client-statuses/${clientStatus.id}/edit`}
+                        href="/inmopro/client-statuses"
                         className="rounded-xl bg-slate-900 px-4 py-2 font-bold text-white hover:bg-slate-800"
                     >
-                        Editar
+                        Volver
                     </Link>
                 </div>
                 <div className="space-y-2 text-slate-600">
+                    <p>Vendedor: {clientStatus.advisor?.name ?? '-'}</p>
                     <p>Codigo: {clientStatus.code}</p>
                     <p>Descripcion: {clientStatus.description ?? '-'}</p>
                     <p>Orden: {clientStatus.sort_order ?? 0}</p>

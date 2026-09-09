@@ -65,8 +65,8 @@ type PageProps = {
     clients: Client[];
     events: CalendarEvent[];
     remindersPending: PendingReminder[];
-    clientStatuses: Array<{ id: number; name: string }>;
-    clientTags: Array<{ id: number; name: string }>;
+    clientStatuses: Array<{ id: number; name: string; advisor_id?: number }>;
+    clientTags: Array<{ id: number; name: string; advisor_id?: number }>;
     filters: {
         advisor_id?: string;
         start?: string;
@@ -647,8 +647,8 @@ function ReminderModal({
     onOpenChange: (open: boolean) => void;
     advisorId: number;
     clients: Client[];
-    clientStatuses: Array<{ id: number; name: string }>;
-    clientTags: Array<{ id: number; name: string }>;
+    clientStatuses: Array<{ id: number; name: string; advisor_id?: number }>;
+    clientTags: Array<{ id: number; name: string; advisor_id?: number }>;
     editData: {
         id: number;
         client_id: number;
@@ -668,6 +668,12 @@ function ReminderModal({
         client_status_id: '' as string | number,
         tag_ids: [] as number[],
     });
+    const visibleStatuses = clientStatuses.filter(
+        (status) => status.advisor_id == null || status.advisor_id === advisorId,
+    );
+    const visibleTags = clientTags.filter(
+        (tag) => tag.advisor_id == null || tag.advisor_id === advisorId,
+    );
 
     useEffect(() => {
         if (open && editData) {
@@ -807,7 +813,7 @@ function ReminderModal({
                             className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                         >
                             <option value="">No cambiar</option>
-                            {clientStatuses.map((status) => (
+                            {visibleStatuses.map((status) => (
                                 <option key={status.id} value={status.id}>
                                     {status.name}
                                 </option>
@@ -818,7 +824,7 @@ function ReminderModal({
                     <div>
                         <Label>Actualizar etiquetas (opcional)</Label>
                         <div className="mt-2 flex flex-wrap gap-2">
-                            {clientTags.map((tag) => {
+                            {visibleTags.map((tag) => {
                                 const selected = (data.tag_ids as number[]).includes(tag.id);
                                 return (
                                     <button

@@ -34,6 +34,7 @@ type Client = {
 type Option = {
     id: number;
     name: string;
+    advisor_id?: number;
 };
 
 type ClientFilters = {
@@ -243,6 +244,16 @@ export default function ClientsIndex({
     const advisorFilterRef = useRef<HTMLDivElement>(null);
     const listQs = clientsListingQuerySuffix(usePage().url);
     const defaultDateFilters = useMemo(() => defaultClientDateFilterValues(), []);
+    const advisorNameById = useMemo(
+        () => Object.fromEntries(advisors.map((advisor) => [advisor.id, advisor.name])),
+        [advisors],
+    );
+    const visibleStatuses = advisorFilterId
+        ? clientStatuses.filter((status) => status.advisor_id === Number(advisorFilterId))
+        : clientStatuses;
+    const visibleTags = advisorFilterId
+        ? clientTags.filter((tag) => tag.advisor_id === Number(advisorFilterId))
+        : clientTags;
 
     const editClientTarget = openModal === 'edit_client' ? clientForModal : null;
     const editClientModalOpen = editClientTarget !== null;
@@ -471,8 +482,13 @@ export default function ClientsIndex({
                                             className={FILTER_FIELD_CLASS}
                                         >
                                             <option value="">Todos</option>
-                                            {clientStatuses.map((status) => (
-                                                <option key={status.id} value={status.id}>{status.name}</option>
+                                            {visibleStatuses.map((status) => (
+                                                <option key={status.id} value={status.id}>
+                                                    {status.name}
+                                                    {!advisorFilterId && status.advisor_id
+                                                        ? ` · ${advisorNameById[status.advisor_id] ?? ''}`
+                                                        : ''}
+                                                </option>
                                             ))}
                                         </select>
                                     </div>
@@ -485,8 +501,13 @@ export default function ClientsIndex({
                                             className={FILTER_FIELD_CLASS}
                                         >
                                             <option value="">Todas</option>
-                                            {clientTags.map((tag) => (
-                                                <option key={tag.id} value={tag.id}>{tag.name}</option>
+                                            {visibleTags.map((tag) => (
+                                                <option key={tag.id} value={tag.id}>
+                                                    {tag.name}
+                                                    {!advisorFilterId && tag.advisor_id
+                                                        ? ` · ${advisorNameById[tag.advisor_id] ?? ''}`
+                                                        : ''}
+                                                </option>
                                             ))}
                                         </select>
                                     </div>

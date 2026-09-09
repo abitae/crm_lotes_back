@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Inmopro;
 
 use App\Services\Inmopro\ClientDuplicateRegistrationChecker;
+use App\Support\AdvisorCatalogRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -42,9 +43,9 @@ class StoreClientRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:255'],
             'referred_by' => ['nullable', 'string', 'max:255'],
             'client_type_id' => ['required', 'exists:client_types,id'],
-            'client_status_id' => ['nullable', 'exists:client_statuses,id'],
+            'client_status_id' => ['nullable', 'integer', AdvisorCatalogRules::statusId((int) $this->input('advisor_id'))],
             'tag_ids' => ['sometimes', 'array'],
-            'tag_ids.*' => ['integer', 'exists:client_tags,id'],
+            'tag_ids.*' => ['integer', AdvisorCatalogRules::tagId((int) $this->input('advisor_id'))],
             'city_id' => ['required', 'exists:cities,id'],
             'advisor_id' => ['required', 'exists:advisors,id'],
         ];

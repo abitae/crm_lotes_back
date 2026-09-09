@@ -2,11 +2,12 @@
 
 namespace Database\Factories\Inmopro;
 
+use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\ClientStatus;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Inmopro\ClientStatus>
+ * @extends Factory<ClientStatus>
  */
 class ClientStatusFactory extends Factory
 {
@@ -18,6 +19,7 @@ class ClientStatusFactory extends Factory
     public function definition(): array
     {
         return [
+            'advisor_id' => Advisor::query()->value('id') ?? 1,
             'name' => $this->faker->unique()->words(2, true),
             'code' => strtoupper($this->faker->unique()->lexify('STATUS_????')),
             'description' => $this->faker->sentence(),

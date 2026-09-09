@@ -15,7 +15,7 @@ import AppLayout from '@/layouts/app-layout';
 import { clientsListingQuerySuffix } from '@/lib/inmopro-listing-query';
 import type { BreadcrumbItem } from '@/types';
 
-type ClientType = { id: number; name: string; color?: string };
+type ClientType = { id: number; name: string; color?: string; advisor_id?: number };
 type City = { id: number; name: string; department?: string | null };
 type Advisor = { id: number; name: string; team?: { name: string } | null };
 
@@ -45,6 +45,14 @@ export default function ClientsCreate({
         city_id: '',
         advisor_id: advisors[0]?.id ?? 0,
     });
+
+    const advisorId = Number(data.advisor_id);
+    const visibleStatuses = clientStatuses.filter(
+        (status) => status.advisor_id == null || status.advisor_id === advisorId,
+    );
+    const visibleTags = clientTags.filter(
+        (tag) => tag.advisor_id == null || tag.advisor_id === advisorId,
+    );
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
@@ -134,12 +142,13 @@ export default function ClientsCreate({
                                     <select
                                         id="advisor_id"
                                         value={data.advisor_id}
-                                        onChange={(e) =>
-                                            setData(
-                                                'advisor_id',
-                                                Number(e.target.value),
-                                            )
-                                        }
+                                        onChange={(e) => {
+                                            setData({
+                                                advisor_id: Number(e.target.value),
+                                                client_status_id: '',
+                                                tag_ids: [],
+                                            });
+                                        }}
                                         className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                                     >
                                         {advisors.map((advisor) => (
@@ -169,7 +178,7 @@ export default function ClientsCreate({
                                         className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                                     >
                                         <option value="">Sin estado</option>
-                                        {clientStatuses.map((status) => (
+                                        {visibleStatuses.map((status) => (
                                             <option key={status.id} value={String(status.id)}>
                                                 {status.name}
                                             </option>
@@ -180,7 +189,7 @@ export default function ClientsCreate({
                                 <div>
                                     <Label>Etiquetas CRM</Label>
                                     <div className="mt-2 flex flex-wrap gap-2">
-                                        {clientTags.map((tag) => {
+                                        {visibleTags.map((tag) => {
                                             const selected = (data.tag_ids as number[]).includes(tag.id);
                                             return (
                                                 <button

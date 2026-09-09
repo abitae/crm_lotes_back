@@ -38,7 +38,7 @@ class CazadorClientCrmEventsTest extends TestCase
     {
         $advisor = Advisor::firstOrFail();
         $client = $this->createClientForAdvisor($advisor);
-        $status = ClientStatus::query()->where('code', 'CONTACTADO')->firstOrFail();
+        $status = ClientStatus::query()->forAdvisor($advisor->id)->where('code', 'CONTACTADO')->firstOrFail();
 
         app(ClientCrmService::class)->changeStatus($client, $status->id, $advisor);
 

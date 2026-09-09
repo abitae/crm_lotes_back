@@ -35,7 +35,7 @@ class CrmClientsKanbanTest extends TestCase
     {
         $advisor = Advisor::firstOrFail();
         $client = $this->createClientForAdvisor($advisor);
-        $newStatus = ClientStatus::where('code', 'CONTACTADO')->firstOrFail();
+        $newStatus = ClientStatus::query()->forAdvisor($advisor->id)->where('code', 'CONTACTADO')->firstOrFail();
 
         $this->actingAs($advisor, 'advisor');
 
@@ -60,7 +60,7 @@ class CrmClientsKanbanTest extends TestCase
         $advisor = Advisor::firstOrFail();
         $otherAdvisor = Advisor::query()->whereKeyNot($advisor->id)->firstOrFail();
         $client = $this->createClientForAdvisor($otherAdvisor);
-        $newStatus = ClientStatus::where('code', 'CONTACTADO')->firstOrFail();
+        $newStatus = ClientStatus::query()->forAdvisor($advisor->id)->where('code', 'CONTACTADO')->firstOrFail();
 
         $this->actingAs($advisor, 'advisor');
 
@@ -73,7 +73,7 @@ class CrmClientsKanbanTest extends TestCase
     {
         $advisor = Advisor::firstOrFail();
         $client = $this->createClientForAdvisor($advisor);
-        $inactiveStatus = ClientStatus::where('code', 'CONTACTADO')->firstOrFail();
+        $inactiveStatus = ClientStatus::query()->forAdvisor($advisor->id)->where('code', 'CONTACTADO')->firstOrFail();
         $inactiveStatus->update(['is_active' => false]);
 
         $this->actingAs($advisor, 'advisor');
@@ -97,6 +97,20 @@ class CrmClientsKanbanTest extends TestCase
 
         $this->patch(route('crm.clients.crm.update', $client), [
             'client_status_id' => 999999,
+        ])->assertSessionHasErrors('client_status_id');
+    }
+
+    public function test_advisor_cannot_move_client_to_another_advisors_status(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $otherAdvisor = Advisor::query()->whereKeyNot($advisor->id)->firstOrFail();
+        $client = $this->createClientForAdvisor($advisor);
+        $foreignStatus = ClientStatus::query()->forAdvisor($otherAdvisor->id)->where('code', 'CONTACTADO')->firstOrFail();
+
+        $this->actingAs($advisor, 'advisor');
+
+        $this->patch(route('crm.clients.crm.update', $client), [
+            'client_status_id' => $foreignStatus->id,
         ])->assertSessionHasErrors('client_status_id');
     }
 

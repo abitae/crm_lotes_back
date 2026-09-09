@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Inmopro;
 
+use App\Support\AdvisorCatalogRules;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -13,7 +15,7 @@ class UpdateAdvisorReminderRequest extends FormRequest
     }
 
     /**
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -29,9 +31,9 @@ class UpdateAdvisorReminderRequest extends FormRequest
             'title' => ['required', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'remind_at' => ['required', 'date'],
-            'client_status_id' => ['sometimes', 'nullable', 'exists:client_statuses,id'],
+            'client_status_id' => ['sometimes', 'nullable', 'integer', AdvisorCatalogRules::statusId((int) $advisorId)],
             'tag_ids' => ['sometimes', 'array'],
-            'tag_ids.*' => ['integer', 'exists:client_tags,id'],
+            'tag_ids.*' => ['integer', AdvisorCatalogRules::tagId((int) $advisorId)],
         ];
     }
 }

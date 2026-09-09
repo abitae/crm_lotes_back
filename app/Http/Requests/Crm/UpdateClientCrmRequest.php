@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Crm;
 
+use App\Support\AdvisorCatalogRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateClientCrmRequest extends FormRequest
 {
@@ -18,8 +18,17 @@ class UpdateClientCrmRequest extends FormRequest
      */
     public function rules(): array
     {
+        $advisorId = (int) $this->user('advisor')?->id;
+
         return [
-            'client_status_id' => ['required', 'integer', Rule::exists('client_statuses', 'id')->where('is_active', true)],
+            'client_status_id' => [
+                'sometimes',
+                'required',
+                'integer',
+                AdvisorCatalogRules::statusId($advisorId),
+            ],
+            'tag_ids' => ['sometimes', 'array'],
+            'tag_ids.*' => ['integer', AdvisorCatalogRules::tagId($advisorId)],
         ];
     }
 }

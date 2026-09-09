@@ -78,8 +78,16 @@ class ClientController extends Controller
             'clients' => $clients,
             'kanbanClients' => $kanbanClients,
             'view' => $view,
-            'statuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->get(['id', 'code', 'name', 'color']),
-            'tags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->get(['id', 'code', 'name', 'color']),
+            'statuses' => ClientStatus::query()
+                ->forAdvisor($advisor->id)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get(['id', 'code', 'name', 'color']),
+            'tags' => ClientTag::query()
+                ->forAdvisor($advisor->id)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get(['id', 'code', 'name', 'color']),
             'cities' => City::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'department']),
             'projects' => Project::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'ticketTypes' => AttentionTicketType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'code']),
@@ -119,6 +127,16 @@ class ClientController extends Controller
 
         return Inertia::render('crm/clients/show', [
             'client' => $ownedClient,
+            'statuses' => ClientStatus::query()
+                ->forAdvisor($ownedClient->advisor_id)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get(['id', 'code', 'name', 'color']),
+            'tags' => ClientTag::query()
+                ->forAdvisor($ownedClient->advisor_id)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get(['id', 'code', 'name', 'color']),
         ]);
     }
 
@@ -153,8 +171,8 @@ class ClientController extends Controller
 
         $this->clientCrmService->applyCrmFields(
             $ownedClient,
-            $request->integer('client_status_id'),
-            null,
+            $request->has('client_status_id') ? $request->integer('client_status_id') : null,
+            $request->has('tag_ids') ? array_values(array_map('intval', $request->input('tag_ids', []))) : null,
             $advisor,
             source: ClientCrmService::SOURCE_CRM,
         );

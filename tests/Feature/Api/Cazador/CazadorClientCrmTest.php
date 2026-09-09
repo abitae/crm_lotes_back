@@ -55,8 +55,8 @@ class CazadorClientCrmTest extends TestCase
     {
         $advisor = Advisor::firstOrFail();
         $client = $this->createClientForAdvisor($advisor);
-        $status = ClientStatus::query()->where('code', 'CONTACTADO')->firstOrFail();
-        $tag = ClientTag::query()->where('code', 'WHATSAPP')->firstOrFail();
+        $status = ClientStatus::query()->forAdvisor($advisor->id)->where('code', 'CONTACTADO')->firstOrFail();
+        $tag = ClientTag::query()->forAdvisor($advisor->id)->where('code', 'WHATSAPP')->firstOrFail();
         $token = $this->loginToken($advisor);
 
         $this->withHeader('Authorization', 'Bearer '.$token)
@@ -87,8 +87,8 @@ class CazadorClientCrmTest extends TestCase
     {
         $advisor = Advisor::firstOrFail();
         $client = $this->createClientForAdvisor($advisor);
-        $status = ClientStatus::query()->where('code', 'NEGOCIACION')->firstOrFail();
-        $tag = ClientTag::query()->where('code', 'CALIENTE')->firstOrFail();
+        $status = ClientStatus::query()->forAdvisor($advisor->id)->where('code', 'NEGOCIACION')->firstOrFail();
+        $tag = ClientTag::query()->forAdvisor($advisor->id)->where('code', 'CALIENTE')->firstOrFail();
         $reminder = AdvisorReminder::create([
             'advisor_id' => $advisor->id,
             'client_id' => $client->id,
@@ -116,8 +116,8 @@ class CazadorClientCrmTest extends TestCase
     public function test_clients_index_can_filter_by_status_and_tag(): void
     {
         $advisor = Advisor::firstOrFail();
-        $status = ClientStatus::query()->where('code', 'INTERESADO')->firstOrFail();
-        $tag = ClientTag::query()->where('code', 'REFERIDO')->firstOrFail();
+        $status = ClientStatus::query()->forAdvisor($advisor->id)->where('code', 'INTERESADO')->firstOrFail();
+        $tag = ClientTag::query()->forAdvisor($advisor->id)->where('code', 'REFERIDO')->firstOrFail();
         $matching = $this->createClientForAdvisor($advisor);
         $matching->forceFill(['client_status_id' => $status->id])->save();
         $matching->tags()->sync([$tag->id]);
@@ -141,6 +141,45 @@ class CazadorClientCrmTest extends TestCase
             ->assertOk()
             ->assertJsonFragment(['id' => $matching->id])
             ->assertJsonMissing(['id' => $other->id]);
+    }
+
+    public function test_statuses_and_tags_index_only_returns_own_catalog(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $otherAdvisor = Advisor::query()->whereKeyNot($advisor->id)->firstOrFail();
+        $foreignStatus = ClientStatus::query()->create([
+            'advisor_id' => $otherAdvisor->id,
+            'name' => 'Solo otro',
+            'code' => 'SOLO_OTRO',
+            'color' => '#111111',
+            'sort_order' => 99,
+            'is_active' => true,
+        ]);
+        $ownStatus = ClientStatus::query()->forAdvisor($advisor->id)->where('code', 'NUEVO')->firstOrFail();
+        $token = $this->loginToken($advisor);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson(route('api.v1.cazador.client-statuses.index'))
+            ->assertOk()
+            ->assertJsonFragment(['id' => $ownStatus->id])
+            ->assertJsonMissing(['id' => $foreignStatus->id]);
+    }
+
+    public function test_cannot_assign_another_advisors_status_or_tag(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $otherAdvisor = Advisor::query()->whereKeyNot($advisor->id)->firstOrFail();
+        $client = $this->createClientForAdvisor($advisor);
+        $foreignStatus = ClientStatus::query()->forAdvisor($otherAdvisor->id)->where('code', 'CONTACTADO')->firstOrFail();
+        $foreignTag = ClientTag::query()->forAdvisor($otherAdvisor->id)->where('code', 'WHATSAPP')->firstOrFail();
+        $token = $this->loginToken($advisor);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->patchJson(route('api.v1.cazador.clients.crm.update', $client), [
+                'client_status_id' => $foreignStatus->id,
+                'tag_ids' => [$foreignTag->id],
+            ])
+            ->assertStatus(422);
     }
 
     private function loginToken(Advisor $advisor): string

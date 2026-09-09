@@ -15,6 +15,7 @@ use App\Http\Controllers\Crm\GoogleCalendarController;
 use App\Http\Controllers\Crm\InboxController;
 use App\Http\Controllers\Crm\LotController;
 use App\Http\Controllers\Crm\MetaConnectionController;
+use App\Http\Controllers\Crm\PipelineController;
 use App\Http\Controllers\Crm\PreReservationController;
 use App\Http\Controllers\Crm\ProfileController;
 use App\Http\Controllers\Crm\ProjectController;
@@ -54,6 +55,14 @@ Route::prefix('crm')->name('crm.')->group(function (): void {
         Route::match(['put', 'patch'], 'clients/{client}', [ClientController::class, 'update'])->name('clients.update');
         Route::patch('clients/{client}/crm', [ClientController::class, 'updateCrm'])->name('clients.crm.update');
         Route::delete('clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
+
+        Route::get('pipeline', [PipelineController::class, 'index'])->name('pipeline.index');
+        Route::post('pipeline/statuses', [PipelineController::class, 'storeStatus'])->name('pipeline.statuses.store');
+        Route::put('pipeline/statuses/{status}', [PipelineController::class, 'updateStatus'])->name('pipeline.statuses.update');
+        Route::delete('pipeline/statuses/{status}', [PipelineController::class, 'destroyStatus'])->name('pipeline.statuses.destroy');
+        Route::post('pipeline/tags', [PipelineController::class, 'storeTag'])->name('pipeline.tags.store');
+        Route::put('pipeline/tags/{tag}', [PipelineController::class, 'updateTag'])->name('pipeline.tags.update');
+        Route::delete('pipeline/tags/{tag}', [PipelineController::class, 'destroyTag'])->name('pipeline.tags.destroy');
 
         Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
         Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');

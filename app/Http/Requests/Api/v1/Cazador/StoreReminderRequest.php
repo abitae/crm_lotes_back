@@ -2,8 +2,9 @@
 
 namespace App\Http\Requests\Api\v1\Cazador;
 
+use App\Support\AdvisorCatalogRules;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class StoreReminderRequest extends FormRequest
 {
@@ -13,18 +14,20 @@ class StoreReminderRequest extends FormRequest
     }
 
     /**
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
+        $advisorId = (int) $this->attributes->get('advisor')?->id;
+
         return [
             'client_id' => ['required', 'exists:clients,id'],
             'title' => ['required', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'remind_at' => ['required', 'date'],
-            'client_status_id' => ['sometimes', 'nullable', 'integer', Rule::exists('client_statuses', 'id')->where('is_active', true)],
+            'client_status_id' => ['sometimes', 'nullable', 'integer', AdvisorCatalogRules::statusId($advisorId)],
             'tag_ids' => ['sometimes', 'array'],
-            'tag_ids.*' => ['integer', Rule::exists('client_tags', 'id')->where('is_active', true)],
+            'tag_ids.*' => ['integer', AdvisorCatalogRules::tagId($advisorId)],
         ];
     }
 }

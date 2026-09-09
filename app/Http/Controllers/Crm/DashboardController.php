@@ -93,6 +93,7 @@ class DashboardController extends Controller
         }
 
         $clientsByStatus = ClientStatus::query()
+            ->forAdvisor($advisorId)
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('name')
