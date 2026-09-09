@@ -12,6 +12,8 @@ import {
     RefreshCw,
 } from 'lucide-react';
 import { useState } from 'react';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
+import { EmptyState } from '@/components/crm/empty-state';
 import {
     ReminderFormModal,
     type ReminderFormValues,
@@ -100,45 +102,41 @@ export default function CrmAgendaIndex({
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Agenda" />
 
-            <div className="flex flex-col gap-4 p-6">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                        <h1 className="text-xl font-semibold">Agenda</h1>
-                        <p className="text-sm text-muted-foreground">
-                            Vista del CRM
-                            {google.calendar_connected
-                                ? ', sincronizada con Google Calendar. No es el calendario embebido de Google.'
-                                : '.'}
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        {google.calendar_connected && (
-                            <>
-                                <Button variant="outline" asChild>
-                                    <a
-                                        href="https://calendar.google.com/calendar/r"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        <ExternalLink className="mr-2 h-4 w-4" />
-                                        Abrir en Google Calendar
-                                    </a>
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    onClick={syncCalendar}
-                                >
-                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                    Sincronizar
-                                </Button>
-                            </>
-                        )}
-                        <Button onClick={openCreateModal}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Nuevo recordatorio
-                        </Button>
-                    </div>
-                </div>
+            <CrmPage className="gap-4">
+                <CrmPageHeader
+                    title="Agenda"
+                    description={
+                        google.calendar_connected
+                            ? 'Vista del CRM, sincronizada con Google Calendar.'
+                            : 'Vista semanal de tus recordatorios.'
+                    }
+                    actions={
+                        <div className="flex flex-wrap gap-2">
+                            {google.calendar_connected && (
+                                <>
+                                    <Button variant="outline" asChild>
+                                        <a
+                                            href="https://calendar.google.com/calendar/r"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <ExternalLink className="mr-2 h-4 w-4" />
+                                            Abrir en Google Calendar
+                                        </a>
+                                    </Button>
+                                    <Button variant="outline" onClick={syncCalendar}>
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                        Sincronizar
+                                    </Button>
+                                </>
+                            )}
+                            <Button onClick={openCreateModal}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Nuevo recordatorio
+                            </Button>
+                        </div>
+                    }
+                />
 
                 {!google.calendar_connected && (
                     <Card>
@@ -165,13 +163,14 @@ export default function CrmAgendaIndex({
                 <Card className="overflow-hidden">
                     <CardContent className="p-4">
                         {events.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-16 text-center">
-                                <CalendarClock className="h-10 w-10 text-muted-foreground" />
-                                <p className="mt-3 text-sm text-muted-foreground">
-                                    No tienes recordatorios registrados todavía.
-                                </p>
-                            </div>
-                        ) : (
+                            <EmptyState
+                                icon={CalendarClock}
+                                className="py-8"
+                                title="Sin recordatorios todavía"
+                                description="El calendario queda listo. Crea un recordatorio para verlo aquí."
+                            />
+                        ) : null}
+                        <div className={events.length === 0 ? 'mt-2' : undefined}>
                             <FullCalendar
                                 plugins={[
                                     dayGridPlugin,
@@ -201,10 +200,10 @@ export default function CrmAgendaIndex({
                                     day: 'Día',
                                 }}
                             />
-                        )}
+                        </div>
                     </CardContent>
                 </Card>
-            </div>
+            </CrmPage>
 
             <ReminderFormModal
                 open={modalOpen}

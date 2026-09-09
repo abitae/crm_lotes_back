@@ -1,11 +1,16 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Pencil } from 'lucide-react';
+import { LandPlot, Pencil } from 'lucide-react';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
+import { EmptyState } from '@/components/crm/empty-state';
+import { StatusBadge } from '@/components/crm/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
+import { crmSelectClass } from '@/lib/crm-ui';
 import clients from '@/routes/crm/clients';
 import clientsCrm from '@/routes/crm/clients/crm';
+import lots from '@/routes/crm/lots';
 import type { BreadcrumbItem } from '@/types';
 
 type Lot = {
@@ -32,11 +37,6 @@ type ClientDetail = {
 
 type CatalogOption = { id: number; code: string; name: string; color: string | null };
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Clientes', href: '/crm/clients' },
-    { title: 'Detalle', href: '#' },
-];
-
 export default function CrmClientsShow({
     client,
     statuses,
@@ -47,6 +47,10 @@ export default function CrmClientsShow({
     tags: CatalogOption[];
 }) {
     const selectedTagIds = client.tags.map((tag) => tag.id);
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Clientes', href: '/crm/clients' },
+        { title: client.name, href: `/crm/clients/${client.id}` },
+    ];
 
     const updateCrm = (payload: Record<string, unknown>) => {
         router.patch(clientsCrm.update(client.id).url, payload, { preserveScroll: true });
@@ -62,21 +66,19 @@ export default function CrmClientsShow({
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title={client.name} />
 
-            <div className="flex flex-col gap-6 p-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-xl font-semibold">{client.name}</h1>
-                        <p className="text-sm text-muted-foreground">
-                            {client.type?.name ?? 'Cliente'}
-                        </p>
-                    </div>
-                    <Button asChild variant="outline">
-                        <Link href={clients.edit(client.id)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Editar
-                        </Link>
-                    </Button>
-                </div>
+            <CrmPage>
+                <CrmPageHeader
+                    title={client.name}
+                    description={client.type?.name ?? 'Cliente'}
+                    actions={
+                        <Button asChild variant="outline">
+                            <Link href={clients.edit(client.id)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar
+                            </Link>
+                        </Button>
+                    }
+                />
 
                 <div className="grid gap-4 md:grid-cols-2">
                     <Card>
@@ -124,7 +126,7 @@ export default function CrmClientsShow({
                                             updateCrm({ client_status_id: Number(event.target.value) });
                                         }
                                     }}
-                                    className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm"
+                                    className={crmSelectClass}
                                 >
                                     <option value="">{client.status ? client.status.name : 'Sin estado'}</option>
                                     {statuses.map((status) => (
@@ -165,27 +167,32 @@ export default function CrmClientsShow({
                     </CardHeader>
                     <CardContent>
                         {client.lots.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                                Este cliente no tiene lotes registrados.
-                            </p>
+                            <EmptyState
+                                icon={LandPlot}
+                                title="Sin lotes relacionados"
+                                description="Este cliente no tiene lotes registrados."
+                                className="py-8"
+                            />
                         ) : (
                             <ul className="divide-y divide-border text-sm">
                                 {client.lots.map((lot) => (
                                     <li key={lot.id} className="flex items-center justify-between py-2">
-                                        <span>
+                                        <Link href={lots.show(lot.id)} className="font-medium text-primary hover:underline">
                                             {lot.project?.name ?? 'Proyecto'} · Mz. {lot.block ?? '—'} Lt.{' '}
                                             {lot.number ?? '—'}
-                                        </span>
-                                        <span className="text-muted-foreground">
-                                            {lot.status?.name ?? '—'}
-                                        </span>
+                                        </Link>
+                                        {lot.status ? (
+                                            <StatusBadge>{lot.status.name}</StatusBadge>
+                                        ) : (
+                                            <span className="text-muted-foreground">—</span>
+                                        )}
                                     </li>
                                 ))}
                             </ul>
                         )}
                     </CardContent>
                 </Card>
-            </div>
+            </CrmPage>
         </CrmLayout>
     );
 }

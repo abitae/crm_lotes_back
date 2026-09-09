@@ -1,10 +1,13 @@
 import { Head, Link } from '@inertiajs/react';
 import { LandPlot } from 'lucide-react';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
 import { EmptyState } from '@/components/crm/empty-state';
 import { StatusBadge } from '@/components/crm/status-badge';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Card, CardContent } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
+import { formatMoney } from '@/lib/crm-format';
+import { crmTableCellClass, crmTableHeadClass, crmTableRowClass } from '@/lib/crm-ui';
 import lots from '@/routes/crm/lots';
 import type { BreadcrumbItem } from '@/types';
 
@@ -29,7 +32,12 @@ export default function CrmLotsIndex({ lots: lotsPage }: { lots: LotsPage }) {
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Mis lotes" />
 
-            <div className="p-6">
+            <CrmPage>
+                <CrmPageHeader
+                    title="Mis lotes"
+                    description="Lotes asignados a tu nombre para seguimiento y pre-reserva."
+                />
+
                 <Card>
                     <CardContent className="p-0">
                         {lotList.length === 0 ? (
@@ -41,20 +49,22 @@ export default function CrmLotsIndex({ lots: lotsPage }: { lots: LotsPage }) {
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
-                                    <thead className="border-b border-border text-left text-muted-foreground">
+                                    <thead className={crmTableHeadClass}>
                                         <tr>
-                                            <th className="hidden px-4 py-3 font-medium sm:table-cell">Proyecto</th>
-                                            <th className="px-4 py-3 font-medium">Manzana / Lote</th>
-                                            <th className="hidden px-4 py-3 font-medium md:table-cell">Área</th>
-                                            <th className="px-4 py-3 font-medium">Precio</th>
-                                            <th className="px-4 py-3 font-medium">Estado</th>
+                                            <th className={`hidden ${crmTableCellClass} sm:table-cell`}>Proyecto</th>
+                                            <th className={crmTableCellClass}>Manzana / Lote</th>
+                                            <th className={`hidden ${crmTableCellClass} md:table-cell`}>Área</th>
+                                            <th className={crmTableCellClass}>Precio</th>
+                                            <th className={crmTableCellClass}>Estado</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {lotList.map((lot) => (
-                                            <tr key={lot.id} className="border-b border-border last:border-0">
-                                                <td className="hidden px-4 py-3 sm:table-cell">{lot.project?.name ?? '—'}</td>
-                                                <td className="px-4 py-3">
+                                            <tr key={lot.id} className={crmTableRowClass}>
+                                                <td className={`hidden ${crmTableCellClass} sm:table-cell`}>
+                                                    {lot.project?.name ?? '—'}
+                                                </td>
+                                                <td className={crmTableCellClass}>
                                                     <Link
                                                         href={lots.show(lot.id)}
                                                         className="font-medium text-primary hover:underline"
@@ -62,9 +72,11 @@ export default function CrmLotsIndex({ lots: lotsPage }: { lots: LotsPage }) {
                                                         Mz. {lot.block ?? '—'} Lt. {lot.number ?? '—'}
                                                     </Link>
                                                 </td>
-                                                <td className="hidden px-4 py-3 md:table-cell">{lot.area ?? '—'}</td>
-                                                <td className="px-4 py-3">{lot.price ?? '—'}</td>
-                                                <td className="px-4 py-3">
+                                                <td className={`hidden ${crmTableCellClass} md:table-cell`}>
+                                                    {lot.area ?? '—'}
+                                                </td>
+                                                <td className={crmTableCellClass}>{formatMoney(lot.price)}</td>
+                                                <td className={crmTableCellClass}>
                                                     {lot.status ? (
                                                         <StatusBadge color={lot.status.color}>{lot.status.name}</StatusBadge>
                                                     ) : (
@@ -80,10 +92,8 @@ export default function CrmLotsIndex({ lots: lotsPage }: { lots: LotsPage }) {
                     </CardContent>
                 </Card>
 
-                <div className="mt-4">
-                    <Pagination links={lotsPage.links} />
-                </div>
-            </div>
+                <Pagination links={lotsPage.links} />
+            </CrmPage>
         </CrmLayout>
     );
 }

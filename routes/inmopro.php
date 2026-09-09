@@ -17,8 +17,6 @@ use App\Http\Controllers\Inmopro\AttentionTicketTypeController;
 use App\Http\Controllers\Inmopro\CashAccountController;
 use App\Http\Controllers\Inmopro\CityController;
 use App\Http\Controllers\Inmopro\ClientController;
-use App\Http\Controllers\Inmopro\ClientStatusController;
-use App\Http\Controllers\Inmopro\ClientTagController;
 use App\Http\Controllers\Inmopro\ClientTypeController;
 use App\Http\Controllers\Inmopro\CommissionController;
 use App\Http\Controllers\Inmopro\CommissionStatusController;
@@ -141,8 +139,6 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::patch('clients/{client}/crm', [ClientController::class, 'updateCrm'])->name('clients.crm.update');
         Route::resource('clients', ClientController::class);
         Route::resource('client-types', ClientTypeController::class)->parameters(['client-types' => 'client_type']);
-        Route::resource('client-statuses', ClientStatusController::class)->parameters(['client-statuses' => 'client_status']);
-        Route::resource('client-tags', ClientTagController::class)->parameters(['client-tags' => 'client_tag']);
         Route::resource('cities', CityController::class);
         Route::get('advisor-levels/excel-template', [AdvisorLevelController::class, 'excelTemplate'])->name('advisor-levels.excel-template');
         Route::get('advisor-levels/export-excel', [AdvisorLevelController::class, 'exportExcel'])->name('advisor-levels.export-excel');

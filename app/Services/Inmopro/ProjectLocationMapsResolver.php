@@ -171,6 +171,53 @@ class ProjectLocationMapsResolver
         return 'https://www.google.com/maps/search/?api=1&query='.rawurlencode($location);
     }
 
+    /**
+     * URL de iframe para embeber Google Maps (sin seguir acortadores).
+     */
+    public function resolveEmbedUrl(?string $location): ?string
+    {
+        $location = is_string($location) ? trim($location) : '';
+
+        if ($location === '') {
+            return null;
+        }
+
+        $coords = $this->parseCoordinatePair($location);
+
+        if ($coords === null && $this->isGoogleMapsUrl($location)) {
+            $coords = $this->parseCoordinatesFromMapsUrl($location);
+        }
+
+        if ($coords !== null) {
+            return sprintf(
+                'https://maps.google.com/maps?q=%s,%s&z=16&output=embed&hl=es',
+                $coords['lat'],
+                $coords['lng'],
+            );
+        }
+
+        if ($this->isGoogleMapsUrl($location)) {
+            $query = parse_url($location, PHP_URL_QUERY);
+            $params = [];
+
+            if (is_string($query) && $query !== '') {
+                parse_str($query, $params);
+            }
+
+            $search = $params['q'] ?? $params['query'] ?? null;
+
+            if (is_string($search) && trim($search) !== '') {
+                return 'https://maps.google.com/maps?q='.rawurlencode($search).'&z=16&output=embed&hl=es';
+            }
+
+            $separator = str_contains($location, '?') ? '&' : '?';
+
+            return $location.$separator.'output=embed';
+        }
+
+        return 'https://maps.google.com/maps?q='.rawurlencode($location).'&z=16&output=embed&hl=es';
+    }
+
     public function displayLabel(?string $location): ?string
     {
         $location = is_string($location) ? trim($location) : '';

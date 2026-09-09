@@ -9,6 +9,7 @@ import {
 } from '@dnd-kit/core';
 import { router } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
+import { toggleTagId } from '@/components/crm/clients/client-tag-toggles';
 import { KanbanCard, type KanbanClient } from '@/components/crm/kanban/kanban-card';
 import { KanbanColumn, type KanbanStatus } from '@/components/crm/kanban/kanban-column';
 import clientsCrm from '@/routes/crm/clients/crm';
@@ -44,15 +45,21 @@ function groupByStatus(clients: KanbanClient[], statuses: KanbanStatus[]): Colum
 export function KanbanBoard({
     clients,
     statuses,
+    availableTags = [],
+    onViewClient,
     onEditClient,
     onCreateReminder,
     onCreateTicket,
+    onToggleTag,
 }: {
     clients: KanbanClient[];
     statuses: KanbanStatus[];
+    availableTags?: { id: number; name: string; color: string | null }[];
+    onViewClient?: (client: KanbanClient) => void;
     onEditClient: (client: KanbanClient) => void;
     onCreateReminder: (client: KanbanClient) => void;
     onCreateTicket: (client: KanbanClient) => void;
+    onToggleTag?: (client: KanbanClient, tagId: number) => void;
 }) {
     const [columns, setColumns] = useState<ColumnsState>(() => groupByStatus(clients, statuses));
     const [activeClient, setActiveClient] = useState<KanbanClient | null>(null);
@@ -71,6 +78,22 @@ export function KanbanBoard({
 
     const handleDragStart = (event: DragStartEvent) => {
         setActiveClient((event.active.data.current?.client as KanbanClient) ?? null);
+    };
+
+    const handleToggleTag = (client: KanbanClient, tagId: number) => {
+        const nextIds = toggleTagId(client.tags.map((tag) => tag.id), tagId);
+        const nextTags = availableTags.filter((tag) => nextIds.includes(tag.id));
+        const updated = { ...client, tags: nextTags };
+
+        setColumns((prev) => {
+            const next: ColumnsState = {};
+            for (const [statusId, list] of Object.entries(prev)) {
+                next[Number(statusId)] = list.map((item) => (item.id === client.id ? updated : item));
+            }
+            return next;
+        });
+
+        onToggleTag?.(client, tagId);
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
@@ -125,9 +148,12 @@ export function KanbanBoard({
                     <KanbanColumn
                         status={UNASSIGNED_STATUS}
                         clients={columns[UNASSIGNED_COLUMN_ID]}
+                        availableTags={availableTags}
+                        onViewClient={onViewClient}
                         onEditClient={onEditClient}
                         onCreateReminder={onCreateReminder}
                         onCreateTicket={onCreateTicket}
+                        onToggleTag={handleToggleTag}
                         droppable={false}
                         emptyLabel="Todos los clientes tienen una etapa asignada."
                     />
@@ -137,9 +163,12 @@ export function KanbanBoard({
                         key={status.id}
                         status={status}
                         clients={columns[status.id] ?? []}
+                        availableTags={availableTags}
+                        onViewClient={onViewClient}
                         onEditClient={onEditClient}
                         onCreateReminder={onCreateReminder}
                         onCreateTicket={onCreateTicket}
+                        onToggleTag={handleToggleTag}
                     />
                 ))}
             </div>
@@ -147,6 +176,8 @@ export function KanbanBoard({
                 {activeClient && (
                     <KanbanCard
                         client={activeClient}
+                        availableTags={availableTags}
+                        onView={() => {}}
                         onEdit={() => {}}
                         onCreateReminder={() => {}}
                         onCreateTicket={() => {}}

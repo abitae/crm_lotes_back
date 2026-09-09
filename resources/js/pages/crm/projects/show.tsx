@@ -1,9 +1,12 @@
 import { Head, Link } from '@inertiajs/react';
 import { LandPlot } from 'lucide-react';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
 import { EmptyState } from '@/components/crm/empty-state';
 import { StatusBadge } from '@/components/crm/status-badge';
 import { Card, CardContent } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
+import { formatMoney } from '@/lib/crm-format';
+import { crmTableCellClass, crmTableHeadClass, crmTableRowClass } from '@/lib/crm-ui';
 import lots from '@/routes/crm/lots';
 import type { BreadcrumbItem } from '@/types';
 
@@ -25,21 +28,21 @@ type ProjectDetail = {
     total_lots: number | null;
 };
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Proyectos', href: '/crm/projects' },
-    { title: 'Detalle', href: '#' },
-];
-
 export default function CrmProjectsShow({ project, lots: lotList }: { project: ProjectDetail; lots: LotRow[] }) {
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Proyectos', href: '/crm/projects' },
+        { title: project.name, href: `/crm/projects/${project.id}` },
+    ];
+
     return (
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title={project.name} />
 
-            <div className="flex flex-col gap-6 p-6">
-                <div>
-                    <h1 className="text-xl font-semibold">{project.name}</h1>
-                    <p className="text-sm text-muted-foreground">{project.location}</p>
-                </div>
+            <CrmPage>
+                <CrmPageHeader
+                    title={project.name}
+                    description={`${lotList.length} lotes en inventario.`}
+                />
 
                 <Card>
                     <CardContent className="p-0">
@@ -52,20 +55,20 @@ export default function CrmProjectsShow({ project, lots: lotList }: { project: P
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
-                                    <thead className="border-b border-border text-left text-muted-foreground">
+                                    <thead className={crmTableHeadClass}>
                                         <tr>
-                                            <th className="px-4 py-3 font-medium">Manzana</th>
-                                            <th className="px-4 py-3 font-medium">Lote</th>
-                                            <th className="hidden px-4 py-3 font-medium md:table-cell">Área</th>
-                                            <th className="px-4 py-3 font-medium">Precio</th>
-                                            <th className="px-4 py-3 font-medium">Estado</th>
+                                            <th className={crmTableCellClass}>Manzana</th>
+                                            <th className={crmTableCellClass}>Lote</th>
+                                            <th className={`hidden ${crmTableCellClass} md:table-cell`}>Área</th>
+                                            <th className={crmTableCellClass}>Precio</th>
+                                            <th className={crmTableCellClass}>Estado</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {lotList.map((lot) => (
-                                            <tr key={lot.id} className="border-b border-border last:border-0">
-                                                <td className="px-4 py-3">{lot.block ?? '—'}</td>
-                                                <td className="px-4 py-3">
+                                            <tr key={lot.id} className={crmTableRowClass}>
+                                                <td className={crmTableCellClass}>{lot.block ?? '—'}</td>
+                                                <td className={crmTableCellClass}>
                                                     <Link
                                                         href={lots.show(lot.id)}
                                                         className="font-medium text-primary hover:underline"
@@ -73,9 +76,11 @@ export default function CrmProjectsShow({ project, lots: lotList }: { project: P
                                                         {lot.number ?? '—'}
                                                     </Link>
                                                 </td>
-                                                <td className="hidden px-4 py-3 md:table-cell">{lot.area ?? '—'}</td>
-                                                <td className="px-4 py-3">{lot.price ?? '—'}</td>
-                                                <td className="px-4 py-3">
+                                                <td className={`hidden ${crmTableCellClass} md:table-cell`}>
+                                                    {lot.area ?? '—'}
+                                                </td>
+                                                <td className={crmTableCellClass}>{formatMoney(lot.price)}</td>
+                                                <td className={crmTableCellClass}>
                                                     {lot.status ? (
                                                         <StatusBadge color={lot.status.color}>{lot.status.name}</StatusBadge>
                                                     ) : (
@@ -90,7 +95,7 @@ export default function CrmProjectsShow({ project, lots: lotList }: { project: P
                         )}
                     </CardContent>
                 </Card>
-            </div>
+            </CrmPage>
         </CrmLayout>
     );
 }

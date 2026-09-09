@@ -2,14 +2,16 @@ import { Head, router } from '@inertiajs/react';
 import { LifeBuoy, PlusCircle, X } from 'lucide-react';
 import { useState } from 'react';
 import { AttentionTicketFormModal } from '@/components/crm/attention-tickets/attention-ticket-form-modal';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
 import { EmptyState } from '@/components/crm/empty-state';
+import { WorkflowBadge } from '@/components/crm/workflow-badge';
 import Pagination, { type PaginationLink } from '@/components/pagination';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import CrmLayout from '@/layouts/crm/crm-layout';
+import { crmSelectClass, crmTableCellClass, crmTableHeadClass, crmTableRowClass } from '@/lib/crm-ui';
 import { confirmDelete } from '@/lib/swal';
 import attentionTickets from '@/routes/crm/attention-tickets';
 import type { BreadcrumbItem } from '@/types';
@@ -27,14 +29,7 @@ type TicketRow = {
 type Option = { id: number; name: string };
 type ClientOption = { id: number; name: string; dni: string | null };
 
-const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    pendiente: 'secondary',
-    realizado: 'default',
-    cancelado: 'destructive',
-};
-
-const breadcrumbs: BreadcrumbItem[] = [{ title: 'Tickets de atención', href: '/crm/attention-tickets' }];
-const SELECT_CLASS = 'h-9 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm';
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'Tickets', href: '/crm/attention-tickets' }];
 
 type Props = {
     tickets: { data: TicketRow[]; links: PaginationLink[] };
@@ -71,13 +66,17 @@ export default function CrmAttentionTicketsIndex({ tickets, clients, projects, t
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Tickets de atención" />
 
-            <div className="flex flex-col gap-6 p-6">
-                <div className="flex justify-end">
-                    <Button onClick={() => setModalOpen(true)}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Nuevo ticket
-                    </Button>
-                </div>
+            <CrmPage>
+                <CrmPageHeader
+                    title="Tickets de atención"
+                    description="Registra seguimientos y atenciones con tus clientes."
+                    actions={
+                        <Button onClick={() => setModalOpen(true)}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Nuevo ticket
+                        </Button>
+                    }
+                />
 
                 <Card>
                     <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -89,7 +88,7 @@ export default function CrmAttentionTicketsIndex({ tickets, clients, projects, t
                                 id="filter-status"
                                 defaultValue={filters.status ?? ''}
                                 onChange={(e) => navigate({ status: e.target.value || undefined })}
-                                className={SELECT_CLASS}
+                                className={crmSelectClass}
                             >
                                 <option value="">Todos</option>
                                 <option value="pendiente">Pendiente</option>
@@ -155,27 +154,25 @@ export default function CrmAttentionTicketsIndex({ tickets, clients, projects, t
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
-                                    <thead className="border-b border-border text-left text-muted-foreground">
+                                    <thead className={crmTableHeadClass}>
                                         <tr>
-                                            <th className="px-4 py-3 font-medium">Cliente</th>
-                                            <th className="hidden px-4 py-3 font-medium sm:table-cell">Proyecto</th>
-                                            <th className="hidden px-4 py-3 font-medium md:table-cell">Tipo</th>
-                                            <th className="px-4 py-3 font-medium">Estado</th>
-                                            <th className="px-4 py-3 font-medium" />
+                                            <th className={crmTableCellClass}>Cliente</th>
+                                            <th className={`hidden ${crmTableCellClass} sm:table-cell`}>Proyecto</th>
+                                            <th className={`hidden ${crmTableCellClass} md:table-cell`}>Tipo</th>
+                                            <th className={crmTableCellClass}>Estado</th>
+                                            <th className={crmTableCellClass} />
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {tickets.data.map((ticket) => (
-                                            <tr key={ticket.id} className="border-b border-border last:border-0">
-                                                <td className="px-4 py-3">{ticket.client?.name ?? '—'}</td>
-                                                <td className="hidden px-4 py-3 sm:table-cell">{ticket.project?.name ?? '—'}</td>
-                                                <td className="hidden px-4 py-3 md:table-cell">{ticket.type?.name ?? '—'}</td>
-                                                <td className="px-4 py-3">
-                                                    <Badge variant={statusVariant[ticket.status] ?? 'outline'}>
-                                                        {ticket.status}
-                                                    </Badge>
+                                            <tr key={ticket.id} className={crmTableRowClass}>
+                                                <td className={crmTableCellClass}>{ticket.client?.name ?? '—'}</td>
+                                                <td className={`hidden ${crmTableCellClass} sm:table-cell`}>{ticket.project?.name ?? '—'}</td>
+                                                <td className={`hidden ${crmTableCellClass} md:table-cell`}>{ticket.type?.name ?? '—'}</td>
+                                                <td className={crmTableCellClass}>
+                                                    <WorkflowBadge status={ticket.status} />
                                                 </td>
-                                                <td className="px-4 py-3 text-right">
+                                                <td className={`${crmTableCellClass} text-right`}>
                                                     {ticket.status === 'pendiente' && (
                                                         <Button
                                                             size="sm"
@@ -196,7 +193,7 @@ export default function CrmAttentionTicketsIndex({ tickets, clients, projects, t
                 </Card>
 
                 <Pagination links={tickets.links} />
-            </div>
+            </CrmPage>
 
             <AttentionTicketFormModal
                 open={modalOpen}

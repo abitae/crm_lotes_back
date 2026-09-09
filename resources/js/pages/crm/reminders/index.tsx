@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ClientSearchSelect } from '@/components/crm/clients/client-search-select';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
+import { CrmSegmentedControl } from '@/components/crm/crm-segmented';
 import { EmptyState } from '@/components/crm/empty-state';
 import {
     ReminderFormModal,
@@ -191,29 +193,23 @@ export default function CrmRemindersIndex({
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Recordatorios" />
 
-            <div className="flex flex-col gap-4 p-6">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex flex-wrap gap-1 rounded-lg border border-border p-0.5">
-                        {PERIODS.map((item) => (
-                            <Button
-                                key={item.id}
-                                type="button"
-                                size="sm"
-                                variant={
-                                    period === item.id ? 'default' : 'ghost'
-                                }
-                                className="h-8"
-                                onClick={() => navigate({ period: item.id })}
-                            >
-                                {item.label}
-                            </Button>
-                        ))}
-                    </div>
-                    <Button onClick={openCreateModal}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Nuevo recordatorio
-                    </Button>
-                </div>
+            <CrmPage className="gap-4">
+                <CrmPageHeader
+                    title="Recordatorios"
+                    description="Seguimientos del día, próximos y pasados."
+                    actions={
+                        <Button onClick={openCreateModal}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Nuevo recordatorio
+                        </Button>
+                    }
+                />
+
+                <CrmSegmentedControl
+                    value={period}
+                    onChange={(next) => navigate({ period: next })}
+                    options={PERIODS.map((item) => ({ value: item.id, label: item.label }))}
+                />
 
                 {!google.calendar_connected && (
                     <Card>
@@ -375,7 +371,7 @@ export default function CrmRemindersIndex({
                 </Card>
 
                 <Pagination links={remindersPage.links} />
-            </div>
+            </CrmPage>
 
             <ReminderFormModal
                 open={modalOpen}

@@ -65,6 +65,9 @@ Route::prefix('crm')->name('crm.')->group(function (): void {
         Route::delete('pipeline/tags/{tag}', [PipelineController::class, 'destroyTag'])->name('pipeline.tags.destroy');
 
         Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
+        Route::get('projects/{project}/flat', [ProjectController::class, 'flat'])->name('projects.flat');
+        Route::get('projects/{project}/assets/{asset}/download', [ProjectController::class, 'downloadAsset'])
+            ->name('projects.assets.download');
         Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
 
         Route::get('my-lots', [LotController::class, 'indexMine'])->name('lots.mine');

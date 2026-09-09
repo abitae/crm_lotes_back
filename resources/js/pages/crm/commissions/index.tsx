@@ -1,10 +1,13 @@
 import { Head } from '@inertiajs/react';
 import { Percent } from 'lucide-react';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
 import { EmptyState } from '@/components/crm/empty-state';
+import { StatusBadge } from '@/components/crm/status-badge';
 import Pagination, { type PaginationLink } from '@/components/pagination';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
+import { formatDate, formatMoney } from '@/lib/crm-format';
+import { crmTableCellClass, crmTableHeadClass, crmTableRowClass } from '@/lib/crm-ui';
 import type { BreadcrumbItem } from '@/types';
 
 type CommissionRow = {
@@ -27,11 +30,29 @@ type Props = {
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Comisiones', href: '/crm/commissions' }];
 
 export default function CrmCommissionsIndex({ commissions }: Props) {
+    const total = commissions.data.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+
     return (
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Comisiones" />
 
-            <div className="flex flex-col gap-6 p-6">
+            <CrmPage>
+                <CrmPageHeader
+                    title="Comisiones"
+                    description="Comisiones generadas por lotes transferidos a tu nombre."
+                />
+
+                {commissions.data.length > 0 ? (
+                    <Card>
+                        <CardContent className="p-4">
+                            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                                Total en esta página
+                            </p>
+                            <p className="mt-1 text-2xl font-semibold">{formatMoney(total)}</p>
+                        </CardContent>
+                    </Card>
+                ) : null}
+
                 <Card>
                     <CardContent className="p-0">
                         {commissions.data.length === 0 ? (
@@ -43,40 +64,39 @@ export default function CrmCommissionsIndex({ commissions }: Props) {
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
-                                    <thead className="border-b border-border text-left text-muted-foreground">
+                                    <thead className={crmTableHeadClass}>
                                         <tr>
-                                            <th className="px-4 py-3 font-medium">Lote</th>
-                                            <th className="px-4 py-3 font-medium">Monto</th>
-                                            <th className="hidden px-4 py-3 font-medium sm:table-cell">%</th>
-                                            <th className="px-4 py-3 font-medium">Estado</th>
-                                            <th className="hidden px-4 py-3 font-medium md:table-cell">Fecha</th>
+                                            <th className={crmTableCellClass}>Lote</th>
+                                            <th className={crmTableCellClass}>Monto</th>
+                                            <th className={`hidden ${crmTableCellClass} sm:table-cell`}>%</th>
+                                            <th className={crmTableCellClass}>Estado</th>
+                                            <th className={`hidden ${crmTableCellClass} md:table-cell`}>Fecha</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {commissions.data.map((commission) => (
-                                            <tr key={commission.id} className="border-b border-border last:border-0">
-                                                <td className="px-4 py-3">
+                                            <tr key={commission.id} className={crmTableRowClass}>
+                                                <td className={crmTableCellClass}>
                                                     {commission.lot?.project?.name ?? ''} Mz.{' '}
                                                     {commission.lot?.block ?? '—'} Lt. {commission.lot?.number ?? '—'}
                                                 </td>
-                                                <td className="px-4 py-3 font-medium">{commission.amount}</td>
-                                                <td className="hidden px-4 py-3 sm:table-cell">{commission.percentage ?? '—'}</td>
-                                                <td className="px-4 py-3">
+                                                <td className={`${crmTableCellClass} font-medium`}>
+                                                    {formatMoney(commission.amount)}
+                                                </td>
+                                                <td className={`hidden ${crmTableCellClass} sm:table-cell`}>
+                                                    {commission.percentage ?? '—'}
+                                                </td>
+                                                <td className={crmTableCellClass}>
                                                     {commission.status ? (
-                                                        <Badge
-                                                            style={{
-                                                                backgroundColor: commission.status.color ?? undefined,
-                                                            }}
-                                                            variant="secondary"
-                                                        >
+                                                        <StatusBadge color={commission.status.color}>
                                                             {commission.status.name}
-                                                        </Badge>
+                                                        </StatusBadge>
                                                     ) : (
                                                         '—'
                                                     )}
                                                 </td>
-                                                <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                                                    {new Date(commission.date).toLocaleDateString()}
+                                                <td className={`hidden ${crmTableCellClass} text-muted-foreground md:table-cell`}>
+                                                    {formatDate(commission.date)}
                                                 </td>
                                             </tr>
                                         ))}
@@ -88,7 +108,7 @@ export default function CrmCommissionsIndex({ commissions }: Props) {
                 </Card>
 
                 <Pagination links={commissions.links} />
-            </div>
+            </CrmPage>
         </CrmLayout>
     );
 }

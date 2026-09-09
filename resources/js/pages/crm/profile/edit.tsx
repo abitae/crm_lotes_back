@@ -1,6 +1,7 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { CalendarSync, MessageCircle, ShieldAlert } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
 import InputError from '@/components/input-error';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -98,17 +99,21 @@ export default function CrmProfileEdit({ advisor }: { advisor: AdvisorData }) {
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Mi perfil" />
 
-            <div className="flex flex-col gap-6 p-6">
+            <CrmPage>
                 {advisor.must_change_pin && (
-                    <Alert variant="destructive" className="max-w-xl border-amber-300 bg-amber-50 text-amber-900">
+                    <Alert>
                         <ShieldAlert />
                         <AlertTitle>Debes establecer un nuevo PIN</AlertTitle>
                         <AlertDescription>
-                            Tu cuenta tiene un PIN temporal asignado por un administrador. Cámbialo antes de continuar
-                            usando el sistema.
+                            Tu cuenta tiene un PIN temporal. Cámbialo antes de seguir usando el CRM.
                         </AlertDescription>
                     </Alert>
                 )}
+
+                <CrmPageHeader
+                    title="Mi perfil"
+                    description="Conexiones, datos de contacto y PIN."
+                />
 
                 <Card className="max-w-xl">
                     <CardHeader>
@@ -322,7 +327,7 @@ export default function CrmProfileEdit({ advisor }: { advisor: AdvisorData }) {
                         </form>
                     </CardContent>
                 </Card>
-            </div>
+            </CrmPage>
         </CrmLayout>
     );
 }

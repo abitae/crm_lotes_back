@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import type { FormEvent } from 'react';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +36,8 @@ export default function CrmClientsCreate({ cities }: { cities: City[] }) {
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Nuevo cliente" />
 
-            <div className="p-6">
+            <CrmPage>
+                <CrmPageHeader title="Nuevo cliente" description="Registra un lead en tu cartera." />
                 <Card className="max-w-2xl">
                     <CardHeader>
                         <CardTitle>Nuevo cliente</CardTitle>
@@ -135,7 +137,7 @@ export default function CrmClientsCreate({ cities }: { cities: City[] }) {
                         </form>
                     </CardContent>
                 </Card>
-            </div>
+            </CrmPage>
         </CrmLayout>
     );
 }

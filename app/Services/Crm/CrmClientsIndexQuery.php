@@ -34,6 +34,7 @@ class CrmClientsIndexQuery
         'search',
         'client_type',
         'client_status_id',
+        'tag_ids',
         'tag_id',
         'city_id',
         'created_from',
@@ -46,15 +47,18 @@ class CrmClientsIndexQuery
      */
     public function apply(Builder $query, Request $request): void
     {
+        $tagIds = $this->tagIdsFromRequest($request);
+
         $query
             ->when($request->filled('client_type'), function (Builder $builder) use ($request): void {
                 $code = (string) $request->input('client_type');
                 $builder->where('client_type_id', ClientType::query()->where('code', $code)->value('id'));
             })
             ->when($request->filled('client_status_id'), fn (Builder $builder) => $builder->where('client_status_id', $request->integer('client_status_id')))
-            ->when($request->filled('tag_id'), function (Builder $builder) use ($request): void {
-                $tagId = $request->integer('tag_id');
-                $builder->whereHas('tags', fn (Builder $tagQuery) => $tagQuery->where('client_tags.id', $tagId));
+            ->when($tagIds !== [], function (Builder $builder) use ($tagIds): void {
+                foreach ($tagIds as $tagId) {
+                    $builder->whereHas('tags', fn (Builder $tagQuery) => $tagQuery->where('client_tags.id', $tagId));
+                }
             })
             ->when($request->filled('city_id'), fn (Builder $builder) => $builder->where('city_id', $request->integer('city_id')))
             ->when($request->filled('search'), function (Builder $builder) use ($request): void {
@@ -99,15 +103,36 @@ class CrmClientsIndexQuery
             'search',
             'client_type',
             'client_status_id',
-            'tag_id',
             'city_id',
             'created_from',
             'created_to',
         ]);
 
+        $filters['tag_ids'] = $this->tagIdsFromRequest($request);
         $filters['per_page'] = (string) $this->perPage($request);
 
         return $filters;
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function tagIdsFromRequest(Request $request): array
+    {
+        $raw = $request->input('tag_ids', []);
+
+        if (! is_array($raw)) {
+            $raw = $raw !== null && $raw !== '' ? [$raw] : [];
+        }
+
+        if ($request->filled('tag_id')) {
+            $raw[] = $request->input('tag_id');
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map('intval', $raw),
+            fn (int $id): bool => $id > 0,
+        )));
     }
 
     /**

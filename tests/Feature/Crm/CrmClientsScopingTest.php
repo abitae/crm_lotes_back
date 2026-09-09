@@ -5,6 +5,7 @@ namespace Tests\Feature\Crm;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\City;
 use App\Models\Inmopro\Client;
+use App\Models\Inmopro\ClientTag;
 use App\Models\Inmopro\ClientType;
 use Database\Seeders\Inmopro\AdvisorLevelSeeder;
 use Database\Seeders\Inmopro\AdvisorSeeder;
@@ -21,6 +22,7 @@ class CrmClientsScopingTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutVite();
         $this->seed(TeamSeeder::class);
         $this->seed(ClientTypeSeeder::class);
         $this->seed(AdvisorLevelSeeder::class);
@@ -217,5 +219,90 @@ class CrmClientsScopingTest extends TestCase
         $this->delete(route('crm.clients.destroy', $client))->assertNotFound();
 
         $this->assertModelExists($client);
+    }
+
+    public function test_index_filters_by_one_or_more_tags(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+        $whatsapp = ClientTag::query()->forAdvisor($advisor->id)->where('code', 'WHATSAPP')->firstOrFail();
+        $hot = ClientTag::query()->forAdvisor($advisor->id)->where('code', 'CALIENTE')->firstOrFail();
+
+        $onlyWhatsapp = Client::create([
+            'name' => 'Solo WhatsApp',
+            'dni' => '40000001',
+            'phone' => '900000301',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+        ]);
+        $onlyWhatsapp->tags()->sync([$whatsapp->id]);
+
+        $both = Client::create([
+            'name' => 'WhatsApp y Caliente',
+            'dni' => '40000002',
+            'phone' => '900000302',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+        ]);
+        $both->tags()->sync([$whatsapp->id, $hot->id]);
+
+        Client::create([
+            'name' => 'Sin etiquetas',
+            'dni' => '40000003',
+            'phone' => '900000303',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+        ]);
+
+        $this->actingAs($advisor, 'advisor');
+
+        $this->get(route('crm.clients.index', [
+            'view' => 'kanban',
+            'tag_ids' => [$whatsapp->id],
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('kanbanClients', 2)
+                ->where('filters.tag_ids', [$whatsapp->id]));
+
+        $this->get(route('crm.clients.index', [
+            'view' => 'kanban',
+            'tag_ids' => [$whatsapp->id, $hot->id],
+        ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('kanbanClients', 1)
+                ->where('kanbanClients.0.name', 'WhatsApp y Caliente'));
+    }
+
+    public function test_advisor_can_assign_tags_from_clients_listing(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+        $tag = ClientTag::query()->forAdvisor($advisor->id)->where('code', 'WHATSAPP')->firstOrFail();
+
+        $client = Client::create([
+            'name' => 'Cliente para etiquetar',
+            'dni' => '40000010',
+            'phone' => '900000310',
+            'client_type_id' => $ownType->id,
+            'advisor_id' => $advisor->id,
+            'city_id' => $city->id,
+        ]);
+
+        $this->actingAs($advisor, 'advisor');
+
+        $this->from(route('crm.clients.index'))
+            ->patch(route('crm.clients.crm.update', $client), [
+                'tag_ids' => [$tag->id],
+            ])
+            ->assertRedirect();
+
+        $this->assertTrue($client->fresh()->tags->contains('id', $tag->id));
     }
 }

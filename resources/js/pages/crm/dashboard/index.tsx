@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { CalendarClock, LifeBuoy, MapPin, Users } from 'lucide-react';
 import {
     Bar,
@@ -11,6 +11,8 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
+import { EmptyState } from '@/components/crm/empty-state';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -44,40 +46,47 @@ type Kpis = {
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/crm/dashboard' }];
 
-// Paleta categórica validada (skill dataviz), orden fijo — usada para las
-// categorías de "lotes" (identidad de etapa, no evaluación good/bad).
 const CATEGORICAL = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100'];
-
-// Paleta de estado (skill dataviz), reservada para categorías evaluativas.
 const STATUS = { good: '#0ca30c', warning: '#fab219', critical: '#d03b3b' };
-
 const MUTED_FALLBACK = '#898781';
-
 const chartMargin = { top: 4, right: 28, bottom: 4, left: 0 };
 
 function MetricCard({
     label,
     value,
     icon: Icon,
+    href,
+    hint,
 }: {
     label: string;
     value: number;
     icon: React.ElementType;
+    href: string;
+    hint?: string;
 }) {
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-semibold">{value.toLocaleString('es-PE')}</div>
-            </CardContent>
-        </Card>
+        <Link href={href} className="block">
+            <Card className="h-full transition-shadow hover:shadow-md">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-semibold">{value.toLocaleString('es-PE')}</div>
+                    {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+                </CardContent>
+            </Card>
+        </Link>
     );
 }
 
-function ChartTooltip({ active, payload }: { active?: boolean; payload?: { value: number; payload: { name: string } }[] }) {
+function ChartTooltip({
+    active,
+    payload,
+}: {
+    active?: boolean;
+    payload?: { value: number; payload: { name: string } }[];
+}) {
     if (!active || !payload?.length) {
         return null;
     }
@@ -114,23 +123,38 @@ export default function CrmDashboard({ kpis }: { kpis: Kpis }) {
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
 
-            <div className="flex flex-col gap-6 p-6">
+            <CrmPage>
+                <CrmPageHeader
+                    title="Dashboard"
+                    description="Resumen de tu cartera, seguimientos y lotes."
+                />
+
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <MetricCard label="Mis clientes" value={kpis.clients.total} icon={Users} />
+                    <MetricCard
+                        label="Mis clientes"
+                        value={kpis.clients.total}
+                        icon={Users}
+                        href="/crm/clients"
+                        hint={`${kpis.clients.propio} propios · ${kpis.clients.datero} de datero`}
+                    />
                     <MetricCard
                         label="Pre-reservas activas"
                         value={kpis.pre_reservations.active}
                         icon={MapPin}
+                        href="/crm/pre-reservations"
+                        hint={`${kpis.pre_reservations.pending} pendientes`}
                     />
                     <MetricCard
                         label="Tickets pendientes"
                         value={kpis.attention_tickets_pending}
                         icon={LifeBuoy}
+                        href="/crm/attention-tickets?status=pendiente"
                     />
                     <MetricCard
                         label="Recordatorios pendientes"
                         value={kpis.reminders_pending}
                         icon={CalendarClock}
+                        href="/crm/reminders"
                     />
                 </div>
 
@@ -139,39 +163,44 @@ export default function CrmDashboard({ kpis }: { kpis: Kpis }) {
                         <CardTitle>Clientes por estado</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div style={{ height: Math.max(statusData.length * 40, 120) }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={statusData} layout="vertical" margin={chartMargin}>
-                                    <CartesianGrid
-                                        horizontal={false}
-                                        strokeDasharray="0"
-                                        stroke="var(--border)"
-                                    />
-                                    <XAxis type="number" hide />
-                                    <YAxis
-                                        type="category"
-                                        dataKey="name"
-                                        width={140}
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
-                                    />
-                                    <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.3 }} />
-                                    <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={24}>
-                                        {statusData.map((entry, index) => (
-                                            <Cell key={index} fill={entry.fill} />
-                                        ))}
-                                        <LabelList
-                                            dataKey="value"
-                                            position="right"
-                                            style={{ fill: 'var(--foreground)', fontSize: 12 }}
+                        {statusData.length === 0 ? (
+                            <EmptyState
+                                icon={Users}
+                                title="Aún no hay estados"
+                                description="Crea etapas en Estados y etiquetas para ver tu pipeline aquí."
+                            />
+                        ) : (
+                            <div style={{ height: Math.max(statusData.length * 40, 120) }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={statusData} layout="vertical" margin={chartMargin}>
+                                        <CartesianGrid
+                                            horizontal={false}
+                                            strokeDasharray="0"
+                                            stroke="var(--border)"
                                         />
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                        {statusData.length === 0 && (
-                            <p className="text-sm text-muted-foreground">No hay estados configurados.</p>
+                                        <XAxis type="number" hide />
+                                        <YAxis
+                                            type="category"
+                                            dataKey="name"
+                                            width={140}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+                                        />
+                                        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.3 }} />
+                                        <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={24}>
+                                            {statusData.map((entry, index) => (
+                                                <Cell key={index} fill={entry.fill} />
+                                            ))}
+                                            <LabelList
+                                                dataKey="value"
+                                                position="right"
+                                                style={{ fill: 'var(--foreground)', fontSize: 12 }}
+                                            />
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         )}
                     </CardContent>
                 </Card>
@@ -249,7 +278,7 @@ export default function CrmDashboard({ kpis }: { kpis: Kpis }) {
                         </CardContent>
                     </Card>
                 </div>
-            </div>
+            </CrmPage>
         </CrmLayout>
     );
 }

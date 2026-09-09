@@ -1,13 +1,16 @@
 import { Head, router } from '@inertiajs/react';
 import { FileCheck, X } from 'lucide-react';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
 import { EmptyState } from '@/components/crm/empty-state';
+import { WorkflowBadge } from '@/components/crm/workflow-badge';
 import Pagination, { type PaginationLink } from '@/components/pagination';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import CrmLayout from '@/layouts/crm/crm-layout';
+import { formatDate, formatMoney } from '@/lib/crm-format';
+import { crmSelectClass, crmTableCellClass, crmTableHeadClass, crmTableRowClass } from '@/lib/crm-ui';
 import preReservationsRoute from '@/routes/crm/pre-reservations';
 import type { BreadcrumbItem } from '@/types';
 
@@ -32,15 +35,7 @@ type Props = {
     };
 };
 
-const statusVariant: Record<string, 'default' | 'secondary' | 'destructive'> = {
-    PENDIENTE: 'secondary',
-    APROBADA: 'default',
-    RECHAZADA: 'destructive',
-    EXPIRADA: 'destructive',
-};
-
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Pre-reservas', href: '/crm/pre-reservations' }];
-const SELECT_CLASS = 'h-9 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm';
 
 export default function CrmPreReservationsIndex({ preReservations, filters }: Props) {
     const navigate = (params: Record<string, unknown>) => {
@@ -55,7 +50,12 @@ export default function CrmPreReservationsIndex({ preReservations, filters }: Pr
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Pre-reservas" />
 
-            <div className="flex flex-col gap-6 p-6">
+            <CrmPage>
+                <CrmPageHeader
+                    title="Pre-reservas"
+                    description="Se crean desde un lote disponible. Aquí puedes filtrarlas y ver su estado."
+                />
+
                 <Card>
                     <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
                         <div>
@@ -66,7 +66,7 @@ export default function CrmPreReservationsIndex({ preReservations, filters }: Pr
                                 id="filter-status"
                                 defaultValue={filters.status ?? ''}
                                 onChange={(e) => navigate({ status: e.target.value || undefined })}
-                                className={SELECT_CLASS}
+                                className={crmSelectClass}
                             >
                                 <option value="">Todos</option>
                                 <option value="PENDIENTE">Pendiente</option>
@@ -119,37 +119,37 @@ export default function CrmPreReservationsIndex({ preReservations, filters }: Pr
                                 description={
                                     hasActiveFilters
                                         ? 'Prueba ajustando o limpiando los filtros aplicados.'
-                                        : 'Cuando registres una pre-reserva desde un lote disponible, aparecerá aquí.'
+                                        : 'Abre un lote disponible y registra una pre-reserva para verla aquí.'
                                 }
                             />
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
-                                    <thead className="border-b border-border text-left text-muted-foreground">
+                                    <thead className={crmTableHeadClass}>
                                         <tr>
-                                            <th className="px-4 py-3 font-medium">Cliente</th>
-                                            <th className="px-4 py-3 font-medium">Lote</th>
-                                            <th className="hidden px-4 py-3 font-medium sm:table-cell">Monto</th>
-                                            <th className="px-4 py-3 font-medium">Estado</th>
-                                            <th className="hidden px-4 py-3 font-medium md:table-cell">Fecha</th>
+                                            <th className={crmTableCellClass}>Cliente</th>
+                                            <th className={crmTableCellClass}>Lote</th>
+                                            <th className={`hidden ${crmTableCellClass} sm:table-cell`}>Monto</th>
+                                            <th className={crmTableCellClass}>Estado</th>
+                                            <th className={`hidden ${crmTableCellClass} md:table-cell`}>Fecha</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {preReservations.data.map((pr) => (
-                                            <tr key={pr.id} className="border-b border-border last:border-0">
-                                                <td className="px-4 py-3">{pr.client?.name ?? '—'}</td>
-                                                <td className="px-4 py-3">
+                                            <tr key={pr.id} className={crmTableRowClass}>
+                                                <td className={crmTableCellClass}>{pr.client?.name ?? '—'}</td>
+                                                <td className={crmTableCellClass}>
                                                     {pr.lot?.project?.name ?? ''} Mz. {pr.lot?.block ?? '—'} Lt.{' '}
                                                     {pr.lot?.number ?? '—'}
                                                 </td>
-                                                <td className="hidden px-4 py-3 sm:table-cell">{pr.amount}</td>
-                                                <td className="px-4 py-3">
-                                                    <Badge variant={statusVariant[pr.status] ?? 'secondary'}>
-                                                        {pr.status}
-                                                    </Badge>
+                                                <td className={`hidden ${crmTableCellClass} sm:table-cell`}>
+                                                    {formatMoney(pr.amount)}
                                                 </td>
-                                                <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                                                    {new Date(pr.created_at).toLocaleDateString()}
+                                                <td className={crmTableCellClass}>
+                                                    <WorkflowBadge status={pr.status} />
+                                                </td>
+                                                <td className={`hidden ${crmTableCellClass} text-muted-foreground md:table-cell`}>
+                                                    {formatDate(pr.created_at)}
                                                 </td>
                                             </tr>
                                         ))}
@@ -161,7 +161,7 @@ export default function CrmPreReservationsIndex({ preReservations, filters }: Pr
                 </Card>
 
                 <Pagination links={preReservations.links} />
-            </div>
+            </CrmPage>
         </CrmLayout>
     );
 }

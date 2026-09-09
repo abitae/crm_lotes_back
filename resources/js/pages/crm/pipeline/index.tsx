@@ -1,9 +1,10 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { Pencil, PlusCircle, Tags, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import InputError from '@/components/input-error';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
 import { EmptyState } from '@/components/crm/empty-state';
 import { StatusBadge } from '@/components/crm/status-badge';
+import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -50,11 +51,11 @@ export default function CrmPipelineIndex({
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Estados y etiquetas" />
 
-            <div className="flex flex-col gap-6 p-6">
-                <p className="text-sm text-muted-foreground">
-                    Estos estados y etiquetas son solo tuyos. El kanban de clientes usa los estados
-                    activos.
-                </p>
+            <CrmPage>
+                <CrmPageHeader
+                    title="Estados y etiquetas"
+                    description="Son solo tuyos. El kanban de clientes usa los estados activos."
+                />
                 {errors.status && <p className="text-sm text-destructive">{errors.status}</p>}
                 {errors.tag && <p className="text-sm text-destructive">{errors.tag}</p>}
 
@@ -76,7 +77,7 @@ export default function CrmPipelineIndex({
                         onEdit={(item) => setModal({ kind: 'tag', item })}
                     />
                 </div>
-            </div>
+            </CrmPage>
 
             {modal && (
                 <CatalogItemModal

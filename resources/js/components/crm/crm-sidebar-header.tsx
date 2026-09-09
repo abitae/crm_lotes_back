@@ -11,34 +11,24 @@ export function CrmSidebarHeader({
     breadcrumbs?: BreadcrumbItemType[];
 }) {
     const { resolvedAppearance, updateAppearance } = useAppearance();
-
-    const toggleAppearance = () => {
-        updateAppearance(resolvedAppearance === 'dark' ? 'light' : 'dark');
-    };
+    const isDark = resolvedAppearance === 'dark';
 
     return (
-        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border/70 px-6">
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border/80 bg-background/90 px-4 backdrop-blur-md md:h-16 md:px-6">
             <SidebarTrigger className="-ml-1" />
             <div className="min-w-0 flex-1">
                 <Breadcrumbs breadcrumbs={breadcrumbs} />
             </div>
             <Button
                 type="button"
-                variant="outline"
-                size="sm"
-                onClick={toggleAppearance}
-                className="shrink-0 rounded-full px-3"
-                title={
-                    resolvedAppearance === 'dark'
-                        ? 'Activar modo claro'
-                        : 'Activar modo oscuro'
-                }
+                variant="ghost"
+                size="icon"
+                onClick={() => updateAppearance(isDark ? 'light' : 'dark')}
+                className="size-8 shrink-0 rounded-full"
+                title={isDark ? 'Activar modo claro' : 'Activar modo oscuro'}
             >
-                {resolvedAppearance === 'dark' ? (
-                    <Sun className="h-4 w-4" />
-                ) : (
-                    <Moon className="h-4 w-4" />
-                )}
+                {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                <span className="sr-only">{isDark ? 'Activar modo claro' : 'Activar modo oscuro'}</span>
             </Button>
         </header>
     );

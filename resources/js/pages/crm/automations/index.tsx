@@ -1,9 +1,12 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Copy, PlusCircle, Workflow } from 'lucide-react';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
+import { EmptyState } from '@/components/crm/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CrmLayout from '@/layouts/crm/crm-layout';
+import { formatDate } from '@/lib/crm-format';
 import type { BreadcrumbItem } from '@/types';
 
 type FlowRow = {
@@ -28,15 +31,19 @@ export default function CrmAutomationsIndex({ flows, templates }: Props) {
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Automatizaciones" />
 
-            <div className="flex flex-col gap-6 p-6">
-                <div className="flex justify-end">
-                    <Button asChild>
-                        <Link href="/crm/automations/create">
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Nuevo flujo
-                        </Link>
-                    </Button>
-                </div>
+            <CrmPage>
+                <CrmPageHeader
+                    title="Automatizaciones"
+                    description="Flujos de WhatsApp y Messenger para responder y calificar leads."
+                    actions={
+                        <Button asChild>
+                            <Link href="/crm/automations/create">
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Nuevo flujo
+                            </Link>
+                        </Button>
+                    }
+                />
 
                 {templates.length > 0 && (
                     <Card>
@@ -45,8 +52,8 @@ export default function CrmAutomationsIndex({ flows, templates }: Props) {
                         </CardHeader>
                         <CardContent className="space-y-2">
                             {templates.map((template) => (
-                                <div key={template.id} className="flex items-center justify-between rounded-lg border p-3">
-                                    <div>
+                                <div key={template.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                                    <div className="min-w-0">
                                         <p className="font-medium">{template.name}</p>
                                         <p className="text-sm text-muted-foreground">Trigger: {template.trigger_type}</p>
                                     </div>
@@ -72,31 +79,47 @@ export default function CrmAutomationsIndex({ flows, templates }: Props) {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                        {flows.length === 0 && (
-                            <p className="text-sm text-muted-foreground">Aún no tienes flujos de automatización.</p>
-                        )}
-                        {flows.map((flow) => (
-                            <div key={flow.id} className="flex items-center justify-between rounded-lg border p-3">
-                                <div>
-                                    <p className="font-medium">{flow.name}</p>
-                                    <div className="mt-1 flex gap-2">
-                                        <Badge variant="outline">{flow.trigger_type}</Badge>
-                                        {flow.is_published ? (
-                                            <Badge>Publicado v{flow.version}</Badge>
-                                        ) : (
-                                            <Badge variant="secondary">Borrador</Badge>
-                                        )}
-                                        {flow.is_active && <Badge variant="default">Activo</Badge>}
+                        {flows.length === 0 ? (
+                            <EmptyState
+                                icon={Workflow}
+                                title="Aún no tienes flujos"
+                                description="Crea un flujo o clona una plantilla para automatizar el inbox."
+                                action={
+                                    <Button size="sm" asChild>
+                                        <Link href="/crm/automations/create">
+                                            <PlusCircle className="mr-2 h-4 w-4" />
+                                            Nuevo flujo
+                                        </Link>
+                                    </Button>
+                                }
+                            />
+                        ) : (
+                            flows.map((flow) => (
+                                <div key={flow.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                                    <div className="min-w-0">
+                                        <p className="font-medium">{flow.name}</p>
+                                        <div className="mt-1 flex flex-wrap gap-2">
+                                            <Badge variant="outline">{flow.trigger_type}</Badge>
+                                            {flow.is_published ? (
+                                                <Badge>Publicado v{flow.version}</Badge>
+                                            ) : (
+                                                <Badge variant="secondary">Borrador</Badge>
+                                            )}
+                                            {flow.is_active && <Badge variant="default">Activo</Badge>}
+                                            <span className="text-xs text-muted-foreground">
+                                                {formatDate(flow.updated_at)}
+                                            </span>
+                                        </div>
                                     </div>
+                                    <Button variant="outline" size="sm" asChild>
+                                        <Link href={`/crm/automations/${flow.id}/edit`}>Editar</Link>
+                                    </Button>
                                 </div>
-                                <Button variant="outline" size="sm" asChild>
-                                    <Link href={`/crm/automations/${flow.id}/edit`}>Editar</Link>
-                                </Button>
-                            </div>
-                        ))}
+                            ))
+                        )}
                     </CardContent>
                 </Card>
-            </div>
+            </CrmPage>
         </CrmLayout>
     );
 }

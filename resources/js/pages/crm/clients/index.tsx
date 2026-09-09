@@ -3,6 +3,9 @@ import { LayoutGrid, Pencil, PlusCircle, Search, Table as TableIcon, Trash2, Use
 import { useEffect, useRef, useState } from 'react';
 import { AttentionTicketFormModal } from '@/components/crm/attention-tickets/attention-ticket-form-modal';
 import { ClientFormModal, type ClientFormValues } from '@/components/crm/clients/client-form-modal';
+import { ClientTagToggles, toggleTagId } from '@/components/crm/clients/client-tag-toggles';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
+import { CrmSegmentedControl } from '@/components/crm/crm-segmented';
 import { EmptyState } from '@/components/crm/empty-state';
 import { KanbanBoard } from '@/components/crm/kanban/kanban-board';
 import type { KanbanClient } from '@/components/crm/kanban/kanban-card';
@@ -15,8 +18,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useDebounce } from '@/hooks/use-debounce';
 import CrmLayout from '@/layouts/crm/crm-layout';
+import { crmSelectClass, crmTableCellClass, crmTableHeadClass, crmTableRowClass } from '@/lib/crm-ui';
 import { confirmDelete } from '@/lib/swal';
 import clients from '@/routes/crm/clients';
+import clientsCrm from '@/routes/crm/clients/crm';
 import type { BreadcrumbItem } from '@/types';
 
 type ClientStatus = { id: number; code: string; name: string; color: string | null };
@@ -43,7 +48,7 @@ type Props = {
         search?: string;
         client_type?: string;
         client_status_id?: string;
-        tag_id?: string;
+        tag_ids?: number[] | string[];
         city_id?: string;
         created_from?: string;
         created_to?: string;
@@ -53,7 +58,6 @@ type Props = {
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Clientes', href: '/crm/clients' }];
 const SEARCH_DEBOUNCE_MS = 400;
-const SELECT_CLASS = 'h-9 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm';
 
 export default function CrmClientsIndex({
     clients: paginated,
@@ -77,6 +81,9 @@ export default function CrmClientsIndex({
 
     const isFirstRender = useRef(true);
     const debouncedSearch = useDebounce(search, SEARCH_DEBOUNCE_MS);
+    const selectedTagIds = (filters.tag_ids ?? [])
+        .map(Number)
+        .filter((id) => Number.isInteger(id) && id > 0);
 
     const navigate = (params: Record<string, unknown>) => {
         router.get(clients.index().url, { ...filters, view, ...params }, { preserveState: true, replace: true });
@@ -110,8 +117,26 @@ export default function CrmClientsIndex({
     };
 
     const hasActiveFilters = Boolean(
-        filters.search || filters.client_type || filters.tag_id || filters.city_id || filters.created_from || filters.created_to,
+        filters.search ||
+            filters.client_type ||
+            selectedTagIds.length > 0 ||
+            filters.city_id ||
+            filters.created_from ||
+            filters.created_to,
     );
+
+    const toggleFilterTag = (tagId: number) => {
+        const next = toggleTagId(selectedTagIds, tagId);
+        navigate({ tag_ids: next.length > 0 ? next : undefined });
+    };
+
+    const toggleClientTag = (client: KanbanClient, tagId: number) => {
+        router.patch(
+            clientsCrm.update(client.id).url,
+            { tag_ids: toggleTagId(client.tags.map((tag) => tag.id), tagId) },
+            { preserveScroll: true, preserveState: true },
+        );
+    };
 
     const openCreateModal = () => {
         setEditingClient(null);
@@ -157,50 +182,50 @@ export default function CrmClientsIndex({
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Clientes" />
 
-            <div className="flex flex-col gap-6 p-6">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="relative w-full max-w-sm">
-                        <Search className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            id="clients-search"
-                            aria-label="Buscar clientes"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Buscar por nombre, DNI o teléfono"
-                            className="pl-8"
-                        />
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center rounded-lg border border-border p-0.5">
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant={view === 'kanban' ? 'default' : 'ghost'}
-                                onClick={() => setView('kanban')}
-                                className="h-8"
-                            >
-                                <LayoutGrid className="mr-1.5 h-4 w-4" />
-                                Kanban
-                            </Button>
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant={view === 'table' ? 'default' : 'ghost'}
-                                onClick={() => setView('table')}
-                                className="h-8"
-                            >
-                                <TableIcon className="mr-1.5 h-4 w-4" />
-                                Tabla
+            <CrmPage>
+                <CrmPageHeader
+                    title="Clientes"
+                    description="Kanban y listado de tu cartera. Arrastra para cambiar de etapa."
+                    actions={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <CrmSegmentedControl
+                                value={view}
+                                onChange={setView}
+                                options={[
+                                    { value: 'kanban', label: 'Kanban', icon: LayoutGrid },
+                                    { value: 'table', label: 'Tabla', icon: TableIcon },
+                                ]}
+                            />
+                            <Button onClick={openCreateModal}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Nuevo cliente
                             </Button>
                         </div>
+                    }
+                />
 
-                        <Button onClick={openCreateModal}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Nuevo cliente
-                        </Button>
-                    </div>
+                <div className="relative w-full max-w-sm">
+                    <Search className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        id="clients-search"
+                        aria-label="Buscar clientes"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Buscar por nombre, DNI o teléfono"
+                        className="pl-8"
+                    />
                 </div>
+
+                {tags.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-medium text-muted-foreground">Etiquetas</span>
+                        <ClientTagToggles
+                            tags={tags}
+                            selectedIds={selectedTagIds}
+                            onToggle={toggleFilterTag}
+                        />
+                    </div>
+                )}
 
                 {view === 'table' && (
                     <>
@@ -234,29 +259,11 @@ export default function CrmClientsIndex({
                                         id="filter-client-type"
                                         defaultValue={filters.client_type ?? ''}
                                         onChange={(e) => handleFilterChange('client_type', e.target.value)}
-                                        className={SELECT_CLASS}
+                                        className={crmSelectClass}
                                     >
                                         <option value="">Todos</option>
                                         <option value="PROPIO">Propio</option>
                                         <option value="DATERO">Referido de datero</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <Label htmlFor="filter-tag" className="mb-1 block text-xs text-muted-foreground">
-                                        Etiqueta
-                                    </Label>
-                                    <select
-                                        id="filter-tag"
-                                        defaultValue={filters.tag_id ?? ''}
-                                        onChange={(e) => handleFilterChange('tag_id', e.target.value)}
-                                        className={SELECT_CLASS}
-                                    >
-                                        <option value="">Todas</option>
-                                        {tags.map((tag) => (
-                                            <option key={tag.id} value={tag.id}>
-                                                {tag.name}
-                                            </option>
-                                        ))}
                                     </select>
                                 </div>
                                 <div>
@@ -267,7 +274,7 @@ export default function CrmClientsIndex({
                                         id="filter-city"
                                         defaultValue={filters.city_id ?? ''}
                                         onChange={(e) => handleFilterChange('city_id', e.target.value)}
-                                        className={SELECT_CLASS}
+                                        className={crmSelectClass}
                                     >
                                         <option value="">Todas</option>
                                         {cities.map((city) => (
@@ -309,7 +316,7 @@ export default function CrmClientsIndex({
                                         id="filter-per-page"
                                         defaultValue={filters.per_page ?? ''}
                                         onChange={(e) => handleFilterChange('per_page', e.target.value)}
-                                        className={SELECT_CLASS}
+                                        className={crmSelectClass}
                                     >
                                         {perPageOptions.map((option) => (
                                             <option key={option} value={option}>
@@ -347,9 +354,12 @@ export default function CrmClientsIndex({
                     <KanbanBoard
                         clients={kanbanClients ?? []}
                         statuses={statuses}
+                        availableTags={tags}
+                        onViewClient={(client) => router.visit(clients.show(client.id).url)}
                         onEditClient={openEditModal}
                         onCreateReminder={openReminderModal}
                         onCreateTicket={openTicketModal}
+                        onToggleTag={toggleClientTag}
                     />
                     )
                 ) : (
@@ -377,31 +387,47 @@ export default function CrmClientsIndex({
                                 ) : (
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm">
-                                            <thead className="border-b border-border text-left text-muted-foreground">
+                                            <thead className={crmTableHeadClass}>
                                                 <tr>
-                                                    <th className="px-4 py-3 font-medium">Nombre</th>
-                                                    <th className="hidden px-4 py-3 font-medium sm:table-cell">DNI</th>
-                                                    <th className="px-4 py-3 font-medium">Teléfono</th>
-                                                    <th className="px-4 py-3 font-medium">Estado</th>
-                                                    <th className="hidden px-4 py-3 font-medium md:table-cell">Tipo</th>
-                                                    <th className="px-4 py-3 font-medium" />
+                                                    <th className={crmTableCellClass}>Nombre</th>
+                                                    <th className={`hidden ${crmTableCellClass} sm:table-cell`}>DNI</th>
+                                                    <th className={crmTableCellClass}>Teléfono</th>
+                                                    <th className={crmTableCellClass}>Estado</th>
+                                                    <th className={crmTableCellClass}>Etiquetas</th>
+                                                    <th className={`hidden ${crmTableCellClass} md:table-cell`}>Tipo</th>
+                                                    <th className={crmTableCellClass} />
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {paginated.data.map((client) => (
-                                                    <tr key={client.id} className="border-b border-border last:border-0 hover:bg-muted/50">
-                                                        <td className="px-4 py-3 font-medium">{client.name}</td>
-                                                        <td className="hidden px-4 py-3 sm:table-cell">{client.dni ?? '—'}</td>
-                                                        <td className="px-4 py-3">{client.phone}</td>
-                                                        <td className="px-4 py-3">
+                                                    <tr key={client.id} className={crmTableRowClass}>
+                                                        <td className={crmTableCellClass}>
+                                                            <Link
+                                                                href={clients.show(client.id)}
+                                                                className="font-medium text-primary hover:underline"
+                                                            >
+                                                                {client.name}
+                                                            </Link>
+                                                        </td>
+                                                        <td className={`hidden ${crmTableCellClass} sm:table-cell`}>{client.dni ?? '—'}</td>
+                                                        <td className={crmTableCellClass}>{client.phone}</td>
+                                                        <td className={crmTableCellClass}>
                                                             {client.status ? (
                                                                 <StatusBadge color={client.status.color}>{client.status.name}</StatusBadge>
                                                             ) : (
                                                                 '—'
                                                             )}
                                                         </td>
-                                                        <td className="hidden px-4 py-3 md:table-cell">{client.type?.name ?? '—'}</td>
-                                                        <td className="px-4 py-3 text-right">
+                                                        <td className={crmTableCellClass}>
+                                                            <ClientTagToggles
+                                                                tags={tags}
+                                                                selectedIds={client.tags.map((tag) => tag.id)}
+                                                                onToggle={(tagId) => toggleClientTag(client, tagId)}
+                                                                size="sm"
+                                                            />
+                                                        </td>
+                                                        <td className={`hidden ${crmTableCellClass} md:table-cell`}>{client.type?.name ?? '—'}</td>
+                                                        <td className={`${crmTableCellClass} text-right`}>
                                                             <div className="flex justify-end gap-1">
                                                                 <Button
                                                                     size="icon"
@@ -433,7 +459,7 @@ export default function CrmClientsIndex({
                         <Pagination links={paginated.links} />
                     </>
                 )}
-            </div>
+            </CrmPage>
 
             <ClientFormModal
                 open={clientModalOpen}

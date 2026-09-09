@@ -13,7 +13,7 @@ export default function CrmSidebarLayout({
         <AppShell variant="sidebar">
             <FlashSwal />
             <CrmSidebar />
-            <AppContent variant="sidebar" className="overflow-x-hidden">
+            <AppContent variant="sidebar" className="overflow-x-hidden bg-muted/25">
                 <CrmSidebarHeader breadcrumbs={breadcrumbs} />
                 {children}
             </AppContent>

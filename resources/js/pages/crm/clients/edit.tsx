@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import type { FormEvent } from 'react';
+import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,10 +46,11 @@ export default function CrmClientsEdit({ client, cities }: { client: ClientData;
         <CrmLayout breadcrumbs={breadcrumbs}>
             <Head title="Editar cliente" />
 
-            <div className="p-6">
+            <CrmPage>
+                <CrmPageHeader title="Editar cliente" description={client.name} />
                 <Card className="max-w-2xl">
                     <CardHeader>
-                        <CardTitle>Editar cliente</CardTitle>
+                        <CardTitle>Datos de contacto</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={submit} className="space-y-4">
@@ -145,7 +147,7 @@ export default function CrmClientsEdit({ client, cities }: { client: ClientData;
                         </form>
                     </CardContent>
                 </Card>
-            </div>
+            </CrmPage>
         </CrmLayout>
     );
 }

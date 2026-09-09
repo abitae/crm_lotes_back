@@ -99,6 +99,28 @@ class ProjectLocationMapsResolverTest extends TestCase
         $this->assertNull($this->resolver->resolveMapsUrl('   '));
     }
 
+    public function test_resolve_embed_url_uses_coordinates_and_search_query(): void
+    {
+        $this->assertSame(
+            'https://maps.google.com/maps?q=-12.046374,-77.042793&z=16&output=embed&hl=es',
+            $this->resolver->resolveEmbedUrl('-12.046374,-77.042793'),
+        );
+        $this->assertSame(
+            'https://maps.google.com/maps?q=-12.0464,-77.0428&z=16&output=embed&hl=es',
+            $this->resolver->resolveEmbedUrl('https://www.google.com/maps/@-12.0464,-77.0428,17z'),
+        );
+        $this->assertSame(
+            'https://maps.google.com/maps?q=Mito%2C%20Peru&z=16&output=embed&hl=es',
+            $this->resolver->resolveEmbedUrl('https://www.google.com/maps/search/?api=1&query=Mito%2C%20Peru'),
+        );
+        $this->assertSame(
+            'https://maps.google.com/maps?q=Huancayo&z=16&output=embed&hl=es',
+            $this->resolver->resolveEmbedUrl('Huancayo'),
+        );
+        $this->assertNull($this->resolver->resolveEmbedUrl(null));
+        $this->assertNull($this->resolver->resolveEmbedUrl(''));
+    }
+
     public function test_display_label_returns_friendly_text_for_google_maps_url(): void
     {
         $this->assertSame(
