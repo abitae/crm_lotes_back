@@ -212,6 +212,21 @@ class ProjectController extends Controller
         ]);
     }
 
+    public function inventory(Project $project): Response
+    {
+        $project->load([
+            'lots' => fn ($query) => $query
+                ->with(['status', 'client', 'advisor'])
+                ->orderBy('block')
+                ->orderBy('number'),
+        ]);
+
+        return Inertia::render('inmopro/projects/inventory', [
+            'project' => $this->projectPayload($project, true),
+            'lotStatuses' => LotStatus::orderBy('sort_order')->get(),
+        ]);
+    }
+
     public function bulkUpdateLots(BulkUpdateProjectLotsRequest $request, Project $project): RedirectResponse
     {
         $lotsPayload = $request->validated('lots');

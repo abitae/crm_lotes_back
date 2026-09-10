@@ -40,6 +40,7 @@ class EnsureInmoproRoutePermission
         'inmopro.project-flat.polygons.store' => 'inmopro.project-flat.manage',
         'inmopro.project-flat.polygons.update' => 'inmopro.project-flat.manage',
         'inmopro.project-flat.polygons.destroy' => 'inmopro.project-flat.manage',
+        'inmopro.projects.inventory' => 'inmopro.projects.show',
     ];
 
     /**

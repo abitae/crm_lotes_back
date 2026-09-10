@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import type {
     Advisor,
     Client,
@@ -114,6 +115,7 @@ export function ProjectLotsTable({
     buildPayload,
     buildRowPayloadForSave,
     updateLot,
+    variant = 'embedded',
 }: {
     project: Project;
     lotStatuses: LotStatus[];
@@ -136,11 +138,14 @@ export function ProjectLotsTable({
     buildPayload: (lot: Lot, overrides: Partial<LotPayload>) => LotPayload;
     buildRowPayloadForSave: (lot: Lot) => LotPayload;
     updateLot: (lot: Lot, payload: LotPayload) => void;
+    variant?: 'embedded' | 'workspace';
 }) {
     const [clientDniFilter, setClientDniFilter] = useState('');
     const [clientNameFilter, setClientNameFilter] = useState('');
     const [lotStatusFilter, setLotStatusFilter] = useState('');
     const [isOpen, setIsOpen] = useState(true);
+    const isWorkspace = variant === 'workspace';
+    const showTable = isWorkspace || isOpen;
 
     const allLots = project.lots ?? [];
 
@@ -166,13 +171,33 @@ export function ProjectLotsTable({
     };
 
     if (allLots.length === 0) {
-        return null;
+        if (!isWorkspace) {
+            return null;
+        }
+
+        return (
+            <Card className="flex h-full min-h-0 items-center justify-center rounded-2xl border-0 bg-white py-0 shadow-[0_20px_40px_rgba(0,27,68,0.06)] dark:border dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
+                <CardContent className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                    Este proyecto aún no tiene lotes registrados.
+                </CardContent>
+            </Card>
+        );
     }
 
     return (
-        <Card className="min-w-0 gap-0 rounded-2xl border-0 bg-white py-0 shadow-[0_20px_40px_rgba(0,27,68,0.06)] dark:border dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
-            <CardContent className="flex min-w-0 flex-col gap-0 p-0">
-                <div className="bg-white px-5 py-5 dark:bg-slate-950">
+        <Card
+            className={cn(
+                'min-w-0 gap-0 rounded-2xl border-0 bg-white py-0 shadow-[0_20px_40px_rgba(0,27,68,0.06)] dark:border dark:border-slate-800 dark:bg-slate-950 dark:shadow-none',
+                isWorkspace && 'flex h-full min-h-0 flex-col overflow-hidden',
+            )}
+        >
+            <CardContent
+                className={cn(
+                    'flex min-w-0 flex-col gap-0 p-0',
+                    isWorkspace && 'h-full min-h-0',
+                )}
+            >
+                <div className="shrink-0 bg-white px-5 py-5 dark:bg-slate-950">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                         <div>
                             <p className="text-xs font-black tracking-[0.2em] text-slate-500 uppercase dark:text-slate-400">
@@ -188,20 +213,24 @@ export function ProjectLotsTable({
                             </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="rounded-xl border-transparent bg-[#f5f3f3] shadow-none dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-                                onClick={() => setIsOpen((value) => !value)}
-                            >
-                                {isOpen ? (
-                                    <ChevronUp className="mr-1 h-3.5 w-3.5" />
-                                ) : (
-                                    <ChevronDown className="mr-1 h-3.5 w-3.5" />
-                                )}
-                                {isOpen ? 'Minimizar' : 'Maximizar'}
-                            </Button>
+                            {isWorkspace ? null : (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="rounded-xl border-transparent bg-[#f5f3f3] shadow-none dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                                    onClick={() =>
+                                        setIsOpen((value) => !value)
+                                    }
+                                >
+                                    {isOpen ? (
+                                        <ChevronUp className="mr-1 h-3.5 w-3.5" />
+                                    ) : (
+                                        <ChevronDown className="mr-1 h-3.5 w-3.5" />
+                                    )}
+                                    {isOpen ? 'Minimizar' : 'Maximizar'}
+                                </Button>
+                            )}
                             {hasActiveFilters ? (
                                 <Button
                                     type="button"
@@ -216,7 +245,7 @@ export function ProjectLotsTable({
                             ) : null}
                         </div>
                     </div>
-                    {isOpen && (
+                    {showTable && (
                         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                             <div className="space-y-1">
                                 <Label
@@ -281,70 +310,77 @@ export function ProjectLotsTable({
                         </div>
                     )}
                 </div>
-                {isOpen && (
-                    <div className="w-full min-w-0 overflow-x-auto bg-white dark:bg-slate-950">
+                {showTable && (
+                    <div
+                        className={cn(
+                            'min-w-0 bg-white dark:bg-slate-950',
+                            isWorkspace
+                                ? 'min-h-0 flex-1 overflow-auto'
+                                : 'w-full overflow-x-auto',
+                        )}
+                    >
                         {filteredLots.length === 0 ? (
                             <p className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
                                 Ningún lote coincide con los filtros aplicados.
                             </p>
                         ) : (
-                            <table className="w-full min-w-[1240px] border-separate border-spacing-y-1 text-xs [&_tbody_td]:border-0 [&_tbody_td]:px-3 [&_tbody_td]:py-2 [&_tbody_tr]:shadow-[0_8px_18px_rgba(0,27,68,0.035)] dark:[&_tbody_tr]:shadow-none">
-                                <thead className="sticky top-16 z-10 bg-[#f5f3f3] md:top-[4.75rem] lg:top-[7.5rem] dark:bg-slate-900">
+                            <table className="w-max min-w-full border-collapse text-xs [&_tbody_td]:border [&_tbody_td]:border-slate-200 [&_tbody_td]:px-3 [&_tbody_td]:py-2 [&_tbody_td]:align-middle [&_tbody_td]:whitespace-nowrap dark:[&_tbody_td]:border-slate-800">
+                                <thead className="sticky top-0 z-20 bg-[#f5f3f3] shadow-[0_1px_0_0_rgba(15,23,42,0.08)] dark:bg-slate-900">
                                     <tr>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             Manzana
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             Número
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             Área
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             Precio
                                         </th>
                                         <th
-                                            className={`px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400 ${statusColumnClass}`}
+                                            className={`px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400 ${statusColumnClass}`}
                                         >
                                             Estado
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             Nombre cliente
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             DNI
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             Teléfono
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             Asesor
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             Adelanto
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             Monto rest.
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             F. limite
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             N° op.
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             F. contrato
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             Nº contrato
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             F. escritura
                                         </th>
-                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             Observ.
                                         </th>
-                                        <th className="px-4 py-3 text-center text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <th className="px-4 py-3 text-center text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase whitespace-nowrap bg-[#f5f3f3] dark:bg-slate-900 dark:text-slate-400">
                                             Acciones
                                         </th>
                                     </tr>

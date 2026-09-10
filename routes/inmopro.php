@@ -87,6 +87,7 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::delete('projects/{project}/assets/{asset}', [ProjectController::class, 'destroyAsset'])->name('projects.assets.destroy');
         Route::patch('projects/{project}/toggle-active', [ProjectController::class, 'toggleActive'])->name('projects.toggle-active');
         Route::put('projects/{project}/lots/bulk-update', [ProjectController::class, 'bulkUpdateLots'])->name('projects.lots.bulk-update');
+        Route::get('projects/{project}/inventory', [ProjectController::class, 'inventory'])->name('projects.inventory');
         Route::resource('projects', ProjectController::class);
         Route::prefix('project-360')->name('project-360.')->group(function (): void {
             Route::get('/', [Project360Controller::class, 'index'])->name('index');

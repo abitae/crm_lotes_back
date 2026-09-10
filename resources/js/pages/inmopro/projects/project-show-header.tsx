@@ -26,7 +26,7 @@ export function ProjectShowHeader({
     project: Project;
     clientError?: string;
     onToggleActive: () => void;
-    onSaveAll: () => void;
+    onSaveAll?: () => void;
     pendingEditsCount?: number;
     savingAll?: boolean;
 }) {
@@ -104,27 +104,29 @@ export function ProjectShowHeader({
                             asChild
                         >
                             <Link
-                                href={`/inmopro/lots?project_id=${project.id}`}
+                                href={`/inmopro/projects/${project.id}/inventory`}
                             >
                                 <LayoutGrid className="h-4 w-4" />
-                                Ver inventario
+                                Inventario comercial
                             </Link>
                         </Button>
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="rounded-xl border-transparent bg-emerald-50 text-emerald-800 shadow-none hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-200 dark:hover:bg-emerald-500/25"
-                            disabled={pendingEditsCount === 0 || savingAll}
-                            onClick={onSaveAll}
-                        >
-                            <Save className="h-4 w-4" />
-                            {savingAll
-                                ? 'Guardando...'
-                                : pendingEditsCount > 0
-                                  ? `Guardar cambios (${pendingEditsCount})`
-                                  : 'Guardar cambios'}
-                        </Button>
+                        {onSaveAll ? (
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="rounded-xl border-transparent bg-emerald-50 text-emerald-800 shadow-none hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-200 dark:hover:bg-emerald-500/25"
+                                disabled={pendingEditsCount === 0 || savingAll}
+                                onClick={onSaveAll}
+                            >
+                                <Save className="h-4 w-4" />
+                                {savingAll
+                                    ? 'Guardando...'
+                                    : pendingEditsCount > 0
+                                      ? `Guardar cambios (${pendingEditsCount})`
+                                      : 'Guardar cambios'}
+                            </Button>
+                        ) : null}
                         <Button
                             size="sm"
                             className="rounded-xl bg-[#001b44] text-white hover:bg-[#002f6c] dark:bg-sky-500 dark:text-slate-950 dark:hover:bg-sky-400"
