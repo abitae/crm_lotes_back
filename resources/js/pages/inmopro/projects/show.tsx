@@ -589,10 +589,7 @@ export default function ProjectsShow({ project, lotStatuses }: PageProps) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${project.name} - Inmopro`} />
-            <div
-                className="flex flex-col gap-6 bg-[#fbf9f8] p-4 md:p-6 dark:bg-slate-950"
-                style={{ minHeight: 'calc(100vh - 8rem)' }}
-            >
+            <div className="flex min-w-0 flex-col gap-6 bg-[#fbf9f8] p-4 pb-8 md:p-6 md:pb-10 dark:bg-slate-950">
                 <ProjectShowHeader
                     project={project}
                     clientError={errors?.client}
@@ -603,7 +600,7 @@ export default function ProjectsShow({ project, lotStatuses }: PageProps) {
                 />
 
                 <section className="grid gap-6 xl:grid-cols-12">
-                    <div className="relative min-h-[380px] overflow-hidden rounded-2xl bg-[#dbd9d9] shadow-[0_20px_40px_rgba(0,27,68,0.06)] xl:col-span-8 dark:bg-slate-900 dark:shadow-none">
+                    <div className="relative min-h-[380px] min-w-0 overflow-hidden rounded-2xl bg-[#dbd9d9] shadow-[0_20px_40px_rgba(0,27,68,0.06)] xl:col-span-8 dark:bg-slate-900 dark:shadow-none">
                         {mapEmbedUrl ? (
                             <iframe
                                 src={mapEmbedUrl}

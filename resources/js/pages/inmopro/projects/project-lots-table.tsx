@@ -140,7 +140,7 @@ export function ProjectLotsTable({
     const [clientDniFilter, setClientDniFilter] = useState('');
     const [clientNameFilter, setClientNameFilter] = useState('');
     const [lotStatusFilter, setLotStatusFilter] = useState('');
-    const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(true);
 
     const allLots = project.lots ?? [];
 
@@ -170,8 +170,8 @@ export function ProjectLotsTable({
     }
 
     return (
-        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border-0 bg-white shadow-[0_20px_40px_rgba(0,27,68,0.06)] dark:border dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
-            <CardContent className="flex min-h-0 flex-1 flex-col gap-0 p-0">
+        <Card className="min-w-0 gap-0 rounded-2xl border-0 bg-white py-0 shadow-[0_20px_40px_rgba(0,27,68,0.06)] dark:border dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
+            <CardContent className="flex min-w-0 flex-col gap-0 p-0">
                 <div className="bg-white px-5 py-5 dark:bg-slate-950">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                         <div>
@@ -282,14 +282,14 @@ export function ProjectLotsTable({
                     )}
                 </div>
                 {isOpen && (
-                    <div className="inline-block max-h-[calc(100vh-11rem)] max-w-full overflow-auto bg-white dark:bg-slate-950">
+                    <div className="w-full min-w-0 overflow-x-auto bg-white dark:bg-slate-950">
                         {filteredLots.length === 0 ? (
                             <p className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
                                 Ningún lote coincide con los filtros aplicados.
                             </p>
                         ) : (
                             <table className="w-full min-w-[1240px] border-separate border-spacing-y-1 text-xs [&_tbody_td]:border-0 [&_tbody_td]:px-3 [&_tbody_td]:py-2 [&_tbody_tr]:shadow-[0_8px_18px_rgba(0,27,68,0.035)] dark:[&_tbody_tr]:shadow-none">
-                                <thead className="sticky top-0 z-10 bg-[#f5f3f3] dark:bg-slate-900">
+                                <thead className="sticky top-16 z-10 bg-[#f5f3f3] md:top-[4.75rem] lg:top-[7.5rem] dark:bg-slate-900">
                                     <tr>
                                         <th className="px-4 py-3 text-left text-[10px] font-black tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
                                             Manzana

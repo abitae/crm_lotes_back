@@ -36,7 +36,7 @@ export function AppSidebarHeader({
 
     return (
         <>
-            <header className="fixed top-0 right-0 left-0 z-40 border-b border-sidebar-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:top-2 md:right-2 md:left-[var(--sidebar-width)] md:rounded-xl group-has-data-[collapsible=icon]/sidebar-wrapper:md:left-[calc(var(--sidebar-width-icon)+1rem)]">
+            <header className="sticky top-0 z-40 border-b border-sidebar-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:top-2 md:mx-2 md:mt-2 md:rounded-xl">
                 <div className="px-6 md:px-4">
                     <div className="hidden py-3 lg:block">
                         <div className="flex flex-wrap items-center gap-2">
@@ -88,7 +88,6 @@ export function AppSidebarHeader({
                     </div>
                 </div>
             </header>
-            <div className="h-16 shrink-0 md:h-[4.5rem] lg:h-[7.25rem] group-has-data-[collapsible=icon]/sidebar-wrapper:h-12" />
         </>
     );
 }
