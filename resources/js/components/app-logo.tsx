@@ -38,7 +38,7 @@ export default function AppLogo() {
             <div className="ml-1 grid min-w-0 flex-1 text-left text-sm">
                 <span className="truncate leading-tight font-semibold">{name}</span>
                 {brandingTagline ? (
-                    <span className="truncate text-xs text-muted-foreground">{brandingTagline}</span>
+                    <span className="truncate text-xs text-sidebar-foreground/65">{brandingTagline}</span>
                 ) : null}
             </div>
         </>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import AuthSimpleLayout from '@/layouts/auth/auth-simple-layout';
+import CrmAuthLayout from '@/layouts/crm/crm-auth-layout';
 import { login } from '@/routes/crm';
 import { store } from '@/routes/crm/forgot-pin';
 
@@ -15,7 +15,7 @@ type Props = {
 
 export default function CrmForgotPin({ status }: Props) {
     return (
-        <AuthSimpleLayout
+        <CrmAuthLayout
             title="¿Olvidaste tu PIN?"
             description="Ingresa tu correo registrado y te enviaremos un enlace para establecer un nuevo PIN."
         >
@@ -44,7 +44,7 @@ export default function CrmForgotPin({ status }: Props) {
                             <InputError message={errors.email} />
                         </div>
 
-                        <Button type="submit" className="w-full" disabled={processing}>
+                        <Button type="submit" className="w-full bg-[#1aa8b5] text-white hover:bg-[#1599a6]" disabled={processing}>
                             {processing && <Spinner />}
                             Enviar enlace de recuperación
                         </Button>
@@ -55,6 +55,6 @@ export default function CrmForgotPin({ status }: Props) {
             <div className="mt-6 text-center text-sm text-muted-foreground">
                 <TextLink href={login()}>Volver a iniciar sesión</TextLink>
             </div>
-        </AuthSimpleLayout>
+        </CrmAuthLayout>
     );
 }

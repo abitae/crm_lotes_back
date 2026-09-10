@@ -18,10 +18,10 @@ type Props = {
 export default function Login({ status, canResetPassword }: Props) {
     return (
         <AuthLayout
-            title="Iniciar sesión"
-            description="Introduce tu correo y contraseña para acceder al panel."
+            title="Inmopro"
+            description="Acceso del equipo interno. Introduce tu correo y contraseña."
         >
-            <Head title="Iniciar sesión" />
+            <Head title="Inmopro" />
 
             <Form
                 {...store.form()}
@@ -84,7 +84,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                 data-test="login-button"
                             >
                                 {processing && <Spinner />}
-                                Entrar
+                                Entrar a Inmopro
                             </Button>
                         </div>
                     </>

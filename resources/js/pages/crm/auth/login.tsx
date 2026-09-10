@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import AuthSimpleLayout from '@/layouts/auth/auth-simple-layout';
+import CrmAuthLayout from '@/layouts/crm/crm-auth-layout';
 import { startOauthRedirect } from '@/lib/utils';
 import { forgotPin } from '@/routes/crm';
 import { store } from '@/routes/crm/login';
@@ -16,11 +16,11 @@ type Props = {
 
 export default function CrmLogin({ status }: Props) {
     return (
-        <AuthSimpleLayout
-            title="CRM Vendedores"
-            description="Ingresa con tu usuario y PIN de Cazador para acceder al CRM."
+        <CrmAuthLayout
+            title="Ingresar al CRM"
+            description="Acceso para vendedores. Usa tu usuario y PIN de Cazador."
         >
-            <Head title="Ingresar al CRM" />
+            <Head title="CRM vendedores" />
 
             <Form
                 {...store.form()}
@@ -68,20 +68,20 @@ export default function CrmLogin({ status }: Props) {
 
                         <Button
                             type="submit"
-                            className="mt-4 w-full"
+                            className="mt-2 w-full bg-[#1aa8b5] text-white hover:bg-[#1599a6]"
                             tabIndex={3}
                             disabled={processing}
                         >
                             {processing && <Spinner />}
-                            Entrar
+                            Entrar al CRM
                         </Button>
 
-                        <div className="relative my-2">
+                        <div className="relative my-1">
                             <div className="absolute inset-0 flex items-center">
                                 <span className="w-full border-t" />
                             </div>
                             <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-background px-2 text-muted-foreground">o</span>
+                                <span className="bg-white px-2 text-muted-foreground dark:bg-card">o</span>
                             </div>
                         </div>
 
@@ -99,10 +99,10 @@ export default function CrmLogin({ status }: Props) {
             </Form>
 
             {status && (
-                <div className="mb-4 text-center text-sm font-medium text-green-600 dark:text-green-500">
+                <div className="mt-4 text-center text-sm font-medium text-green-600 dark:text-green-500">
                     {status}
                 </div>
             )}
-        </AuthSimpleLayout>
+        </CrmAuthLayout>
     );
 }

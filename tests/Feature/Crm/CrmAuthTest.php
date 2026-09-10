@@ -21,6 +21,18 @@ class CrmAuthTest extends TestCase
         $this->seed(TeamSeeder::class);
         $this->seed(AdvisorLevelSeeder::class);
         $this->seed(AdvisorSeeder::class);
+        $this->withoutVite();
+    }
+
+    public function test_crm_login_screen_is_separate_from_inmopro_login(): void
+    {
+        $this->get(route('crm.login'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('crm/auth/login'));
+
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('auth/login'));
     }
 
     public function test_advisor_can_login_with_username_and_pin_and_reach_dashboard(): void

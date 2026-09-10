@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import AuthSimpleLayout from '@/layouts/auth/auth-simple-layout';
+import CrmAuthLayout from '@/layouts/crm/crm-auth-layout';
 import { store } from '@/routes/crm/reset-pin';
 
 type Props = {
@@ -14,7 +14,7 @@ type Props = {
 
 export default function CrmResetPin({ token, email }: Props) {
     return (
-        <AuthSimpleLayout
+        <CrmAuthLayout
             title="Establece un nuevo PIN"
             description="Elige un PIN de 6 dígitos que usarás para ingresar al CRM."
         >
@@ -63,13 +63,13 @@ export default function CrmResetPin({ token, email }: Props) {
                             />
                         </div>
 
-                        <Button type="submit" className="w-full" disabled={processing}>
+                        <Button type="submit" className="w-full bg-[#1aa8b5] text-white hover:bg-[#1599a6]" disabled={processing}>
                             {processing && <Spinner />}
                             Guardar nuevo PIN
                         </Button>
                     </div>
                 )}
             </Form>
-        </AuthSimpleLayout>
+        </CrmAuthLayout>
     );
 }

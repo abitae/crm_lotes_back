@@ -1,6 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { Building2, LayoutDashboard, LogIn, ShieldCheck } from 'lucide-react';
+import { Building2, LayoutDashboard, LogIn, Users } from 'lucide-react';
 import { dashboard, login } from '@/routes';
+import { login as crmLogin } from '@/routes/crm';
 
 type WelcomePageProps = {
     auth: { user: unknown | null };
@@ -44,7 +45,7 @@ export default function Welcome() {
                                 ) : null}
                             </div>
                         </div>
-                        <nav>
+                        <nav className="flex flex-wrap items-center gap-2">
                             {auth.user ? (
                                 <Link
                                     href={dashboard()}
@@ -55,13 +56,22 @@ export default function Welcome() {
                                     Ir al panel
                                 </Link>
                             ) : (
-                                <Link
-                                    href={login()}
-                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm backdrop-blur transition hover:border-emerald-300 hover:bg-white dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 dark:hover:border-emerald-700"
-                                >
-                                    <LogIn className="h-4 w-4" />
-                                    Iniciar sesión
-                                </Link>
+                                <>
+                                    <Link
+                                        href={login()}
+                                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm backdrop-blur transition hover:border-emerald-300 hover:bg-white dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 dark:hover:border-emerald-700"
+                                    >
+                                        <LogIn className="h-4 w-4" />
+                                        Inmopro
+                                    </Link>
+                                    <Link
+                                        href={crmLogin()}
+                                        className="inline-flex items-center gap-2 rounded-xl bg-[#0c3d4d] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0a3342]"
+                                    >
+                                        <Users className="h-4 w-4" />
+                                        CRM vendedores
+                                    </Link>
+                                </>
                             )}
                         </nav>
                     </header>
@@ -70,8 +80,8 @@ export default function Welcome() {
                         <div className="grid gap-12 lg:grid-cols-2 lg:items-center lg:gap-16">
                             <div className="space-y-8">
                                 <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-emerald-50/90 px-4 py-1.5 text-xs font-medium text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/50 dark:text-emerald-200">
-                                    <ShieldCheck className="h-3.5 w-3.5" />
-                                    Acceso corporativo
+                                    <Building2 className="h-3.5 w-3.5" />
+                                    Dos accesos independientes
                                 </div>
                                 <h1 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-[3.25rem]">
                                     Gestión integral de{' '}
@@ -80,8 +90,7 @@ export default function Welcome() {
                                     </span>
                                 </h1>
                                 <p className="max-w-xl text-lg leading-relaxed text-slate-600 dark:text-slate-400">
-                                    Inventario, ventas, finanzas y operación en un solo entorno seguro. Inicia sesión con
-                                    las credenciales que te proporcione el administrador del sistema.
+                                    El equipo interno entra por Inmopro. Los vendedores entran al CRM con usuario y PIN.
                                 </p>
                                 {!auth.user && (
                                     <div className="flex flex-wrap gap-3">
@@ -91,13 +100,19 @@ export default function Welcome() {
                                             style={{ backgroundColor: accent, boxShadow: `0 10px 15px -3px ${accent}4d` }}
                                         >
                                             <LogIn className="h-4 w-4" />
-                                            Acceder al sistema
+                                            Acceder a Inmopro
+                                        </Link>
+                                        <Link
+                                            href={crmLogin()}
+                                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-[#0c3d4d] shadow-sm transition hover:border-[#1aa8b5] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                        >
+                                            <Users className="h-4 w-4" />
+                                            Acceder al CRM
                                         </Link>
                                     </div>
                                 )}
                                 <p className="max-w-md text-sm text-slate-500 dark:text-slate-500">
-                                    El registro público está deshabilitado. Si necesitas una cuenta, contacta con un
-                                    usuario con rol de administrador.
+                                    Inmopro usa correo y contraseña. El CRM de vendedores usa usuario y PIN de Cazador.
                                 </p>
                             </div>
 
@@ -106,8 +121,8 @@ export default function Welcome() {
                                 <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-white/70 p-8 shadow-xl shadow-slate-200/50 backdrop-blur-md dark:border-slate-700/80 dark:bg-slate-900/60 dark:shadow-none">
                                     <ul className="space-y-5">
                                         {[
-                                            { t: 'Inmopro', d: 'Panel web de backoffice y reportes.' },
-                                            { t: 'Control de acceso', d: 'Roles y permisos por ruta (Spatie).' },
+                                            { t: 'Inmopro', d: 'Panel de backoffice interno. Correo y contraseña.' },
+                                            { t: 'CRM vendedores', d: 'Cartera y seguimientos. Usuario y PIN de Cazador.' },
                                             { t: 'Apps móviles', d: 'Cazador y Datero vía API dedicada.' },
                                         ].map((item) => (
                                             <li

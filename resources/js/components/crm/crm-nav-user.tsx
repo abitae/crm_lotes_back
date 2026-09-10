@@ -50,7 +50,7 @@ export function CrmNavUser() {
                                 <span className="truncate font-medium">
                                     {advisor.name}
                                 </span>
-                                <span className="truncate text-xs text-muted-foreground">
+                                <span className="truncate text-xs text-sidebar-foreground/65">
                                     {advisor.username}
                                 </span>
                             </div>
