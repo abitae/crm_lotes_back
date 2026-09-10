@@ -19,6 +19,7 @@ use App\Services\Inmopro\LotPersistService;
 use App\Services\Inmopro\ProjectAssetStorageService;
 use App\Services\Inmopro\ProjectLocationMapsResolver;
 use App\Services\Inmopro\ProjectsExcelImportService;
+use App\Support\ClientPhoneGuard;
 use App\Support\FileStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -551,7 +552,7 @@ class ProjectController extends Controller
         $payload = $lot->toArray();
         $payload['client_phone'] = $lot->client?->phone;
 
-        return $payload;
+        return ClientPhoneGuard::redactArray($payload);
     }
 
     /**

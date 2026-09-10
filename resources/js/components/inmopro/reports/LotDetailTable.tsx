@@ -1,4 +1,5 @@
 import { formatDate } from '@/lib/date';
+import { formatClientPhone, useCanViewClientPhone } from '@/lib/inmopro-permissions';
 import { formatPen } from '@/lib/report-utils';
 
 export type LotDetailRow = {
@@ -18,6 +19,7 @@ export type LotDetailRow = {
 };
 
 export function LotDetailTable({ rows, showAdvance = true }: { rows: LotDetailRow[]; showAdvance?: boolean }) {
+    const canViewPhone = useCanViewClientPhone();
     return (
         <div className="overflow-x-auto rounded-3xl border bg-card shadow-sm">
             <table className="w-full min-w-[960px] text-sm">
@@ -47,7 +49,7 @@ export function LotDetailTable({ rows, showAdvance = true }: { rows: LotDetailRo
                     ) : (
                         rows.map((row, i) => (
                             <tr key={i} className="border-b">
-                                <td className="px-3 py-2">{row.client_phone ?? '—'}</td>
+                                <td className="px-3 py-2">{formatClientPhone(row.client_phone, canViewPhone)}</td>
                                 <td className="px-3 py-2">{row.operation_number ?? '—'}</td>
                                 {showAdvance ? <td className="px-3 py-2">{formatPen(row.advance ?? 0)}</td> : null}
                                 <td className="px-3 py-2">{formatPen(row.price ?? 0)}</td>

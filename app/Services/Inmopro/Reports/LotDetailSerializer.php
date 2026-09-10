@@ -3,6 +3,7 @@
 namespace App\Services\Inmopro\Reports;
 
 use App\Models\Inmopro\Lot;
+use App\Support\ClientPhoneGuard;
 use Illuminate\Support\Carbon;
 
 class LotDetailSerializer
@@ -24,7 +25,7 @@ class LotDetailSerializer
 
         return [
             'id' => $lot->id,
-            'client_phone' => $lot->client?->phone,
+            'client_phone' => ClientPhoneGuard::visible($lot->client?->phone),
             'client_name' => $lot->client?->name ?? $lot->client_name,
             'city_name' => $lot->client?->city?->name,
             'operation_number' => $lot->operation_number,

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { formatDateTime } from '@/lib/date';
+import { formatClientPhone, useCanViewClientPhone } from '@/lib/inmopro-permissions';
 import type { BreadcrumbItem } from '@/types';
 
 type Project = { id: number; name: string; location?: string | null };
@@ -27,6 +28,7 @@ type Ticket = {
 };
 
 export default function AttentionTicketsShow({ ticket }: { ticket: Ticket }) {
+    const canViewPhone = useCanViewClientPhone();
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
         { title: 'Operaciones', href: '/inmopro/attention-tickets' },
@@ -132,11 +134,10 @@ export default function AttentionTicketsShow({ ticket }: { ticket: Ticket }) {
                                     <span className="font-medium text-slate-600">DNI:</span> {ticket.client.dni}
                                 </p>
                             )}
-                            {ticket.client?.phone && (
-                                <p>
-                                    <span className="font-medium text-slate-600">Teléfono:</span> {ticket.client.phone}
-                                </p>
-                            )}
+                            <p>
+                                <span className="font-medium text-slate-600">Teléfono:</span>{' '}
+                                {formatClientPhone(ticket.client?.phone, canViewPhone)}
+                            </p>
                         </CardContent>
                     </Card>
                 </div>

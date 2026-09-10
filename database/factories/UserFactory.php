@@ -74,4 +74,11 @@ class UserFactory extends Factory
             $user->assignRole('super-admin');
         });
     }
+
+    public function withoutSuperAdmin(): static
+    {
+        return $this->afterCreating(function (User $user): void {
+            $user->syncRoles([]);
+        });
+    }
 }

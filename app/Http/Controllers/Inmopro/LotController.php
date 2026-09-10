@@ -12,10 +12,12 @@ use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
 use App\Services\Inmopro\LotPersistService;
 use App\Services\Inmopro\ProjectLocationMapsResolver;
+use App\Support\ClientPhoneGuard;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\View;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -60,10 +62,12 @@ class LotController extends Controller
             ->where('project_id', $project->id)
             ->orderBy('block')
             ->orderBy('number')
-            ->get();
+            ->get()
+            ->map(fn (Lot $lot): array => ClientPhoneGuard::redactArray($lot->toArray()))
+            ->values();
 
         $lotStatuses = LotStatus::orderBy('sort_order')->get();
-        $clients = Client::orderBy('name')->get(['id', 'name', 'dni', 'phone', 'email']);
+        $clients = $this->clientsForSelect();
         $advisors = Advisor::with('level')->orderBy('name')->get();
 
         return Inertia::render('inmopro/inventory', [
@@ -91,7 +95,7 @@ class LotController extends Controller
         $projectId = $request->query('project_id');
         $project = $projectId ? $this->resolveActiveProject((int) $projectId) : null;
         $lotStatuses = LotStatus::orderBy('sort_order')->get();
-        $clients = Client::orderBy('name')->get(['id', 'name', 'dni', 'phone', 'email']);
+        $clients = $this->clientsForSelect();
         $advisors = Advisor::with('level')->orderBy('name')->get();
         $projects = $this->activeProjects()->get();
 
@@ -166,7 +170,7 @@ class LotController extends Controller
         ]);
 
         return Inertia::render('inmopro/lots/show', [
-            'lot' => $lot,
+            'lot' => ClientPhoneGuard::redactArray($lot->toArray()),
             'financialMetrics' => $lot->financialMetrics(),
             'canConfirmTransfer' => request()->user()?->can('inmopro.lots.transfer-confirmation') ?? false,
             'canManageFinancials' => request()->user()?->can('inmopro.lots.financial.update') ?? false,
@@ -178,12 +182,12 @@ class LotController extends Controller
     {
         $lot->load(['project', 'status', 'client', 'advisor']);
         $lotStatuses = LotStatus::orderBy('sort_order')->get();
-        $clients = Client::orderBy('name')->get(['id', 'name', 'dni', 'phone', 'email']);
+        $clients = $this->clientsForSelect();
         $advisors = Advisor::with('level')->orderBy('name')->get();
         $projects = $this->activeProjects()->get();
 
         return Inertia::render('inmopro/lots/edit', [
-            'lot' => $lot,
+            'lot' => ClientPhoneGuard::redactArray($lot->toArray()),
             'lotStatuses' => $lotStatuses,
             'clients' => $clients,
             'advisors' => $advisors,
@@ -254,5 +258,17 @@ class LotController extends Controller
             'view_360_url' => $project->tour_360_url,
             'view_flat_url' => $project->resolveViewFlatUrl(),
         ];
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function clientsForSelect()
+    {
+        return Client::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'dni', 'phone', 'email'])
+            ->map(fn (Client $client): array => ClientPhoneGuard::clientPayload($client))
+            ->values();
     }
 }

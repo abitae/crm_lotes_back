@@ -4,6 +4,7 @@ import { ReportDateFilters } from '@/components/inmopro/reports/ReportDateFilter
 import { ReportPageShell } from '@/components/inmopro/reports/ReportPageShell';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { formatDate } from '@/lib/date';
+import { formatClientPhone, useCanViewClientPhone } from '@/lib/inmopro-permissions';
 import { formatPen } from '@/lib/report-utils';
 
 type Row = {
@@ -63,6 +64,8 @@ export default function LotsAdvancedReport({
     teams: { id: number; name: string }[];
     advisors: { id: number; name: string }[];
 }) {
+    const canViewPhone = useCanViewClientPhone();
+
     return (
         <ReportPageShell
             title={title}
@@ -233,7 +236,7 @@ export default function LotsAdvancedReport({
                                             {row.city_name ?? '—'}
                                         </td>
                                         <td className="px-2.5 py-1.5 whitespace-nowrap">
-                                            {row.client_phone ?? '—'}
+                                            {formatClientPhone(row.client_phone, canViewPhone)}
                                         </td>
                                         <td
                                             className="max-w-40 truncate px-2.5 py-1.5"

@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatClientPhone, MASKED_CLIENT_PHONE, useCanViewClientPhone } from '@/lib/inmopro-permissions';
 import { cn } from '@/lib/utils';
 import type {
     Advisor,
@@ -144,6 +145,7 @@ export function ProjectLotsTable({
     const [clientNameFilter, setClientNameFilter] = useState('');
     const [lotStatusFilter, setLotStatusFilter] = useState('');
     const [isOpen, setIsOpen] = useState(true);
+    const canViewPhone = useCanViewClientPhone();
     const isWorkspace = variant === 'workspace';
     const showTable = isWorkspace || isOpen;
 
@@ -619,12 +621,23 @@ export function ProjectLotsTable({
                                                 <td className="border border-border px-1 py-0.5 align-middle">
                                                     <input
                                                         type="text"
-                                                        value={getCellValue(
-                                                            lot,
-                                                            'client_phone',
-                                                        )}
+                                                        value={
+                                                            canViewPhone
+                                                                ? getCellValue(
+                                                                      lot,
+                                                                      'client_phone',
+                                                                  )
+                                                                : MASKED_CLIENT_PHONE
+                                                        }
                                                         disabled={
-                                                            isSaving || !canEdit
+                                                            isSaving ||
+                                                            !canEdit ||
+                                                            !canViewPhone
+                                                        }
+                                                        placeholder={
+                                                            canViewPhone
+                                                                ? 'Opcional'
+                                                                : 'Sin permiso'
                                                         }
                                                         onChange={(e) =>
                                                             setCellEdit(
@@ -637,7 +650,6 @@ export function ProjectLotsTable({
                                                         style={{
                                                             minWidth: '6rem',
                                                         }}
-                                                        placeholder="Opcional"
                                                     />
                                                 </td>
                                                 <AdvisorLookupCell
@@ -973,6 +985,7 @@ function ClientLookupCell({
     placeholder: string;
     width: string;
 }) {
+    const canViewPhone = useCanViewClientPhone();
     return (
         <td className="relative border border-border px-1 py-0.5 align-middle">
             <input
@@ -1050,11 +1063,11 @@ function ClientLookupCell({
                                 {(client.dni || client.phone) && (
                                     <span className="text-slate-500 dark:text-slate-400">
                                         {field === 'client_name'
-                                            ? [client.dni, client.phone]
-                                                  .filter(Boolean)
+                                            ? [client.dni, formatClientPhone(client.phone, canViewPhone)]
+                                                  .filter((value) => value && value !== '—')
                                                   .join(' · ')
                                             : `DNI: ${client.dni ?? '-'} · ${
-                                                  client.phone ?? '-'
+                                                  formatClientPhone(client.phone, canViewPhone)
                                               }`}
                                     </span>
                                 )}

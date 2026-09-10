@@ -14,6 +14,7 @@ final class InmoproPermissionSynchronizer
         'inmopro.project-360.manage',
         'inmopro.project-flat.manage',
         'inmopro.lots.financial.update',
+        'inmopro.clients.view-phone',
     ];
 
     /**

@@ -5,6 +5,7 @@ namespace App\Http\Requests\Inmopro;
 use App\Models\Inmopro\Client;
 use App\Services\Inmopro\ClientDuplicateRegistrationChecker;
 use App\Support\AdvisorCatalogRules;
+use App\Support\ClientPhoneGuard;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -30,6 +31,10 @@ class UpdateClientRequest extends FormRequest
         if ($merge !== []) {
             $this->merge($merge);
         }
+
+        if (! ClientPhoneGuard::canView($this->user())) {
+            $this->getInputSource()->remove('phone');
+        }
     }
 
     /**
@@ -40,7 +45,9 @@ class UpdateClientRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'dni' => ['nullable', 'string', 'max:20'],
-            'phone' => ['required', 'string', 'max:50'],
+            'phone' => ClientPhoneGuard::canView($this->user())
+                ? ['required', 'string', 'max:50']
+                : ['sometimes'],
             'email' => ['nullable', 'email', 'max:255'],
             'referred_by' => ['nullable', 'string', 'max:255'],
             'client_type_id' => ['required', 'exists:client_types,id'],
@@ -65,7 +72,7 @@ class UpdateClientRequest extends FormRequest
             app(ClientDuplicateRegistrationChecker::class)->addValidationErrors(
                 $validator,
                 $this->input('dni'),
-                $this->input('phone'),
+                ClientPhoneGuard::canView($this->user()) ? $this->input('phone') : null,
                 $exceptId,
             );
         });

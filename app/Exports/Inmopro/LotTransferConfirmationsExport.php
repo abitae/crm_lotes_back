@@ -3,6 +3,7 @@
 namespace App\Exports\Inmopro;
 
 use App\Models\Inmopro\Lot;
+use App\Support\ClientPhoneGuard;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -52,7 +53,7 @@ class LotTransferConfirmationsExport implements FromCollection, WithHeadings
                 "{$lot->block}-{$lot->number}",
                 $lot->client?->name ?? $lot->client_name,
                 $lot->client?->dni ?? $lot->client_dni,
-                $lot->client?->phone,
+                ClientPhoneGuard::visible($lot->client?->phone),
                 $lot->advisor?->name,
                 $lot->contract_date?->format('d/m/Y'),
                 $lot->payment_limit_date?->format('d/m/Y'),

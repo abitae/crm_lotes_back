@@ -23,6 +23,7 @@ use App\Services\Inmopro\ClientCrmService;
 use App\Services\Inmopro\ClientDuplicateMergeService;
 use App\Services\Inmopro\ClientsExcelImportService;
 use App\Services\Inmopro\ClientsIndexQuery;
+use App\Support\ClientPhoneGuard;
 use App\Support\InertiaListingRedirect;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -60,25 +61,42 @@ class ClientController extends Controller
             ->limit(15)
             ->get(['id', 'name', 'dni', 'phone', 'advisor_id']);
 
-        return response()->json($clients);
+        return response()->json($clients->map(fn (Client $client): array => [
+            'id' => $client->id,
+            'name' => $client->name,
+            'dni' => $client->dni,
+            'phone' => ClientPhoneGuard::visible($client->phone),
+            'advisor_id' => $client->advisor_id,
+            'advisor' => $client->advisor,
+        ])->values());
     }
 
     public function phoneDuplicates(): JsonResponse
     {
+        abort_unless(ClientPhoneGuard::canView(), 403);
+
         return response()->json([
-            'groups' => $this->clientDuplicateMergeService->duplicateGroups(ClientDuplicateMergeService::FIELD_PHONE),
+            'groups' => ClientPhoneGuard::redactDuplicateGroups(
+                $this->clientDuplicateMergeService->duplicateGroups(ClientDuplicateMergeService::FIELD_PHONE),
+                ClientDuplicateMergeService::FIELD_PHONE,
+            ),
         ]);
     }
 
     public function dniDuplicates(): JsonResponse
     {
         return response()->json([
-            'groups' => $this->clientDuplicateMergeService->duplicateGroups(ClientDuplicateMergeService::FIELD_DNI),
+            'groups' => ClientPhoneGuard::redactDuplicateGroups(
+                $this->clientDuplicateMergeService->duplicateGroups(ClientDuplicateMergeService::FIELD_DNI),
+                ClientDuplicateMergeService::FIELD_DNI,
+            ),
         ]);
     }
 
     public function mergeByPhone(MergeClientsByPhoneRequest $request): RedirectResponse
     {
+        abort_unless(ClientPhoneGuard::canView(), 403);
+
         return $this->mergeDuplicates(
             $request,
             (int) $request->validated('keep_client_id'),
@@ -142,12 +160,16 @@ class ClientController extends Controller
         $this->clientsIndexQuery->applyDefaultOrdering($query);
 
         $clients = $query->paginate($this->clientsIndexQuery->perPage($request))->withQueryString();
+        $clients->through(fn (Client $client): array => ClientPhoneGuard::clientPayload($client));
 
         $clientForModal = null;
         if ($request->filled('modal') && $request->input('modal') === 'edit_client' && $request->filled('client_id')) {
-            $clientForModal = Client::query()
+            $found = Client::query()
                 ->with(['tags:id'])
                 ->find($request->integer('client_id'));
+            $clientForModal = $found instanceof Client
+                ? ClientPhoneGuard::clientPayload($found)
+                : null;
         }
 
         return Inertia::render('inmopro/clients/index', [
@@ -280,7 +302,7 @@ class ClientController extends Controller
         $advisorId = (int) $client->advisor_id;
 
         return Inertia::render('inmopro/clients/show', [
-            'client' => $client,
+            'client' => ClientPhoneGuard::clientPayload($client),
             'clientStatuses' => ClientStatus::query()
                 ->forAdvisor($advisorId)
                 ->where('is_active', true)
@@ -315,6 +337,9 @@ class ClientController extends Controller
             ? ($validated['client_status_id'] !== null ? (int) $validated['client_status_id'] : null)
             : $client->client_status_id;
         unset($validated['tag_ids'], $validated['client_status_id']);
+        if (! ClientPhoneGuard::canView($request->user())) {
+            unset($validated['phone']);
+        }
 
         $client->update($validated);
 

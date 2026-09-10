@@ -7,6 +7,7 @@ use App\Models\Inmopro\Client;
 use App\Models\Inmopro\ClientType;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
+use App\Support\ClientPhoneGuard;
 use Carbon\Carbon;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
@@ -40,6 +41,9 @@ class LotPersistService
         $this->validateTransferToTransferred($validated, $lot);
         $transitionedToTransferred = $this->isTransitioningToTransferred($validated, $lot);
         $validated = $this->normalizeLotFields($validated, $lot);
+        if (! ClientPhoneGuard::canView(auth()->user())) {
+            unset($validated['client_phone']);
+        }
         $clientName = isset($validated['client_name']) ? trim((string) $validated['client_name']) : null;
         $clientDni = isset($validated['client_dni']) ? trim((string) $validated['client_dni']) : null;
         $clientPhone = array_key_exists('client_phone', $validated)

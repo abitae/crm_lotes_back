@@ -9,6 +9,7 @@ use App\Http\Middleware\EnsureOpenAiCazadorEnabled;
 use App\Http\Middleware\EnsureUserIsSuperAdmin;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\RecordInmoproAudit;
 use App\Http\Middleware\ShareCrmInertiaData;
 use App\Http\Requests\Inmopro\StoreProject360PanoramasRequest;
 use Illuminate\Foundation\Application;
@@ -41,6 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'datero.api' => AuthenticateDateroApiToken::class,
             'openai.cazador' => EnsureOpenAiCazadorEnabled::class,
             'inmopro.permission' => EnsureInmoproRoutePermission::class,
+            'inmopro.audit' => RecordInmoproAudit::class,
             'rbac.super-admin' => EnsureUserIsSuperAdmin::class,
             'advisor.active' => EnsureAdvisorIsActive::class,
             'advisor.pin-current' => EnsureAdvisorPinIsCurrent::class,

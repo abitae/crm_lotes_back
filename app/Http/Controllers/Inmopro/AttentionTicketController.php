@@ -13,6 +13,7 @@ use App\Models\Inmopro\DeliveryDeed;
 use App\Models\Inmopro\Project;
 use App\Services\Inmopro\AttentionTicketScheduleValidator;
 use App\Support\AppBrandingResolver;
+use App\Support\ClientPhoneGuard;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,6 +44,7 @@ class AttentionTicketController extends Controller
         }
 
         $tickets = $query->paginate(15)->withQueryString();
+        $tickets->through(fn (AttentionTicket $ticket): array => ClientPhoneGuard::redactArray($ticket->toArray()));
 
         return Inertia::render('inmopro/operations/attention-tickets/index', [
             'tickets' => $tickets,
@@ -151,7 +153,7 @@ class AttentionTicketController extends Controller
         $attention_ticket->load(['advisor', 'client', 'project', 'lot.project', 'lot.client', 'deliveryDeed', 'type']);
 
         return Inertia::render('inmopro/operations/attention-tickets/show', [
-            'ticket' => $attention_ticket,
+            'ticket' => ClientPhoneGuard::redactArray($attention_ticket->toArray()),
         ]);
     }
 
@@ -160,7 +162,7 @@ class AttentionTicketController extends Controller
         $attention_ticket->load(['advisor', 'client', 'project', 'lot.project', 'lot.client', 'type']);
 
         return Inertia::render('inmopro/operations/attention-tickets/edit', [
-            'ticket' => $attention_ticket,
+            'ticket' => ClientPhoneGuard::redactArray($attention_ticket->toArray()),
             'ticketTypes' => AttentionTicketType::query()
                 ->where('is_active', true)
                 ->orWhereKey($attention_ticket->attention_ticket_type_id)
@@ -212,7 +214,7 @@ class AttentionTicketController extends Controller
         }
 
         return Inertia::render('inmopro/operations/delivery-deed-print', [
-            'ticket' => $attention_ticket->load(['lot.project', 'lot.client', 'advisor']),
+            'ticket' => ClientPhoneGuard::redactArray($attention_ticket->load(['lot.project', 'lot.client', 'advisor'])->toArray()),
             'deed' => $deed,
             'companyName' => AppBrandingResolver::resolvedDisplayName(),
         ]);

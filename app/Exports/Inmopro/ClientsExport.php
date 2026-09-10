@@ -3,6 +3,7 @@
 namespace App\Exports\Inmopro;
 
 use App\Models\Inmopro\Client;
+use App\Support\ClientPhoneGuard;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -46,7 +47,7 @@ class ClientsExport implements FromCollection, WithHeadings
             return [
                 $client->name,
                 $client->dni,
-                $client->phone,
+                ClientPhoneGuard::visible($client->phone),
                 $client->email,
                 $client->type?->name,
                 $client->city?->name,

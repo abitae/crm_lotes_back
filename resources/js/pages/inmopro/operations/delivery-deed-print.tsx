@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/date';
+import { formatClientPhone, useCanViewClientPhone } from '@/lib/inmopro-permissions';
 
 type Project = { id: number; name: string; location?: string };
 type Client = { id: number; name: string; dni?: string; phone?: string };
@@ -24,6 +25,7 @@ export default function DeliveryDeedPrint({
     deed: Deed;
     companyName: string;
 }) {
+    const canViewPhone = useCanViewClientPhone();
     const handlePrint = () => {
         window.print();
     };
@@ -52,7 +54,7 @@ export default function DeliveryDeedPrint({
                             <h2 className="font-semibold text-slate-700">Datos del cliente</h2>
                             <p><span className="text-slate-600">Nombre:</span> {ticket.lot?.client?.name ?? '—'}</p>
                             {ticket.lot?.client?.dni && <p><span className="text-slate-600">DNI:</span> {ticket.lot.client.dni}</p>}
-                            {ticket.lot?.client?.phone && <p><span className="text-slate-600">Teléfono:</span> {ticket.lot.client.phone}</p>}
+                            <p><span className="text-slate-600">Teléfono:</span> {formatClientPhone(ticket.lot?.client?.phone, canViewPhone)}</p>
                         </div>
 
                         <div>

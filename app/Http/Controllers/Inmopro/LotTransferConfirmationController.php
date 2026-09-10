@@ -14,6 +14,7 @@ use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\LotTransferConfirmation;
 use App\Models\Inmopro\Project;
 use App\Services\Inmopro\CommissionService;
+use App\Support\ClientPhoneGuard;
 use App\Support\FileStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -47,6 +48,7 @@ class LotTransferConfirmationController extends Controller
         $lots = $this->queueLotsQuery($request)
             ->paginate(15)
             ->withQueryString();
+        $lots->through(fn (Lot $lot): array => ClientPhoneGuard::redactArray($lot->toArray()));
 
         return Inertia::render('inmopro/lot-transfer-confirmations/index', [
             'lots' => $lots,
@@ -90,7 +92,7 @@ class LotTransferConfirmationController extends Controller
         abort_unless($this->canRegisterTransfer($lot), 422, 'El lote no puede registrarse para transferencia.');
 
         return Inertia::render('inmopro/lots/transfer-confirmation', [
-            'lot' => $lot,
+            'lot' => ClientPhoneGuard::redactArray($lot->toArray()),
         ]);
     }
 

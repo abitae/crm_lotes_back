@@ -2,6 +2,7 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import type { FormEvent } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { clientsListingQuerySuffix } from '@/lib/inmopro-listing-query';
+import { formatClientPhone, useCanViewClientPhone } from '@/lib/inmopro-permissions';
 import type { BreadcrumbItem } from '@/types';
 
 type Option = { id: number; name: string; color?: string | null };
@@ -25,7 +26,7 @@ type Client = {
     id: number;
     name: string;
     dni: string;
-    phone: string;
+    phone: string | null;
     email?: string;
     referred_by?: string;
     type?: { name: string; color?: string };
@@ -48,6 +49,7 @@ export default function ClientsShow({
     clientTags: Option[];
 }) {
     const listQs = clientsListingQuerySuffix(usePage().url);
+    const canViewPhone = useCanViewClientPhone();
     const { data, setData, patch, processing } = useForm({
         client_status_id: client.status?.id ?? '',
         tag_ids: (client.tags ?? []).map((tag) => tag.id),
@@ -95,7 +97,7 @@ export default function ClientsShow({
                 <div className="space-y-2 text-slate-600">
                     <p>Tipo: {client.type?.name ?? '-'}</p>
                     <p>DNI: {client.dni}</p>
-                    <p>Teléfono: {client.phone}</p>
+                    <p>Teléfono: {formatClientPhone(client.phone, canViewPhone)}</p>
                     <p>Email: {client.email ?? '-'}</p>
                     <p>
                         Ciudad: {client.city?.name ?? '-'}

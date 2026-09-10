@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { MASKED_CLIENT_PHONE, useCanViewClientPhone } from '@/lib/inmopro-permissions';
 
 type ClientType = { id: number; name: string; color?: string; advisor_id?: number };
 type City = { id: number; name: string; department?: string | null };
@@ -23,7 +24,7 @@ export type InmoproClientEditValues = {
     id: number;
     name: string;
     dni: string;
-    phone: string;
+    phone: string | null;
     email?: string;
     referred_by?: string;
     client_type_id?: number | null;
@@ -56,6 +57,7 @@ export function ClientEditModal({
     advisors,
     listQs,
 }: Props) {
+    const canViewPhone = useCanViewClientPhone();
     const { data, setData, put, processing, errors, clearErrors } = useForm({
         name: '',
         dni: '',
@@ -86,7 +88,7 @@ export function ClientEditModal({
         setData({
             name: client.name,
             dni: client.dni,
-            phone: client.phone,
+            phone: client.phone ?? '',
             email: client.email ?? '',
             referred_by: client.referred_by ?? '',
             client_type_id: client.client_type_id ?? clientTypes[0]?.id ?? 0,
@@ -242,8 +244,10 @@ export function ClientEditModal({
                                 <Label htmlFor="modal-client-phone">Teléfono</Label>
                                 <Input
                                     id="modal-client-phone"
-                                    value={data.phone}
+                                    value={canViewPhone ? data.phone : MASKED_CLIENT_PHONE}
                                     onChange={(e) => setData('phone', e.target.value)}
+                                    disabled={!canViewPhone}
+                                    placeholder={canViewPhone ? undefined : 'Sin permiso'}
                                     className="mt-1"
                                 />
                                 <InputError message={errors.phone} />

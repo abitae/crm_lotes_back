@@ -14,6 +14,7 @@ use App\Http\Controllers\Inmopro\AgendaController;
 use App\Http\Controllers\Inmopro\AppBrandingController;
 use App\Http\Controllers\Inmopro\AttentionTicketController;
 use App\Http\Controllers\Inmopro\AttentionTicketTypeController;
+use App\Http\Controllers\Inmopro\AuditLogController;
 use App\Http\Controllers\Inmopro\CashAccountController;
 use App\Http\Controllers\Inmopro\CityController;
 use App\Http\Controllers\Inmopro\ClientController;
@@ -78,8 +79,9 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::resource('roles', AccessControlRoleController::class)->except(['show']);
     });
 
-    Route::middleware(['inmopro.permission'])->group(function (): void {
+    Route::middleware(['inmopro.permission', 'inmopro.audit'])->group(function (): void {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
+        Route::get('audit', [AuditLogController::class, 'index'])->name('audit.index');
         Route::get('projects/excel-template', [ProjectController::class, 'excelTemplate'])->name('projects.excel-template');
         Route::post('projects/import-preview', [ProjectController::class, 'importPreview'])->name('projects.import-preview');
         Route::post('projects/import-confirm', [ProjectController::class, 'importConfirm'])->name('projects.import-confirm');

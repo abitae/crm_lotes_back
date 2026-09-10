@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { formatDateTime } from '@/lib/date';
 import { clientsListingQuerySuffix } from '@/lib/inmopro-listing-query';
+import { formatClientPhone, useCanViewClientPhone } from '@/lib/inmopro-permissions';
 import { confirmDelete } from '@/lib/swal';
 import { cn } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
@@ -21,7 +22,7 @@ type Client = {
     id: number;
     name: string;
     dni: string;
-    phone: string;
+    phone: string | null;
     email?: string;
     created_at?: string;
     lots_count?: number;
@@ -233,6 +234,7 @@ export default function ClientsIndex({
     clientForModal: InmoproClientEditValues | null;
     openModal: string | null;
 }) {
+    const canViewPhone = useCanViewClientPhone();
     const totalClients = clients.total ?? clients.data.length;
     const clientsWithLots = clients.data.filter((client) => (client.lots_count ?? 0) > 0).length;
     const clientsWithEmail = clients.data.filter((client) => Boolean(client.email)).length;
@@ -772,7 +774,7 @@ export default function ClientsIndex({
                                                         </div>
                                                     </td>
                                                     <td className="max-w-[9rem] px-2 py-1.5 sm:max-w-none">
-                                                        <p className="truncate text-slate-700">{client.phone || '—'}</p>
+                                                        <p className="truncate text-slate-700">{formatClientPhone(client.phone, canViewPhone)}</p>
                                                         <p className="truncate text-[11px] text-slate-500">{client.email ?? '—'}</p>
                                                     </td>
                                                     <td className="hidden max-w-[10rem] px-2 py-1.5 xl:table-cell">

@@ -11,6 +11,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { formatDateTime } from '@/lib/date';
+import { formatClientPhone, useCanViewClientPhone } from '@/lib/inmopro-permissions';
 import { showSuccessToast } from '@/lib/swal';
 import { cn } from '@/lib/utils';
 
@@ -18,7 +19,7 @@ export type DuplicateMergeClient = {
     id: number;
     name: string;
     dni: string;
-    phone: string;
+    phone: string | null;
     email?: string | null;
     created_at?: string | null;
     lots_count: number;
@@ -75,7 +76,8 @@ const FIELD_CONFIG: Record<
 };
 
 export function ClientDuplicateMergeModal({ open, onOpenChange, listQs }: Props) {
-    const [field, setField] = useState<MatchField>('phone');
+    const canViewPhone = useCanViewClientPhone();
+    const [field, setField] = useState<MatchField>(canViewPhone ? 'phone' : 'dni');
     const [loading, setLoading] = useState(false);
     const [merging, setMerging] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -85,6 +87,9 @@ export function ClientDuplicateMergeModal({ open, onOpenChange, listQs }: Props)
     const [keepClientId, setKeepClientId] = useState<number | null>(null);
 
     const config = FIELD_CONFIG[field];
+    const availableFields = (Object.keys(FIELD_CONFIG) as MatchField[]).filter(
+        (tab) => tab !== 'phone' || canViewPhone,
+    );
 
     const activeGroup = useMemo(
         () => groups.find((group) => group.key === selectedKey) ?? null,
@@ -139,6 +144,12 @@ export function ClientDuplicateMergeModal({ open, onOpenChange, listQs }: Props)
             setLoading(false);
         }
     }, []);
+
+    useEffect(() => {
+        if (!canViewPhone && field === 'phone') {
+            setField('dni');
+        }
+    }, [canViewPhone, field]);
 
     useEffect(() => {
         if (!open) {
@@ -242,7 +253,7 @@ export function ClientDuplicateMergeModal({ open, onOpenChange, listQs }: Props)
                         </DialogHeader>
 
                         <div className="mt-4 flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
-                            {(Object.keys(FIELD_CONFIG) as MatchField[]).map((tab) => (
+                            {availableFields.map((tab) => (
                                 <button
                                     key={tab}
                                     type="button"
@@ -394,7 +405,7 @@ export function ClientDuplicateMergeModal({ open, onOpenChange, listQs }: Props)
                                                                     </div>
                                                                 </td>
                                                                 <td className="px-4 py-3 text-slate-700">{client.dni || '—'}</td>
-                                                                <td className="px-4 py-3 text-slate-700">{client.phone || '—'}</td>
+                                                                <td className="px-4 py-3 text-slate-700">{formatClientPhone(client.phone, canViewPhone)}</td>
                                                                 <td className="px-4 py-3 text-slate-600">
                                                                     {client.advisor?.name ?? '—'}
                                                                 </td>
@@ -462,7 +473,7 @@ export function ClientDuplicateMergeModal({ open, onOpenChange, listQs }: Props)
                                 <li key={client.id} className="border-b border-slate-100 px-3 py-2 last:border-b-0">
                                     <p className="font-medium text-slate-900">{client.name}</p>
                                     <p className="text-xs text-slate-500">
-                                        DNI {client.dni || '—'} · Tel. {client.phone || '—'}
+                                        DNI {client.dni || '—'} · Tel. {formatClientPhone(client.phone, canViewPhone)}
                                     </p>
                                 </li>
                             ))}

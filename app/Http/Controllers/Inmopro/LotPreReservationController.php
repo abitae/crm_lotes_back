@@ -13,6 +13,7 @@ use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotPreReservation;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
+use App\Support\ClientPhoneGuard;
 use App\Support\FileStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -38,6 +39,7 @@ class LotPreReservationController extends Controller
             ->latest()
             ->paginate(15)
             ->withQueryString();
+        $preReservations->through(fn (LotPreReservation $preReservation): array => ClientPhoneGuard::redactArray($preReservation->toArray()));
 
         return Inertia::render('inmopro/lot-pre-reservations/index', [
             'preReservations' => $preReservations,
@@ -56,7 +58,9 @@ class LotPreReservationController extends Controller
                 ->with(['advisor:id,name', 'city:id,name'])
                 ->whereHas('type', fn ($query) => $query->where('code', 'PROPIO'))
                 ->orderBy('name')
-                ->get(['id', 'name', 'dni', 'phone', 'advisor_id', 'city_id']),
+                ->get(['id', 'name', 'dni', 'phone', 'advisor_id', 'city_id'])
+                ->map(fn (Client $client): array => ClientPhoneGuard::clientPayload($client))
+                ->values(),
         ]);
     }
 
