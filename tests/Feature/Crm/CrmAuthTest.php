@@ -123,7 +123,7 @@ class CrmAuthTest extends TestCase
         $advisor = Advisor::firstOrFail();
         $this->actingAs($advisor, 'advisor');
 
-        $this->get(route('crm.login'))->assertRedirect();
+        $this->get(route('crm.login'))->assertRedirect(route('crm.dashboard'));
     }
 
     public function test_advisor_can_logout(): void
@@ -159,5 +159,29 @@ class CrmAuthTest extends TestCase
         ])->assertRedirect(route('crm.dashboard'));
 
         $this->get(route('dashboard'))->assertRedirect(route('login'));
+    }
+
+    public function test_crm_login_ignores_inmopro_intended_url(): void
+    {
+        $advisor = Advisor::firstOrFail();
+
+        $this->get(route('dashboard'))->assertRedirect(route('login'));
+
+        $this->post(route('crm.login.store'), [
+            'username' => $advisor->username,
+            'pin' => '123456',
+        ])->assertRedirect(route('crm.dashboard'));
+    }
+
+    public function test_crm_login_honors_crm_intended_url(): void
+    {
+        $advisor = Advisor::firstOrFail();
+
+        $this->get(route('crm.clients.index'))->assertRedirect(route('crm.login'));
+
+        $this->post(route('crm.login.store'), [
+            'username' => $advisor->username,
+            'pin' => '123456',
+        ])->assertRedirect(route('crm.clients.index'));
     }
 }

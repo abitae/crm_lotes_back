@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Crm\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Crm\Auth\LoginAdvisorRequest;
 use App\Models\Inmopro\Advisor;
+use App\Support\CrmAuthRedirect;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -37,7 +38,7 @@ class LoginController extends Controller
         $request->session()->regenerate();
         $advisor->forceFill(['last_login_at' => now()])->save();
 
-        return redirect()->intended(route('crm.dashboard'));
+        return redirect()->to(CrmAuthRedirect::intended($request));
     }
 
     public function destroy(Request $request): RedirectResponse

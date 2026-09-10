@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Crm\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Services\Google\GoogleAccountService;
+use App\Support\CrmAuthRedirect;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use InvalidArgumentException;
@@ -32,7 +33,7 @@ class GoogleAuthController extends Controller
             request()->session()->regenerate();
             $advisor->forceFill(['last_login_at' => now()])->save();
 
-            return redirect()->intended(route('crm.dashboard'));
+            return redirect()->to(CrmAuthRedirect::intended(request()));
         } catch (InvalidArgumentException $exception) {
             return redirect()
                 ->route('crm.login')

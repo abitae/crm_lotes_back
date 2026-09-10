@@ -52,6 +52,12 @@ return Application::configure(basePath: dirname(__DIR__))
                 ? route('crm.login')
                 : route('login');
         });
+
+        $middleware->redirectUsersTo(function (Request $request): string {
+            return $request->is('crm', 'crm/*')
+                ? route('crm.dashboard')
+                : route('dashboard');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontReport([PostTooLargeException::class]);
