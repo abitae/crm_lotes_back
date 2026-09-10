@@ -14,6 +14,7 @@ use App\Models\Inmopro\Client;
 use App\Models\Inmopro\ClientStatus;
 use App\Models\Inmopro\ClientTag;
 use App\Models\Inmopro\ClientType;
+use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\Project;
 use App\Services\Crm\CrmClientsIndexQuery;
 use App\Services\Inmopro\ClientCrmService;
@@ -164,10 +165,60 @@ class ClientController extends Controller
     public function show(Request $request, Client $client): Response
     {
         $ownedClient = $this->ownedClientOr404($request, $client);
-        $ownedClient->load(['city', 'lots.project', 'lots.status', 'status', 'tags']);
+        $ownedClient->load(['type', 'city', 'lots.project', 'lots.status', 'status', 'tags']);
 
         return Inertia::render('crm/clients/show', [
-            'client' => $ownedClient,
+            'client' => [
+                'id' => $ownedClient->id,
+                'name' => $ownedClient->name,
+                'dni' => $ownedClient->dni,
+                'phone' => $ownedClient->phone,
+                'email' => $ownedClient->email,
+                'referred_by' => $ownedClient->referred_by,
+                'created_at' => $ownedClient->created_at?->toIso8601String(),
+                'type' => $ownedClient->type ? [
+                    'code' => $ownedClient->type->code,
+                    'name' => $ownedClient->type->name,
+                ] : null,
+                'status' => $ownedClient->status ? [
+                    'id' => $ownedClient->status->id,
+                    'code' => $ownedClient->status->code,
+                    'name' => $ownedClient->status->name,
+                    'color' => $ownedClient->status->color,
+                ] : null,
+                'tags' => $ownedClient->tags
+                    ->map(fn (ClientTag $tag): array => [
+                        'id' => $tag->id,
+                        'name' => $tag->name,
+                        'color' => $tag->color,
+                    ])
+                    ->values()
+                    ->all(),
+                'city' => $ownedClient->city ? [
+                    'id' => $ownedClient->city->id,
+                    'name' => $ownedClient->city->name,
+                    'department' => $ownedClient->city->department,
+                ] : null,
+                'lots' => $ownedClient->lots
+                    ->map(fn (Lot $lot): array => [
+                        'id' => $lot->id,
+                        'block' => $lot->block,
+                        'number' => $lot->number,
+                        'area' => $lot->area,
+                        'price' => $lot->price,
+                        'project' => $lot->project ? [
+                            'id' => $lot->project->id,
+                            'name' => $lot->project->name,
+                        ] : null,
+                        'status' => $lot->status ? [
+                            'code' => $lot->status->code,
+                            'name' => $lot->status->name,
+                            'color' => $lot->status->color,
+                        ] : null,
+                    ])
+                    ->values()
+                    ->all(),
+            ],
             'statuses' => ClientStatus::query()
                 ->forAdvisor($ownedClient->advisor_id)
                 ->where('is_active', true)
@@ -178,6 +229,8 @@ class ClientController extends Controller
                 ->where('is_active', true)
                 ->orderBy('sort_order')
                 ->get(['id', 'code', 'name', 'color']),
+            'projects' => Project::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'ticketTypes' => AttentionTicketType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
