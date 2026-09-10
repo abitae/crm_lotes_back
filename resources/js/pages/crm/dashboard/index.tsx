@@ -1,21 +1,28 @@
-import { Head, Link } from '@inertiajs/react';
-import { CalendarClock, LifeBuoy, MapPin, Users } from 'lucide-react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import { Home, Phone, UserPlus, Users } from 'lucide-react';
+import type { ElementType } from 'react';
 import {
     Bar,
     BarChart,
     CartesianGrid,
-    Cell,
-    LabelList,
     ResponsiveContainer,
     Tooltip,
     XAxis,
     YAxis,
 } from 'recharts';
-import { CrmPage, CrmPageHeader } from '@/components/crm/crm-page';
+import { CrmPage } from '@/components/crm/crm-page';
 import { EmptyState } from '@/components/crm/empty-state';
+import { StatusBadge } from '@/components/crm/status-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useInitials } from '@/hooks/use-initials';
 import CrmLayout from '@/layouts/crm/crm-layout';
-import type { BreadcrumbItem } from '@/types';
+import { formatDateTime } from '@/lib/crm-format';
+import { cn } from '@/lib/utils';
+import clients from '@/routes/crm/clients';
+import { mine as myLots } from '@/routes/crm/lots';
+import pipeline from '@/routes/crm/pipeline';
+import reminders from '@/routes/crm/reminders';
+import type { Auth, PendingRemindersShared } from '@/types';
 
 type ClientStatusCount = {
     id: number;
@@ -25,55 +32,64 @@ type ClientStatusCount = {
     count: number;
 };
 
+type LatestClient = {
+    id: number;
+    name: string;
+    phone: string | null;
+    status: { name: string; color: string | null } | null;
+};
+
+type MonthCount = {
+    month: string;
+    count: number;
+};
+
 type Kpis = {
     clients: { total: number; propio: number; datero: number };
     clients_by_status: ClientStatusCount[];
-    pre_reservations: {
-        active: number;
-        pending: number;
-        approved: number;
-        rejected: number;
-    };
     lots: {
+        total: number;
         pre_reservation: number;
         reserved: number;
         transferred: number;
         installments: number;
     };
-    attention_tickets_pending: number;
     reminders_pending: number;
 };
 
-const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/crm/dashboard' }];
-
-const CATEGORICAL = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100'];
-const STATUS = { good: '#0ca30c', warning: '#fab219', critical: '#d03b3b' };
-const MUTED_FALLBACK = '#898781';
-const chartMargin = { top: 4, right: 28, bottom: 4, left: 0 };
+const FUNNEL_FALLBACK = ['#f5c542', '#f0a030', '#e87850', '#c44a4a', '#8b2e3a', '#64748b'];
+const TEAL_BAR = '#14b8c4';
+const dashboardCardClass = 'rounded-2xl border-0 bg-white shadow-sm dark:bg-card';
 
 function MetricCard({
     label,
     value,
     icon: Icon,
     href,
-    hint,
+    iconClassName,
 }: {
     label: string;
     value: number;
-    icon: React.ElementType;
+    icon: ElementType;
     href: string;
-    hint?: string;
+    iconClassName: string;
 }) {
     return (
         <Link href={href} className="block">
-            <Card className="h-full transition-shadow hover:shadow-md">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-semibold">{value.toLocaleString('es-PE')}</div>
-                    {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+            <Card className={cn(dashboardCardClass, 'h-full py-5 transition-shadow hover:shadow-md')}>
+                <CardContent className="flex items-center gap-4 px-5">
+                    <div
+                        className={cn(
+                            'flex size-12 shrink-0 items-center justify-center rounded-full',
+                            iconClassName,
+                        )}
+                    >
+                        <Icon className="size-5" />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-sm text-muted-foreground">{label}</p>
+                        <p className="text-2xl font-bold tracking-tight">{value.toLocaleString('es-PE')}</p>
+                    </div>
                 </CardContent>
             </Card>
         </Link>
@@ -85,197 +101,284 @@ function ChartTooltip({
     payload,
 }: {
     active?: boolean;
-    payload?: { value: number; payload: { name: string } }[];
+    payload?: { value: number; payload: { month?: string; name?: string } }[];
 }) {
     if (!active || !payload?.length) {
         return null;
     }
+
     const item = payload[0];
+    const label = item.payload.month ?? item.payload.name ?? '';
+
     return (
         <div className="rounded-md border border-border bg-popover px-3 py-1.5 text-xs shadow-md">
-            <p className="font-medium text-popover-foreground">{item.payload.name}</p>
+            <p className="font-medium text-popover-foreground">{label}</p>
             <p className="text-muted-foreground">{item.value.toLocaleString('es-PE')}</p>
         </div>
     );
 }
 
-export default function CrmDashboard({ kpis }: { kpis: Kpis }) {
-    const preReservationData = [
-        { name: 'Pendientes', value: kpis.pre_reservations.pending, fill: STATUS.warning },
-        { name: 'Aprobadas', value: kpis.pre_reservations.approved, fill: STATUS.good },
-        { name: 'Rechazadas', value: kpis.pre_reservations.rejected, fill: STATUS.critical },
-    ];
+function SalesFunnel({ data }: { data: { name: string; value: number; fill: string }[] }) {
+    const steps = data.length;
 
-    const lotsData = [
-        { name: 'Pre-reserva', value: kpis.lots.pre_reservation, fill: CATEGORICAL[0] },
-        { name: 'Reservados', value: kpis.lots.reserved, fill: CATEGORICAL[1] },
-        { name: 'Transferidos', value: kpis.lots.transferred, fill: CATEGORICAL[2] },
-        { name: 'En cuotas', value: kpis.lots.installments, fill: CATEGORICAL[3] },
-    ];
+    return (
+        <div className="flex flex-col items-stretch gap-6 lg:flex-row lg:items-center">
+            <div className="mx-auto flex w-full max-w-xs flex-col lg:mx-0 lg:flex-1">
+                {data.map((item, index) => {
+                    const topInset = 6 + (index / Math.max(steps, 1)) * 28;
+                    const bottomInset = 6 + ((index + 1) / Math.max(steps, 1)) * 28;
 
-    const statusData = kpis.clients_by_status.map((status) => ({
+                    return (
+                        <div
+                            key={item.name}
+                            className="relative flex h-11 items-center justify-center text-sm font-semibold text-white"
+                            style={{
+                                backgroundColor: item.fill,
+                                clipPath: `polygon(${topInset}% 0%, ${100 - topInset}% 0%, ${100 - bottomInset}% 100%, ${bottomInset}% 100%)`,
+                                marginTop: index === 0 ? 0 : -1,
+                            }}
+                        >
+                            {item.value.toLocaleString('es-PE')}
+                        </div>
+                    );
+                })}
+            </div>
+            <ul className="grid min-w-[10rem] gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                {data.map((item) => (
+                    <li key={item.name} className="flex items-center gap-2 text-sm">
+                        <span
+                            className="size-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: item.fill }}
+                        />
+                        <span className="truncate text-muted-foreground">{item.name}</span>
+                        <span className="ml-auto font-semibold tabular-nums">{item.value}</span>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+export default function CrmDashboard({
+    kpis,
+    latestClients,
+    clientsByMonth,
+}: {
+    kpis: Kpis;
+    latestClients: LatestClient[];
+    clientsByMonth: MonthCount[];
+}) {
+    const { auth, pendingReminders } = usePage<{
+        auth: Auth;
+        pendingReminders?: PendingRemindersShared;
+    }>().props;
+    const getInitials = useInitials();
+    const firstName = auth.advisor?.name?.trim().split(/\s+/)[0];
+    const upcomingFollowUps = (pendingReminders?.items ?? []).slice(0, 5);
+
+    const funnelData = kpis.clients_by_status.map((status, index) => ({
         name: status.name,
         value: status.count,
-        fill: status.color ?? MUTED_FALLBACK,
+        fill: status.color || FUNNEL_FALLBACK[index % FUNNEL_FALLBACK.length],
     }));
 
     return (
-        <CrmLayout breadcrumbs={breadcrumbs}>
+        <CrmLayout breadcrumbs={[]}>
             <Head title="Dashboard" />
 
             <CrmPage>
-                <CrmPageHeader
-                    title="Dashboard"
-                    description="Resumen de tu cartera, seguimientos y lotes."
-                />
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-[#0c3d4d] dark:text-foreground">
+                        ¡Hola{firstName ? `, ${firstName}` : ''}!
+                    </h1>
+                    <p className="mt-1 text-sm text-muted-foreground">Aquí está el resumen de tu CRM</p>
+                </div>
 
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <MetricCard
-                        label="Mis clientes"
+                        label="Clientes"
                         value={kpis.clients.total}
                         icon={Users}
                         href="/crm/clients"
-                        hint={`${kpis.clients.propio} propios · ${kpis.clients.datero} de datero`}
+                        iconClassName="bg-sky-100 text-sky-600 dark:bg-sky-950 dark:text-sky-300"
                     />
                     <MetricCard
-                        label="Pre-reservas activas"
-                        value={kpis.pre_reservations.active}
-                        icon={MapPin}
-                        href="/crm/pre-reservations"
-                        hint={`${kpis.pre_reservations.pending} pendientes`}
+                        label="Leads"
+                        value={kpis.clients.datero}
+                        icon={UserPlus}
+                        href="/crm/clients?client_type=DATERO"
+                        iconClassName="bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-300"
                     />
                     <MetricCard
-                        label="Tickets pendientes"
-                        value={kpis.attention_tickets_pending}
-                        icon={LifeBuoy}
-                        href="/crm/attention-tickets?status=pendiente"
+                        label="Lotes"
+                        value={kpis.lots.total}
+                        icon={Home}
+                        href={myLots.url()}
+                        iconClassName="bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300"
                     />
                     <MetricCard
-                        label="Recordatorios pendientes"
+                        label="Seguimientos"
                         value={kpis.reminders_pending}
-                        icon={CalendarClock}
+                        icon={Phone}
                         href="/crm/reminders?period=pendientes"
-                        hint="No completados, incluidos vencidos"
+                        iconClassName="bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-300"
                     />
                 </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Clientes por estado</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {statusData.length === 0 ? (
-                            <EmptyState
-                                icon={Users}
-                                title="Aún no hay estados"
-                                description="Crea etapas en Estados y etiquetas para ver tu pipeline aquí."
-                            />
-                        ) : (
-                            <div style={{ height: Math.max(statusData.length * 40, 120) }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={statusData} layout="vertical" margin={chartMargin}>
-                                        <CartesianGrid
-                                            horizontal={false}
-                                            strokeDasharray="0"
-                                            stroke="var(--border)"
-                                        />
-                                        <XAxis type="number" hide />
-                                        <YAxis
-                                            type="category"
-                                            dataKey="name"
-                                            width={140}
-                                            axisLine={false}
-                                            tickLine={false}
-                                            tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
-                                        />
-                                        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.3 }} />
-                                        <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={24}>
-                                            {statusData.map((entry, index) => (
-                                                <Cell key={index} fill={entry.fill} />
-                                            ))}
-                                            <LabelList
-                                                dataKey="value"
-                                                position="right"
-                                                style={{ fill: 'var(--foreground)', fontSize: 12 }}
-                                            />
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
                 <div className="grid gap-4 lg:grid-cols-2">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Pre-reservas por estado</CardTitle>
+                    <Card className={cn(dashboardCardClass, 'py-5')}>
+                        <CardHeader className="px-6">
+                            <CardTitle className="text-base">Embudo de ventas</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="h-48">
+                            {funnelData.length === 0 ? (
+                                <EmptyState
+                                    icon={Users}
+                                    title="Aún no hay estados"
+                                    description="Crea etapas en Estados y etiquetas para ver tu pipeline aquí."
+                                    action={
+                                        <Link
+                                            href={pipeline.index()}
+                                            className="text-sm font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
+                                        >
+                                            Ir a estados
+                                        </Link>
+                                    }
+                                    className="py-8"
+                                />
+                            ) : (
+                                <SalesFunnel data={funnelData} />
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card className={cn(dashboardCardClass, 'py-5')}>
+                        <CardHeader className="px-6">
+                            <CardTitle className="text-base">Clientes por mes</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="h-56">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={preReservationData} margin={chartMargin}>
-                                        <CartesianGrid vertical={false} stroke="var(--border)" />
+                                    <BarChart data={clientsByMonth} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                                        <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                                         <XAxis
-                                            dataKey="name"
+                                            dataKey="month"
                                             axisLine={false}
                                             tickLine={false}
                                             tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
                                         />
                                         <YAxis hide />
-                                        <Tooltip
-                                            content={<ChartTooltip />}
-                                            cursor={{ fill: 'var(--muted)', opacity: 0.3 }}
+                                        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.3 }} />
+                                        <Bar
+                                            dataKey="count"
+                                            name="Clientes"
+                                            fill={TEAL_BAR}
+                                            radius={[6, 6, 0, 0]}
+                                            maxBarSize={42}
                                         />
-                                        <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={48}>
-                                            {preReservationData.map((entry, index) => (
-                                                <Cell key={index} fill={entry.fill} />
-                                            ))}
-                                            <LabelList
-                                                dataKey="value"
-                                                position="top"
-                                                style={{ fill: 'var(--foreground)', fontSize: 12 }}
-                                            />
-                                        </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
                         </CardContent>
                     </Card>
+                </div>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Mis lotes por estado</CardTitle>
+                <div className="grid gap-4 lg:grid-cols-2">
+                    <Card className={cn(dashboardCardClass, 'py-5')}>
+                        <CardHeader className="px-6">
+                            <CardTitle className="text-base">Últimos clientes</CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            <div className="h-48">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={lotsData} margin={chartMargin}>
-                                        <CartesianGrid vertical={false} stroke="var(--border)" />
-                                        <XAxis
-                                            dataKey="name"
-                                            axisLine={false}
-                                            tickLine={false}
-                                            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-                                        />
-                                        <YAxis hide />
-                                        <Tooltip
-                                            content={<ChartTooltip />}
-                                            cursor={{ fill: 'var(--muted)', opacity: 0.3 }}
-                                        />
-                                        <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={48}>
-                                            {lotsData.map((entry, index) => (
-                                                <Cell key={index} fill={entry.fill} />
-                                            ))}
-                                            <LabelList
-                                                dataKey="value"
-                                                position="top"
-                                                style={{ fill: 'var(--foreground)', fontSize: 12 }}
-                                            />
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
+                        <CardContent className="px-2">
+                            {latestClients.length === 0 ? (
+                                <EmptyState
+                                    icon={Users}
+                                    title="Todavía no tienes clientes"
+                                    description="Cuando registres clientes, aparecerán aquí."
+                                    className="py-8"
+                                />
+                            ) : (
+                                <ul className="divide-y divide-border/70">
+                                    {latestClients.map((client) => (
+                                        <li key={client.id}>
+                                            <Link
+                                                href={clients.show(client.id)}
+                                                className="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-muted/60"
+                                            >
+                                                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                                                    {getInitials(client.name)}
+                                                </span>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate font-medium">{client.name}</p>
+                                                    <p className="truncate text-xs text-muted-foreground">
+                                                        {client.phone || 'Sin teléfono'}
+                                                    </p>
+                                                </div>
+                                                {client.status ? (
+                                                    <StatusBadge color={client.status.color}>
+                                                        {client.status.name}
+                                                    </StatusBadge>
+                                                ) : (
+                                                    <StatusBadge>Sin estado</StatusBadge>
+                                                )}
+                                            </Link>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card className={cn(dashboardCardClass, 'py-5')}>
+                        <CardHeader className="px-6">
+                            <CardTitle className="text-base">Próximos seguimientos</CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-2">
+                            {upcomingFollowUps.length === 0 ? (
+                                <EmptyState
+                                    icon={Phone}
+                                    title="No hay seguimientos pendientes"
+                                    description="Los recordatorios no completados aparecerán aquí."
+                                    className="py-8"
+                                />
+                            ) : (
+                                <ul className="divide-y divide-border/70">
+                                    {upcomingFollowUps.map((item) => (
+                                        <li key={item.id}>
+                                            <Link
+                                                href={
+                                                    item.client
+                                                        ? clients.show(item.client.id)
+                                                        : '/crm/reminders?period=pendientes'
+                                                }
+                                                className="flex items-start gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-muted/60"
+                                            >
+                                                <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300">
+                                                    <Phone className="size-4" />
+                                                </span>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate font-medium">{item.title}</p>
+                                                    <p className="truncate text-xs text-muted-foreground">
+                                                        {item.client?.name ?? 'Sin cliente'}
+                                                    </p>
+                                                    <p className="mt-0.5 text-xs text-muted-foreground">
+                                                        {formatDateTime(item.remind_at)}
+                                                    </p>
+                                                </div>
+                                            </Link>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                            {upcomingFollowUps.length > 0 ? (
+                                <div className="px-4 pt-2">
+                                    <Link
+                                        href={reminders.index()}
+                                        className="text-xs font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
+                                    >
+                                        Ver todos los recordatorios
+                                    </Link>
+                                </div>
+                            ) : null}
                         </CardContent>
                     </Card>
                 </div>

@@ -10,10 +10,10 @@ export default function CrmSidebarLayout({
     breadcrumbs = [],
 }: AppLayoutProps) {
     return (
-        <AppShell variant="sidebar">
+        <AppShell variant="sidebar" className="crm-shell">
             <FlashSwal />
             <CrmSidebar />
-            <AppContent variant="sidebar" className="overflow-x-hidden bg-muted/25">
+            <AppContent variant="sidebar" className="overflow-x-hidden bg-[#eef3f6] dark:bg-background">
                 <CrmSidebarHeader breadcrumbs={breadcrumbs} />
                 {children}
             </AppContent>

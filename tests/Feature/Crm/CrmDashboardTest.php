@@ -8,6 +8,9 @@ use App\Models\Inmopro\City;
 use App\Models\Inmopro\Client;
 use App\Models\Inmopro\ClientStatus;
 use App\Models\Inmopro\ClientType;
+use App\Models\Inmopro\Lot;
+use App\Models\Inmopro\LotStatus;
+use App\Models\Inmopro\Project;
 use Database\Seeders\Inmopro\AdvisorLevelSeeder;
 use Database\Seeders\Inmopro\AdvisorSeeder;
 use Database\Seeders\Inmopro\CitySeeder;
@@ -175,5 +178,74 @@ class CrmDashboardTest extends TestCase
                 ->where('kpis.reminders_pending', 2)
                 ->where('pendingReminders.count', 2)
                 ->has('pendingReminders.items', 2));
+    }
+
+    public function test_dashboard_lists_latest_own_clients_monthly_counts_and_lots_total(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $otherAdvisor = Advisor::query()->whereKeyNot($advisor->id)->firstOrFail();
+        $status = ClientStatus::query()->forAdvisor($advisor->id)->where('is_active', true)->firstOrFail();
+        $ownType = ClientType::where('code', 'PROPIO')->firstOrFail();
+        $city = City::firstOrFail();
+        $project = Project::query()->where('is_active', true)->firstOrFail();
+        $libreId = LotStatus::where('code', 'LIBRE')->value('id');
+
+        Client::create([
+            'name' => 'Cliente anterior',
+            'dni' => (string) (73000000 + $advisor->id),
+            'phone' => '988222001',
+            'client_type_id' => $ownType->id,
+            'client_status_id' => $status->id,
+            'city_id' => $city->id,
+            'advisor_id' => $advisor->id,
+        ]);
+        $latest = Client::create([
+            'name' => 'Cliente reciente',
+            'dni' => (string) (73000001 + $advisor->id),
+            'phone' => '988222002',
+            'client_type_id' => $ownType->id,
+            'client_status_id' => $status->id,
+            'city_id' => $city->id,
+            'advisor_id' => $advisor->id,
+        ]);
+        Client::create([
+            'name' => 'Cliente ajeno reciente',
+            'dni' => (string) (73000099 + $otherAdvisor->id),
+            'phone' => '977222099',
+            'client_type_id' => $ownType->id,
+            'city_id' => $city->id,
+            'advisor_id' => $otherAdvisor->id,
+        ]);
+
+        Lot::create([
+            'project_id' => $project->id,
+            'block' => 'D',
+            'number' => '1',
+            'area' => 100,
+            'price' => 30000,
+            'lot_status_id' => $libreId,
+            'advisor_id' => $advisor->id,
+        ]);
+        Lot::create([
+            'project_id' => $project->id,
+            'block' => 'D',
+            'number' => '2',
+            'area' => 100,
+            'price' => 30000,
+            'lot_status_id' => $libreId,
+            'advisor_id' => $otherAdvisor->id,
+        ]);
+
+        $this->actingAs($advisor, 'advisor');
+
+        $this->get(route('crm.dashboard'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('latestClients', 2)
+                ->where('latestClients.0.id', $latest->id)
+                ->where('latestClients.0.name', 'Cliente reciente')
+                ->has('clientsByMonth', 6)
+                ->where('clientsByMonth.5.count', 2)
+                ->where('kpis.lots.total', 1));
     }
 }

@@ -150,6 +150,7 @@ function NavGroup({ section }: { section: NavSection }) {
                                         asChild
                                         isActive={isCurrentUrl(item.href)}
                                         tooltip={{ children: item.title }}
+                                        className="rounded-xl"
                                     >
                                         <Link href={item.href} prefetch>
                                             {item.icon ? <item.icon /> : null}
@@ -167,10 +168,11 @@ function NavGroup({ section }: { section: NavSection }) {
 }
 
 export function CrmSidebar() {
-    const { meta } = usePage<{ meta?: { connected?: boolean } }>().props;
+    const { meta, auth } = usePage<{ meta?: { connected?: boolean } }>().props;
+    const firstName = auth.advisor?.name?.trim().split(/\s+/)[0];
 
     return (
-        <Sidebar collapsible="icon" variant="inset">
+        <Sidebar collapsible="icon" variant="sidebar">
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
@@ -181,6 +183,12 @@ export function CrmSidebar() {
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
+                {firstName ? (
+                    <p className="px-2 pb-1 text-sm text-sidebar-foreground/75 group-data-[collapsible=icon]:hidden">
+                        Hola,{' '}
+                        <span className="font-semibold text-sidebar-foreground">{firstName}</span>
+                    </p>
+                ) : null}
             </SidebarHeader>
 
             <SidebarContent>

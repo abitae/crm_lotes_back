@@ -13,6 +13,7 @@ use App\Models\Inmopro\LotPreReservation;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Meta\MetaConversation;
 use App\Models\Meta\MetaMessage;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -56,6 +57,10 @@ class DashboardController extends Controller
         $preReservationActive = $preReservationPending + $preReservationApproved;
 
         $lotStatusCounts = $this->lotStatusCountsForAdvisor($advisorId);
+        $lotsTotal = Lot::query()
+            ->where('lots.advisor_id', $advisorId)
+            ->whereHas('project', fn ($query) => $query->where('is_active', true))
+            ->count();
 
         $attentionTicketsPending = AttentionTicket::query()
             ->where('advisor_id', $advisorId)
@@ -133,6 +138,7 @@ class DashboardController extends Controller
                     'rejected' => $preReservationRejected,
                 ],
                 'lots' => [
+                    'total' => $lotsTotal,
                     'pre_reservation' => $lotStatusCounts->get(LotStatus::CODE_PRERESERVA, 0),
                     'reserved' => $lotStatusCounts->get(LotStatus::CODE_RESERVADO, 0),
                     'transferred' => $lotStatusCounts->get(LotStatus::CODE_TRANSFERIDO, 0),
@@ -142,7 +148,72 @@ class DashboardController extends Controller
                 'reminders_pending' => $remindersPending,
                 'meta' => $metaStats,
             ],
+            'latestClients' => $this->latestClientsForAdvisor($visibleClients),
+            'clientsByMonth' => $this->clientsByMonthForAdvisor($advisorId),
         ]);
+    }
+
+    /**
+     * @param  Builder<Client>  $visibleClients
+     * @return list<array{id: int, name: string, phone: string|null, status: array{name: string, color: string|null}|null}>
+     */
+    private function latestClientsForAdvisor(Builder $visibleClients): array
+    {
+        return (clone $visibleClients)
+            ->with(['status:id,name,color'])
+            ->latest('id')
+            ->limit(5)
+            ->get(['id', 'name', 'phone', 'client_status_id'])
+            ->map(fn (Client $client): array => [
+                'id' => $client->id,
+                'name' => $client->name,
+                'phone' => $client->phone,
+                'status' => $client->status ? [
+                    'name' => $client->status->name,
+                    'color' => $client->status->color,
+                ] : null,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return list<array{month: string, count: int}>
+     */
+    private function clientsByMonthForAdvisor(int $advisorId): array
+    {
+        $labels = [
+            1 => 'Ene',
+            2 => 'Feb',
+            3 => 'Mar',
+            4 => 'Abr',
+            5 => 'May',
+            6 => 'Jun',
+            7 => 'Jul',
+            8 => 'Ago',
+            9 => 'Sep',
+            10 => 'Oct',
+            11 => 'Nov',
+            12 => 'Dic',
+        ];
+
+        $months = [];
+        $cursor = now()->startOfMonth()->subMonths(5);
+
+        for ($i = 0; $i < 6; $i++) {
+            $monthStart = $cursor->copy()->addMonths($i);
+            $monthEnd = $monthStart->copy()->endOfMonth();
+
+            $months[] = [
+                'month' => $labels[(int) $monthStart->month],
+                'count' => Client::query()
+                    ->where('advisor_id', $advisorId)
+                    ->whereHas('type', fn ($query) => $query->whereIn('code', ['PROPIO', 'DATERO']))
+                    ->whereBetween('created_at', [$monthStart, $monthEnd])
+                    ->count(),
+            ];
+        }
+
+        return $months;
     }
 
     /**

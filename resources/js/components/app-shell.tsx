@@ -5,9 +5,10 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 type Props = {
     children: ReactNode;
     variant?: 'header' | 'sidebar';
+    className?: string;
 };
 
-export function AppShell({ children, variant = 'header' }: Props) {
+export function AppShell({ children, variant = 'header', className }: Props) {
     const isOpen = usePage().props.sidebarOpen;
 
     if (variant === 'header') {
@@ -16,5 +17,9 @@ export function AppShell({ children, variant = 'header' }: Props) {
         );
     }
 
-    return <SidebarProvider defaultOpen={isOpen}>{children}</SidebarProvider>;
+    return (
+        <SidebarProvider defaultOpen={isOpen} className={className}>
+            {children}
+        </SidebarProvider>
+    );
 }

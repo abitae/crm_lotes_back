@@ -243,3 +243,23 @@
         color: oklch(0.88 0.06 0);
     }
 }
+
+/* CRM: barra lateral teal oscura como la maqueta. No aplica a Inmopro. */
+.crm-shell {
+    --sidebar: #0c3d4d;
+    --sidebar-foreground: #f4fbfd;
+    --sidebar-primary: #1ab3c0;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #1aa8b5;
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: #164e5e;
+    --sidebar-ring: #5eead4;
+}
+
+.crm-shell [data-sidebar='sidebar'] .text-muted-foreground {
+    color: color-mix(in srgb, var(--sidebar-foreground) 68%, transparent);
+}
+
+.crm-shell [data-sidebar='menu-button'][data-active='true'] {
+    border-radius: 0.75rem;
+}
