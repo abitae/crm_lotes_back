@@ -15,14 +15,14 @@ export default function AppSidebarLayout({
     const isInmopro = url.startsWith('/inmopro');
 
     return (
-        <AppShell variant="sidebar">
+        <AppShell variant="sidebar" className="h-svh overflow-hidden">
             <FlashSwal />
             <AppSidebar />
             <AppContent
                 variant="sidebar"
                 data-inmopro-page={isInmopro ? 'true' : undefined}
                 className={cn(
-                    'overflow-x-hidden',
+                    'min-h-0! overflow-x-clip overflow-y-auto',
                     isInmopro &&
                         'bg-[#fbf9f8] text-slate-950 dark:bg-slate-950 dark:text-white',
                 )}
