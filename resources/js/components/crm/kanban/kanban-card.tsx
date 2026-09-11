@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { BellPlus, Eye, LifeBuoy, MoreVertical, Pencil, Phone, Tags } from 'lucide-react';
+import { BellPlus, Eye, LifeBuoy, MessageCircle, MoreVertical, Pencil, Phone, Tags } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +11,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { getWhatsAppUrl } from '@/lib/whatsapp';
 
 export type KanbanClient = {
     id: number;
@@ -52,6 +53,7 @@ export function KanbanCard({
     const style = transform
         ? { transform: CSS.Translate.toString(transform) }
         : undefined;
+    const whatsAppUrl = getWhatsAppUrl(client.phone);
 
     return (
         <div
@@ -90,6 +92,14 @@ export function KanbanCard({
                             <DropdownMenuItem onSelect={() => onView(client)}>
                                 <Eye className="mr-2 size-4" />
                                 Ver ficha
+                            </DropdownMenuItem>
+                        ) : null}
+                        {whatsAppUrl ? (
+                            <DropdownMenuItem asChild>
+                                <a href={whatsAppUrl} target="_blank" rel="noopener noreferrer">
+                                    <MessageCircle className="mr-2 size-4" />
+                                    Enviar mensaje por WhatsApp
+                                </a>
                             </DropdownMenuItem>
                         ) : null}
                         <DropdownMenuItem onSelect={() => onCreateReminder(client)}>

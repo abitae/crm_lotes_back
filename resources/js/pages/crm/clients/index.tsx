@@ -366,14 +366,6 @@ export default function CrmClientsIndex({
                         />
                     ) : (
                     <>
-                        {kanbanMeta && kanbanMeta.shown < kanbanMeta.total ? (
-                            <p className="text-sm text-muted-foreground">
-                                Mostrando {kanbanMeta.shown.toLocaleString('es-PE')} de{' '}
-                                {kanbanMeta.total.toLocaleString('es-PE')} clientes. El tablero tiene un
-                                tope de {kanbanMeta.limit}. Usa la búsqueda o la vista tabla para ver el
-                                resto; los números de cada columna sí cuentan toda la cartera filtrada.
-                            </p>
-                        ) : null}
                         <KanbanBoard
                             clients={kanbanClients ?? []}
                             statuses={statuses}

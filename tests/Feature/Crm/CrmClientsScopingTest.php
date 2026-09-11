@@ -175,6 +175,21 @@ class CrmClientsScopingTest extends TestCase
             ->where('kanbanClients.0.name', 'Busqueda Kanban Alfa'));
     }
 
+    public function test_crm_sidebar_is_collapsed_by_default_and_respects_user_preference(): void
+    {
+        $advisor = Advisor::firstOrFail();
+        $this->actingAs($advisor, 'advisor');
+
+        $this->get(route('crm.clients.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('sidebarOpen', false));
+
+        $this->withUnencryptedCookie('sidebar_state', 'true')
+            ->get(route('crm.clients.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('sidebarOpen', true));
+    }
+
     public function test_advisor_can_delete_own_client(): void
     {
         $advisor = Advisor::firstOrFail();

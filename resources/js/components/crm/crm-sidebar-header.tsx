@@ -15,8 +15,8 @@ export function CrmSidebarHeader({
     const isDark = resolvedAppearance === 'dark';
 
     return (
-        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-transparent bg-[#eef3f6]/90 px-4 backdrop-blur-md dark:bg-background/90 md:h-16 md:px-6">
-            <SidebarTrigger className="-ml-1" />
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-sidebar-border bg-sidebar px-4 text-sidebar-foreground [&_[data-slot=breadcrumb-link]]:hover:text-sidebar-foreground [&_[data-slot=breadcrumb-list]]:text-sidebar-foreground/70 [&_[data-slot=breadcrumb-page]]:text-sidebar-foreground md:h-16 md:px-6">
+            <SidebarTrigger className="-ml-1 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
             <div className="min-w-0 flex-1">
                 {breadcrumbs.length > 0 ? <Breadcrumbs breadcrumbs={breadcrumbs} /> : null}
             </div>
@@ -26,7 +26,7 @@ export function CrmSidebarHeader({
                 variant="ghost"
                 size="icon"
                 onClick={() => updateAppearance(isDark ? 'light' : 'dark')}
-                className="size-8 shrink-0 rounded-full"
+                className="size-8 shrink-0 rounded-full text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 title={isDark ? 'Activar modo claro' : 'Activar modo oscuro'}
             >
                 {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

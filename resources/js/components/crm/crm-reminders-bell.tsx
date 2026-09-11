@@ -33,7 +33,7 @@ export function CrmRemindersBell() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="relative size-8 shrink-0 rounded-full"
+                    className="relative size-8 shrink-0 rounded-full text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     title={label}
                     aria-label={label}
                 >
