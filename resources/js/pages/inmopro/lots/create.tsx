@@ -129,12 +129,12 @@ export default function LotsCreate({ projects, project, lotStatuses, clients, ad
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div>
                             <Label htmlFor="area">Área</Label>
-                            <Input id="area" type="number" min={0} value={data.area} onChange={(e) => setData('area', e.target.value)} className="mt-1" />
+                            <Input id="area" type="number" min={0} step="0.01" value={data.area} onChange={(e) => setData('area', e.target.value)} className="mt-1" />
                             <InputError message={errors.area} />
                         </div>
                         <div>
                             <Label htmlFor="price">Precio de lista</Label>
-                            <Input id="price" type="number" min={0} value={data.price} onChange={(e) => setData('price', e.target.value)} className="mt-1" />
+                            <Input id="price" type="number" min={0} step="0.01" value={data.price} onChange={(e) => setData('price', e.target.value)} className="mt-1" />
                             <InputError message={errors.price} />
                         </div>
                         <div>

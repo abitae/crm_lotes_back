@@ -445,13 +445,12 @@ export function ProjectLotsTable({
                                                             setCellEdit(
                                                                 lot,
                                                                 'area',
-                                                                e.target.value
-                                                                    ? Number(
-                                                                          e
-                                                                              .target
-                                                                              .value,
-                                                                      )
-                                                                    : null,
+                                                                e.target
+                                                                    .value ===
+                                                                    ''
+                                                                    ? null
+                                                                    : e.target
+                                                                          .value,
                                                             )
                                                         }
                                                         className={inputClass}
@@ -476,13 +475,12 @@ export function ProjectLotsTable({
                                                             setCellEdit(
                                                                 lot,
                                                                 'price',
-                                                                e.target.value
-                                                                    ? Number(
-                                                                          e
-                                                                              .target
-                                                                              .value,
-                                                                      )
-                                                                    : null,
+                                                                e.target
+                                                                    .value ===
+                                                                    ''
+                                                                    ? null
+                                                                    : e.target
+                                                                          .value,
                                                             )
                                                         }
                                                         className={inputClass}
@@ -685,13 +683,12 @@ export function ProjectLotsTable({
                                                             setCellEdit(
                                                                 lot,
                                                                 'advance',
-                                                                e.target.value
-                                                                    ? Number(
-                                                                          e
-                                                                              .target
-                                                                              .value,
-                                                                      )
-                                                                    : null,
+                                                                e.target
+                                                                    .value ===
+                                                                    ''
+                                                                    ? null
+                                                                    : e.target
+                                                                          .value,
                                                             )
                                                         }
                                                         className={inputClass}
