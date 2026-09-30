@@ -76,7 +76,10 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         $user = $this->createTransferManager();
         $reservedLot = $this->makeReservedLot();
         $transferredLot = $this->makeTransferredLot(exceptIds: $reservedLot->id);
-        $transferredLot->update(['block' => 'STATUSFILTER']);
+        $transferredLot->update([
+            'block' => 'STATUSFILTER',
+            'notarial_transfer_date' => '2026-04-15',
+        ]);
 
         $this->actingAs($user)
             ->get(route('inmopro.lot-transfer-confirmations.index', [
@@ -90,6 +93,7 @@ class InmoproLotTransferConfirmationsTest extends TestCase
                 ->where('filters.search', 'STATUSFILTER')
                 ->where('lots.total', 1)
                 ->where('lots.data.0.id', $transferredLot->id)
+                ->where('lots.data.0.notarial_transfer_date', fn (mixed $value): bool => str_starts_with((string) $value, '2026-04-15'))
             );
 
         $this->assertNotSame($reservedLot->id, $transferredLot->id);

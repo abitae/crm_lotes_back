@@ -43,6 +43,7 @@ type LotRow = {
     remaining_balance?: string | number | null;
     contract_date?: string | null;
     payment_limit_date?: string | null;
+    notarial_transfer_date?: string | null;
     notes?: string | null;
     status?: { name: string; code: string; color?: string | null } | null;
     project?: { name: string } | null;
@@ -539,7 +540,7 @@ export default function LotTransferConfirmationsIndex({
 
                 <div className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm sm:rounded-3xl">
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[960px] text-[11px]">
+                        <table className="w-full min-w-[1040px] text-[11px]">
                             <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wide text-slate-500">
                                 <tr>
                                     <th className="px-1.5 py-1.5 text-left">Lote</th>
@@ -547,6 +548,7 @@ export default function LotTransferConfirmationsIndex({
                                     <th className="px-1.5 py-1.5 text-left">Asesor</th>
                                     <th className="px-1.5 py-1.5 text-left">F. reserva</th>
                                     <th className="px-1.5 py-1.5 text-left">F. límite</th>
+                                    <th className="px-1.5 py-1.5 text-left">F. transferencia</th>
                                     <th className="px-1.5 py-1.5 text-right">Montos</th>
                                     <th className="px-1.5 py-1.5 text-left">Estado</th>
                                     <th className="px-1.5 py-1.5 text-left">Rev.</th>
@@ -556,7 +558,7 @@ export default function LotTransferConfirmationsIndex({
                             <tbody className="divide-y divide-slate-100">
                                 {sortedLots.length === 0 ? (
                                     <tr>
-                                        <td colSpan={9} className="px-1.5 py-5 text-center text-[11px] text-slate-500">
+                                        <td colSpan={10} className="px-1.5 py-5 text-center text-[11px] text-slate-500">
                                             No se encontraron lotes para los filtros seleccionados.
                                         </td>
                                     </tr>
@@ -598,6 +600,9 @@ export default function LotTransferConfirmationsIndex({
                                                 </td>
                                                 <td className={`whitespace-nowrap px-1.5 py-1 tabular-nums ${paymentOverdue ? 'font-semibold text-red-600' : 'text-slate-700'}`}>
                                                     {formatDate(lot.payment_limit_date)}
+                                                </td>
+                                                <td className="whitespace-nowrap px-1.5 py-1 tabular-nums text-slate-700">
+                                                    {formatDate(lot.notarial_transfer_date)}
                                                 </td>
                                                 <td className="whitespace-nowrap px-1.5 py-1 text-right tabular-nums text-slate-800">
                                                     {formatLotMoney(lot.price)}
