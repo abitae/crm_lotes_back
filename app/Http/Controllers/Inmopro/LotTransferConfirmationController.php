@@ -119,16 +119,20 @@ class LotTransferConfirmationController extends Controller
             'transfer-confirmations',
         );
 
+        $validated = $request->validated();
+
         try {
-            DB::transaction(function () use ($lot, $request, $storedPath, $transferredStatusId) {
+            DB::transaction(function () use ($lot, $request, $storedPath, $transferredStatusId, $validated) {
                 $confirmation = LotTransferConfirmation::create([
                     'lot_id' => $lot->id,
                     'status' => LotTransferConfirmation::STATUS_PENDING,
                     'evidence_path' => $storedPath,
+                    'transfer_date' => $validated['transfer_date'],
+                    'transfer_amount' => $validated['transfer_amount'],
                     'requested_by' => $request->user()->id,
                 ]);
 
-                foreach ($request->validated('expenses', []) as $expense) {
+                foreach ($validated['expenses'] ?? [] as $expense) {
                     $lot->expenses()->create([
                         ...$expense,
                         'lot_transfer_confirmation_id' => $confirmation->id,
@@ -138,6 +142,8 @@ class LotTransferConfirmationController extends Controller
 
                 $lot->update([
                     'lot_status_id' => $transferredStatusId,
+                    'notarial_transfer_date' => $validated['transfer_date'],
+                    'sale_price' => $validated['transfer_amount'],
                 ]);
             });
         } catch (\Throwable $exception) {
@@ -169,19 +175,28 @@ class LotTransferConfirmationController extends Controller
                 'rejection_reason' => null,
             ]);
 
-            if ($transferredStatusId && (int) $lot_transfer_confirmation->lot->lot_status_id !== (int) $transferredStatusId) {
-                $lot_transfer_confirmation->lot->update([
-                    'lot_status_id' => $transferredStatusId,
-                ]);
+            $lot = $lot_transfer_confirmation->lot;
+            $collectedAmount = $lot_transfer_confirmation->transfer_amount
+                ?? $lot->sale_price
+                ?? $lot->price;
+
+            $lotUpdates = [
+                'sale_price' => $collectedAmount,
+                'advance' => $collectedAmount,
+                'remaining_balance' => 0,
+            ];
+
+            if ($transferredStatusId && (int) $lot->lot_status_id !== (int) $transferredStatusId) {
+                $lotUpdates['lot_status_id'] = $transferredStatusId;
             }
 
-            $lot_transfer_confirmation->lot->update([
-                'advance' => $lot_transfer_confirmation->lot->sale_price ?? $lot_transfer_confirmation->lot->price,
-                'remaining_balance' => 0,
-            ]);
+            $lot->update($lotUpdates);
+            $lot = $lot->fresh();
 
-            if (! $lot_transfer_confirmation->lot->commissions()->exists()) {
-                $this->commissionService->createCommissionsForTransferredLot($lot_transfer_confirmation->lot->fresh());
+            if (! $lot->commissions()->exists()) {
+                $this->commissionService->createCommissionsForTransferredLot($lot);
+            } else {
+                $this->commissionService->recalculateForLot($lot);
             }
         });
 
@@ -217,10 +232,22 @@ class LotTransferConfirmationController extends Controller
                 'rejection_reason' => $request->string('rejection_reason')->toString(),
             ]);
 
+            $lot = $lot_transfer_confirmation->lot;
+            $lotUpdates = [];
+
             if ($reservedStatusId) {
-                $lot_transfer_confirmation->lot->update([
-                    'lot_status_id' => $reservedStatusId,
-                ]);
+                $lotUpdates['lot_status_id'] = $reservedStatusId;
+            }
+
+            $registeredDate = $lot_transfer_confirmation->transfer_date?->toDateString();
+            $lotDate = $lot->notarial_transfer_date?->toDateString();
+
+            if ($registeredDate !== null && $registeredDate === $lotDate) {
+                $lotUpdates['notarial_transfer_date'] = null;
+            }
+
+            if ($lotUpdates !== []) {
+                $lot->update($lotUpdates);
             }
         });
 

@@ -191,6 +191,8 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         $this->actingAs($user)
             ->post(route('inmopro.lots.transfer-confirmation.store', $lot), [
                 'evidence_image' => UploadedFile::fake()->image('voucher.png'),
+                'transfer_date' => '2026-09-30',
+                'transfer_amount' => 12500,
             ])
             ->assertRedirect(route('inmopro.lot-transfer-confirmations.index'));
 
@@ -199,10 +201,15 @@ class InmoproLotTransferConfirmationsTest extends TestCase
             'status' => LotTransferConfirmation::STATUS_PENDING,
             'requested_by' => $user->id,
         ]);
-        $this->assertDatabaseHas('lots', [
-            'id' => $lot->id,
-            'lot_status_id' => $this->statusIds['TRANSFERIDO'],
-        ]);
+
+        $confirmation = LotTransferConfirmation::query()->where('lot_id', $lot->id)->firstOrFail();
+        $this->assertSame('2026-09-30', $confirmation->transfer_date?->toDateString());
+        $this->assertSame('12500.00', (string) $confirmation->transfer_amount);
+
+        $lot->refresh();
+        $this->assertSame($this->statusIds['TRANSFERIDO'], (int) $lot->lot_status_id);
+        $this->assertSame('2026-09-30', $lot->notarial_transfer_date?->toDateString());
+        $this->assertSame('12500.00', (string) $lot->sale_price);
     }
 
     public function test_approving_pending_transfer_marks_review_and_creates_commissions(): void
@@ -220,6 +227,8 @@ class InmoproLotTransferConfirmationsTest extends TestCase
             'lot_id' => $lot->id,
             'status' => LotTransferConfirmation::STATUS_PENDING,
             'evidence_path' => 'inmopro/lot-transfer-confirmations/test.png',
+            'transfer_date' => '2026-09-30',
+            'transfer_amount' => 12000,
             'requested_by' => $user->id,
         ]);
 
@@ -239,8 +248,10 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         ]);
 
         $lot->refresh();
+        $lot->load('advisor.level');
         $this->assertSame($this->statusIds['TRANSFERIDO'], (int) $lot->lot_status_id);
-        $this->assertSame('10000.00', (string) $lot->advance);
+        $this->assertSame('12000.00', (string) $lot->sale_price);
+        $this->assertSame('12000.00', (string) $lot->advance);
         $this->assertSame('0.00', (string) $lot->remaining_balance);
 
         $this->assertGreaterThan(
@@ -248,6 +259,17 @@ class InmoproLotTransferConfirmationsTest extends TestCase
             Commission::query()->where('lot_id', $lot->id)->count(),
             'Se deben crear comisiones al aprobar la transferencia.'
         );
+
+        $directRate = (string) $lot->advisor->level->direct_rate;
+        $expectedCommission = number_format(12000 * (float) $directRate / 100, 2, '.', '');
+
+        $this->assertDatabaseHas('commissions', [
+            'lot_id' => $lot->id,
+            'advisor_id' => $lot->advisor_id,
+            'type' => 'DIRECTA',
+            'percentage' => $directRate,
+            'amount' => $expectedCommission,
+        ]);
     }
 
     public function test_rejecting_pending_transfer_returns_lot_to_reserved(): void
@@ -257,12 +279,14 @@ class InmoproLotTransferConfirmationsTest extends TestCase
 
         $lot->update([
             'lot_status_id' => $this->statusIds['TRANSFERIDO'],
+            'notarial_transfer_date' => '2026-09-30',
         ]);
 
         $transfer = LotTransferConfirmation::create([
             'lot_id' => $lot->id,
             'status' => LotTransferConfirmation::STATUS_PENDING,
             'evidence_path' => 'inmopro/lot-transfer-confirmations/test.png',
+            'transfer_date' => '2026-09-30',
             'requested_by' => $user->id,
         ]);
 
@@ -281,6 +305,7 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         $this->assertDatabaseHas('lots', [
             'id' => $lot->id,
             'lot_status_id' => $this->statusIds['RESERVADO'],
+            'notarial_transfer_date' => null,
         ]);
     }
 

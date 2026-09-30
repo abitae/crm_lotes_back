@@ -22,6 +22,8 @@ class LotTransferConfirmation extends Model
         'lot_id',
         'status',
         'evidence_path',
+        'transfer_date',
+        'transfer_amount',
         'requested_by',
         'reviewed_by',
         'reviewed_at',
@@ -37,6 +39,8 @@ class LotTransferConfirmation extends Model
     {
         return [
             'reviewed_at' => 'datetime',
+            'transfer_date' => 'date',
+            'transfer_amount' => 'decimal:2',
         ];
     }
 

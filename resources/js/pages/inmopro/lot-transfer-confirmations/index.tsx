@@ -39,6 +39,7 @@ type LotRow = {
     block: string;
     number: string;
     price?: string | number | null;
+    sale_price?: string | number | null;
     advance?: string | number | null;
     remaining_balance?: string | number | null;
     contract_date?: string | null;
@@ -175,9 +176,13 @@ export default function LotTransferConfirmationsIndex({
     const [registerPreview, setRegisterPreview] = useState<string | null>(null);
     const registerForm = useForm<{
         evidence_image: File | null;
+        transfer_date: string;
+        transfer_amount: string;
         expenses: Array<{ category: string; concept: string; amount: string; expense_date: string; notes: string }>;
     }>({
         evidence_image: null,
+        transfer_date: todayIsoDate(),
+        transfer_amount: '',
         expenses: [],
     });
     const approveForm = useForm({
@@ -280,8 +285,14 @@ export default function LotTransferConfirmationsIndex({
     }, [registerPreview]);
 
     const openRegisterDialog = (lot: LotRow) => {
-        registerForm.reset();
+        const amount = lot.sale_price ?? lot.price;
         registerForm.clearErrors();
+        registerForm.setData({
+            evidence_image: null,
+            transfer_date: todayIsoDate(),
+            transfer_amount: amount == null || amount === '' ? '' : String(amount),
+            expenses: [],
+        });
         setSelectedLot(lot);
         setRegisterPreview(null);
         setRegisterOpen(true);
@@ -716,6 +727,35 @@ export default function LotTransferConfirmationsIndex({
                                         {' · Sep. '}{formatLotMoney(selectedLot.advance)}
                                         {' · Rest. '}{formatLotMoney(selectedLot.remaining_balance)}
                                     </p>
+                                </div>
+
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    <div className="space-y-1">
+                                        <label htmlFor="register_transfer_date" className="text-xs font-medium text-slate-700">
+                                            Fecha de transferencia
+                                        </label>
+                                        <Input
+                                            id="register_transfer_date"
+                                            type="date"
+                                            value={registerForm.data.transfer_date}
+                                            onChange={(event) => registerForm.setData('transfer_date', event.target.value)}
+                                        />
+                                        <InputError message={registerForm.errors.transfer_date} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label htmlFor="register_transfer_amount" className="text-xs font-medium text-slate-700">
+                                            Monto de transferencia
+                                        </label>
+                                        <Input
+                                            id="register_transfer_amount"
+                                            type="number"
+                                            min="0.01"
+                                            step="0.01"
+                                            value={registerForm.data.transfer_amount}
+                                            onChange={(event) => registerForm.setData('transfer_amount', event.target.value)}
+                                        />
+                                        <InputError message={registerForm.errors.transfer_amount} />
+                                    </div>
                                 </div>
 
                                 <label

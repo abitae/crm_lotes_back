@@ -11,6 +11,8 @@ use App\Services\Inmopro\Reports\ReportFilterOptions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
@@ -32,7 +34,7 @@ class TransfersByProjectReportController extends Controller
 
     public function pdf(Request $request): Response
     {
-        $payload = $this->buildPayload($request);
+        $payload = $this->buildPayload($request, forExport: true);
         $payload['tableHeaders'] = ['Cliente', 'Ciudad', 'Proyecto', 'MZ', 'Lote', 'Monto', 'Fecha revisión', 'Cazador'];
         $payload['tableBody'] = array_map(
             fn (array $row) => [
@@ -53,7 +55,7 @@ class TransfersByProjectReportController extends Controller
 
     public function csv(Request $request): StreamedResponse
     {
-        $payload = $this->buildPayload($request);
+        $payload = $this->buildPayload($request, forExport: true);
 
         return $this->csvResponse(
             'transferencias-por-proyecto',
@@ -77,7 +79,7 @@ class TransfersByProjectReportController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function buildPayload(Request $request): array
+    private function buildPayload(Request $request, bool $forExport = false): array
     {
         $dateRange = $this->dateRangeResolver->resolve($request);
         $filters = [
@@ -112,39 +114,49 @@ class TransfersByProjectReportController extends Controller
                 });
             });
 
-        $detailRows = (clone $baseQuery)
-            ->select(
-                'lots.id',
-                DB::raw('COALESCE(clients.name, lots.client_name) as client_name'),
-                'cities.name as city_name',
-                'projects.name as project_name',
-                'lots.project_id',
-                'lots.block',
-                'lots.number',
-                'lots.price as amount',
-                'ltc.reviewed_at',
-                'advisors.name as advisor_name'
-            )
-            ->orderByDesc('ltc.reviewed_at')
-            ->orderBy('projects.name')
-            ->orderBy('lots.block')
-            ->orderBy('lots.number')
-            ->get()
-            ->map(fn ($row) => [
-                'id' => (int) $row->id,
-                'client_name' => $row->client_name,
-                'city_name' => $row->city_name,
-                'project_id' => (int) $row->project_id,
-                'project_name' => $row->project_name,
-                'block' => $row->block,
-                'number' => $row->number,
-                'amount' => round((float) $row->amount, 2),
-                'reviewed_at' => $row->reviewed_at
-                    ? \Illuminate\Support\Carbon::parse($row->reviewed_at)->format('Y-m-d')
-                    : null,
-                'advisor_name' => $row->advisor_name,
-            ])
-            ->all();
+        $allDetailRows = $this->mapDetailRows(
+            (clone $baseQuery)
+                ->select(
+                    'lots.id',
+                    DB::raw('COALESCE(clients.name, lots.client_name) as client_name'),
+                    'cities.name as city_name',
+                    'projects.name as project_name',
+                    'lots.project_id',
+                    'lots.block',
+                    'lots.number',
+                    'lots.price as amount',
+                    'ltc.reviewed_at',
+                    'advisors.name as advisor_name'
+                )
+                ->orderByDesc('ltc.reviewed_at')
+                ->orderBy('projects.name')
+                ->orderBy('lots.block')
+                ->orderBy('lots.number')
+                ->get()
+        );
+
+        $perPage = 25;
+        $detailRows = $allDetailRows;
+        $pagination = null;
+
+        if (! $forExport) {
+            $page = max(1, $request->integer('page', 1));
+            $paginator = new LengthAwarePaginator(
+                $allDetailRows->forPage($page, $perPage)->values(),
+                $allDetailRows->count(),
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+            $detailRows = collect($paginator->items());
+            $pagination = [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'links' => $paginator->linkCollection()->toArray(),
+            ];
+        }
 
         $monthNames = [
             1 => 'Enero', 2 => 'Febrero', 3 => 'Marzo', 4 => 'Abril',
@@ -152,7 +164,7 @@ class TransfersByProjectReportController extends Controller
             9 => 'Septiembre', 10 => 'Octubre', 11 => 'Noviembre', 12 => 'Diciembre',
         ];
 
-        $rows = collect($detailRows)
+        $rows = $allDetailRows
             ->filter(fn (array $row) => filled($row['reviewed_at']))
             ->groupBy(function (array $row): string {
                 $date = \Illuminate\Support\Carbon::parse((string) $row['reviewed_at']);
@@ -188,14 +200,37 @@ class TransfersByProjectReportController extends Controller
             'criteriaNote' => 'Fecha = revisión de confirmación APROBADA. Detalle: cliente, ciudad, proyecto y monto.',
             'filters' => $filters,
             'rows' => $rows,
-            'detail_rows' => $detailRows,
+            'detail_rows' => $detailRows->values()->all(),
+            'pagination' => $pagination,
             'summary' => [
-                'total_count' => count($detailRows),
-                'total_amount' => round((float) collect($detailRows)->sum('amount'), 2),
+                'total_count' => $allDetailRows->count(),
+                'total_amount' => round((float) $allDetailRows->sum('amount'), 2),
             ],
             'generatedAt' => now()->format('d/m/Y H:i'),
             'exportBaseUrl' => '/inmopro/reports/transfers-by-project',
             ...$this->filterOptions->all($request),
         ];
+    }
+
+    /**
+     * @param  Collection<int, object>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function mapDetailRows(Collection $rows): Collection
+    {
+        return $rows->map(fn ($row): array => [
+            'id' => (int) $row->id,
+            'client_name' => $row->client_name,
+            'city_name' => $row->city_name,
+            'project_id' => (int) $row->project_id,
+            'project_name' => $row->project_name,
+            'block' => $row->block,
+            'number' => $row->number,
+            'amount' => round((float) $row->amount, 2),
+            'reviewed_at' => $row->reviewed_at
+                ? \Illuminate\Support\Carbon::parse($row->reviewed_at)->format('Y-m-d')
+                : null,
+            'advisor_name' => $row->advisor_name,
+        ])->values();
     }
 }

@@ -2,14 +2,18 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import type { FormEvent } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
+import { todayIsoDate } from '@/lib/date';
 import type { BreadcrumbItem } from '@/types';
 
 type Lot = {
     id: number;
     block: string;
     number: string;
+    price?: string | number | null;
+    sale_price?: string | number | null;
     project?: { name: string } | null;
     status?: { name: string; code: string } | null;
     client?: { name: string; dni?: string | null; phone?: string | null } | null;
@@ -17,10 +21,15 @@ type Lot = {
 };
 
 export default function TransferConfirmationCreate({ lot }: { lot: Lot }) {
+    const defaultAmount = lot.sale_price ?? lot.price;
     const { data, setData, post, processing, errors } = useForm<{
         evidence_image: File | null;
+        transfer_date: string;
+        transfer_amount: string;
     }>({
         evidence_image: null,
+        transfer_date: todayIsoDate(),
+        transfer_amount: defaultAmount == null || defaultAmount === '' ? '' : String(defaultAmount),
     });
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -70,6 +79,33 @@ export default function TransferConfirmationCreate({ lot }: { lot: Lot }) {
                 </div>
 
                 <form onSubmit={submit} className="max-w-2xl space-y-4 rounded-2xl border border-border bg-card text-card-foreground p-6 shadow-sm">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <Label htmlFor="transfer_date">Fecha de transferencia</Label>
+                            <Input
+                                id="transfer_date"
+                                type="date"
+                                value={data.transfer_date}
+                                onChange={(event) => setData('transfer_date', event.target.value)}
+                                className="mt-2"
+                            />
+                            <InputError message={errors.transfer_date} className="mt-2" />
+                        </div>
+                        <div>
+                            <Label htmlFor="transfer_amount">Monto de transferencia</Label>
+                            <Input
+                                id="transfer_amount"
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                value={data.transfer_amount}
+                                onChange={(event) => setData('transfer_amount', event.target.value)}
+                                className="mt-2"
+                            />
+                            <InputError message={errors.transfer_amount} className="mt-2" />
+                        </div>
+                    </div>
+
                     <div>
                         <Label htmlFor="evidence_image">Evidencia de transferencia</Label>
                         <input

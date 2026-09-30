@@ -1,3 +1,4 @@
+import Pagination, { type PaginationLink } from '@/components/pagination';
 import { projectOptionLabel } from '@/components/inmopro/reports/IncludeInactiveProjectsField';
 import { ReportDateFilters } from '@/components/inmopro/reports/ReportDateFilters';
 import { ReportPageShell } from '@/components/inmopro/reports/ReportPageShell';
@@ -11,6 +12,14 @@ type AggregateRow = {
     month_label: string;
     transfer_count: number;
     transfer_amount: number;
+};
+
+type PaginationState = {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    links: PaginationLink[];
 };
 
 type DetailRow = {
@@ -32,6 +41,7 @@ export default function TransfersByProjectReport({
     filters,
     rows,
     detail_rows,
+    pagination,
     summary,
     generatedAt,
     exportBaseUrl,
@@ -44,6 +54,7 @@ export default function TransfersByProjectReport({
     filters: Record<string, string | number | null>;
     rows: AggregateRow[];
     detail_rows: DetailRow[];
+    pagination: PaginationState | null;
     summary: { total_count: number; total_amount: number };
     generatedAt: string;
     exportBaseUrl: string;
@@ -108,18 +119,18 @@ export default function TransfersByProjectReport({
             </div>
 
             <h2 className="text-lg font-bold">Detalle</h2>
-            <div className="overflow-x-auto rounded-3xl border bg-card shadow-sm">
-                <table className="w-full min-w-[960px] text-sm">
+            <div className="rounded-3xl border bg-card shadow-sm">
+                <table className="w-full table-fixed text-sm">
                     <thead>
                         <tr className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                            <th className="px-4 py-3">Cliente</th>
-                            <th className="px-4 py-3">Ciudad</th>
-                            <th className="px-4 py-3">Proyecto</th>
-                            <th className="px-4 py-3">MZ</th>
-                            <th className="px-4 py-3">Lote</th>
-                            <th className="px-4 py-3">Monto</th>
-                            <th className="px-4 py-3">Fecha</th>
-                            <th className="px-4 py-3">Cazador</th>
+                            <th className="px-3 py-3">Cliente</th>
+                            <th className="px-3 py-3">Ciudad</th>
+                            <th className="px-3 py-3">Proyecto</th>
+                            <th className="px-3 py-3">MZ</th>
+                            <th className="px-3 py-3">Lote</th>
+                            <th className="px-3 py-3">Monto</th>
+                            <th className="px-3 py-3">Fecha</th>
+                            <th className="px-3 py-3">Cazador</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -132,26 +143,27 @@ export default function TransfersByProjectReport({
                         ) : (
                             detail_rows.map((row) => (
                                 <tr key={row.id} className="border-b">
-                                    <td className="px-4 py-3">{row.client_name ?? '—'}</td>
-                                    <td className="px-4 py-3">{row.city_name ?? '—'}</td>
-                                    <td className="px-4 py-3">{row.project_name ?? '—'}</td>
-                                    <td className="px-4 py-3">{row.block ?? '—'}</td>
-                                    <td className="px-4 py-3">{row.number ?? '—'}</td>
-                                    <td className="px-4 py-3">{formatPen(row.amount)}</td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-3 py-3 break-words">{row.client_name ?? '—'}</td>
+                                    <td className="px-3 py-3 break-words">{row.city_name ?? '—'}</td>
+                                    <td className="px-3 py-3 break-words">{row.project_name ?? '—'}</td>
+                                    <td className="px-3 py-3">{row.block ?? '—'}</td>
+                                    <td className="px-3 py-3">{row.number ?? '—'}</td>
+                                    <td className="px-3 py-3 whitespace-nowrap">{formatPen(row.amount)}</td>
+                                    <td className="px-3 py-3 whitespace-nowrap">
                                         {row.reviewed_at ? formatDate(row.reviewed_at) : '—'}
                                     </td>
-                                    <td className="px-4 py-3">{row.advisor_name ?? '—'}</td>
+                                    <td className="px-3 py-3 break-words">{row.advisor_name ?? '—'}</td>
                                 </tr>
                             ))
                         )}
                     </tbody>
                 </table>
             </div>
+            {pagination ? <Pagination links={pagination.links} /> : null}
 
             <h2 className="text-lg font-bold">Resumen mensual por proyecto</h2>
-            <div className="overflow-x-auto rounded-3xl border bg-card shadow-sm">
-                <table className="w-full text-sm">
+            <div className="rounded-3xl border bg-card shadow-sm">
+                <table className="w-full table-fixed text-sm">
                     <thead>
                         <tr className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                             <th className="px-4 py-3">Proyecto</th>

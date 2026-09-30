@@ -581,16 +581,10 @@ export default function Reports({
                         {topRows.length === 0 ? (
                             <EmptyState />
                         ) : (
-                            <div
-                                className="w-full min-w-0"
-                                style={{
-                                    height: Math.max(320, topRows.length * 36),
-                                }}
-                            >
+                            <div className="h-80 w-full min-w-0">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart
                                         data={topRows}
-                                        layout="vertical"
                                         margin={{
                                             top: 8,
                                             right: 16,
@@ -600,11 +594,25 @@ export default function Reports({
                                     >
                                         <CartesianGrid
                                             strokeDasharray="3 3"
-                                            horizontal={false}
+                                            vertical={false}
                                             stroke="#e2e8f0"
                                         />
                                         <XAxis
-                                            type="number"
+                                            dataKey="name"
+                                            interval={0}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fontSize: 11 }}
+                                            angle={-35}
+                                            textAnchor="end"
+                                            height={72}
+                                            tickFormatter={(value: string) =>
+                                                value.length > 18
+                                                    ? `${value.slice(0, 16)}…`
+                                                    : value
+                                            }
+                                        />
+                                        <YAxis
                                             axisLine={false}
                                             tickLine={false}
                                             tick={{ fontSize: 11 }}
@@ -613,15 +621,6 @@ export default function Reports({
                                                     ? `${Math.round(v / 1000)}k`
                                                     : String(v)
                                             }
-                                        />
-                                        <YAxis
-                                            type="category"
-                                            dataKey="name"
-                                            width={148}
-                                            interval={0}
-                                            axisLine={false}
-                                            tickLine={false}
-                                            tick={{ fontSize: 11 }}
                                         />
                                         <Tooltip
                                             cursor={{ fill: '#f8fafc' }}
@@ -642,7 +641,7 @@ export default function Reports({
                                         />
                                         <Bar
                                             dataKey="Ventas"
-                                            radius={[0, 8, 8, 0]}
+                                            radius={[8, 8, 0, 0]}
                                             maxBarSize={48}
                                         >
                                             {topRows.map((entry) => (

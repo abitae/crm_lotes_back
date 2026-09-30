@@ -21,6 +21,8 @@ class StoreLotTransferConfirmationRequest extends FormRequest
     {
         return [
             'evidence_image' => ['required', 'image', 'max:5120'],
+            'transfer_date' => ['required', 'date'],
+            'transfer_amount' => ['required', 'numeric', 'gt:0'],
             'expenses' => ['nullable', 'array'],
             'expenses.*.category' => ['required', Rule::in([LotExpense::CATEGORY_TRANSFER, LotExpense::CATEGORY_OTHER])],
             'expenses.*.concept' => ['required', 'string', 'max:255'],
@@ -39,6 +41,10 @@ class StoreLotTransferConfirmationRequest extends FormRequest
             'evidence_image.required' => 'Debe adjuntar la evidencia de la transferencia.',
             'evidence_image.image' => 'La evidencia debe ser una imagen valida.',
             'evidence_image.max' => 'La imagen no debe superar los 5 MB.',
+            'transfer_date.required' => 'Debe indicar la fecha de transferencia.',
+            'transfer_date.date' => 'La fecha de transferencia no es valida.',
+            'transfer_amount.required' => 'Debe indicar el monto de transferencia.',
+            'transfer_amount.gt' => 'El monto de transferencia debe ser mayor que cero.',
         ];
     }
 }
