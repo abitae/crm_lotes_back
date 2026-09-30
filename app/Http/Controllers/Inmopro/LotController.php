@@ -50,33 +50,50 @@ class LotController extends Controller
                 'project' => null,
                 'lots' => [],
                 'lotStatuses' => LotStatus::orderBy('sort_order')->get(),
-                'clients' => [],
-                'advisors' => [],
                 'filters' => [
                     'include_inactive' => $includeInactive,
                 ],
             ]);
         }
 
-        $lots = Lot::with(['status', 'client', 'advisor'])
+        $lots = Lot::query()
+            ->select([
+                'id',
+                'block',
+                'number',
+                'area',
+                'price',
+                'lot_status_id',
+                'client_id',
+                'advisor_id',
+                'client_name',
+                'client_dni',
+                'advance',
+                'remaining_balance',
+                'payment_limit_date',
+                'operation_number',
+                'contract_date',
+                'contract_number',
+                'notarial_transfer_date',
+                'observations',
+            ])
+            ->with([
+                'status:id,name,code,color',
+                'client:id,name',
+                'advisor:id,name',
+            ])
             ->where('project_id', $project->id)
             ->orderBy('block')
             ->orderBy('number')
             ->get()
-            ->map(fn (Lot $lot): array => ClientPhoneGuard::redactArray($lot->toArray()))
+            ->map(fn (Lot $lot): array => $this->inventoryLotPayload($lot))
             ->values();
-
-        $lotStatuses = LotStatus::orderBy('sort_order')->get();
-        $clients = $this->clientsForSelect();
-        $advisors = Advisor::with('level')->orderBy('name')->get();
 
         return Inertia::render('inmopro/inventory', [
             'projects' => $projects,
             'project' => $this->projectPayload($project),
             'lots' => $lots,
-            'lotStatuses' => $lotStatuses,
-            'clients' => $clients,
-            'advisors' => $advisors,
+            'lotStatuses' => LotStatus::orderBy('sort_order')->get(),
             'filters' => [
                 'include_inactive' => $includeInactive,
             ],
@@ -248,6 +265,47 @@ class LotController extends Controller
         }
 
         return $query->first();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function inventoryLotPayload(Lot $lot): array
+    {
+        return [
+            'id' => $lot->id,
+            'block' => $lot->block,
+            'number' => $lot->number,
+            'area' => $lot->area,
+            'price' => $lot->price,
+            'lot_status_id' => $lot->lot_status_id,
+            'client_id' => $lot->client_id,
+            'advisor_id' => $lot->advisor_id,
+            'client_name' => $lot->client_name,
+            'client_dni' => $lot->client_dni,
+            'advance' => $lot->advance,
+            'remaining_balance' => $lot->remaining_balance,
+            'payment_limit_date' => $lot->payment_limit_date?->toDateString(),
+            'operation_number' => $lot->operation_number,
+            'contract_date' => $lot->contract_date?->toDateString(),
+            'contract_number' => $lot->contract_number,
+            'notarial_transfer_date' => $lot->notarial_transfer_date?->toDateString(),
+            'observations' => $lot->observations,
+            'status' => $lot->status === null ? null : [
+                'id' => $lot->status->id,
+                'name' => $lot->status->name,
+                'code' => $lot->status->code,
+                'color' => $lot->status->color,
+            ],
+            'client' => $lot->client === null ? null : [
+                'id' => $lot->client->id,
+                'name' => $lot->client->name,
+            ],
+            'advisor' => $lot->advisor === null ? null : [
+                'id' => $lot->advisor->id,
+                'name' => $lot->advisor->name,
+            ],
+        ];
     }
 
     /**

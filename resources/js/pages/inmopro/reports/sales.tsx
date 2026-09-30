@@ -1,6 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import {
     CalendarRange,
+    Eye,
     FileSpreadsheet,
     FileDown,
     FolderKanban,
@@ -10,7 +11,7 @@ import {
     Wallet,
 } from 'lucide-react';
 import type { ComponentType, FormEvent } from 'react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
     Bar,
     BarChart,
@@ -22,6 +23,12 @@ import {
     YAxis,
 } from 'recharts';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { formatDate } from '@/lib/date';
 import { inmoproMetricTone } from '@/lib/inmopro-ui';
@@ -49,6 +56,17 @@ function toYmdLocal(d: Date): string {
 type Project = { id: number; name: string; is_active?: boolean };
 type Team = { id: number; name: string; color?: string | null };
 type Advisor = { id: number; name: string; team?: Team | null };
+type SoldLot = {
+    id: number;
+    block: string;
+    number: string;
+    project_name?: string | null;
+    client_name?: string | null;
+    advisor_name?: string | null;
+    sold_amount: number;
+    collected_amount: number;
+    notarial_transfer_date?: string | null;
+};
 type ReportRow = {
     id: number;
     label: string;
@@ -57,6 +75,7 @@ type ReportRow = {
     collected_amount: number;
     lots_count: number;
     pct: number;
+    lots: SoldLot[];
     color?: string | null;
     team_name?: string | null;
 };
@@ -67,7 +86,6 @@ type Filters = {
     advisor_id?: number | null;
     start_date?: string | null;
     end_date?: string | null;
-    include_inactive?: boolean | null;
 };
 type Summary = {
     sold_amount: number;
@@ -118,9 +136,6 @@ function buildExportQueryString(
     if (filters.end_date) {
         params.set('end_date', filters.end_date);
     }
-    if (filters.include_inactive) {
-        params.set('include_inactive', '1');
-    }
     if (disposition === 'attachment') {
         params.set('disposition', 'attachment');
     }
@@ -159,13 +174,13 @@ export default function Reports({
         { title: 'Ventas', href: '/inmopro/reports/sales' },
     ];
 
+    const [selectedRow, setSelectedRow] = useState<ReportRow | null>(null);
+    const entityLabel = entityColumnLabel(view);
+
     const topRows = useMemo(
         () =>
-            rows.slice(0, 12).map((row) => ({
-                name:
-                    row.label.length > 22
-                        ? `${row.label.slice(0, 20)}…`
-                        : row.label,
+            rows.map((row) => ({
+                name: row.label,
                 fullName: row.label,
                 Ventas: row.sold_amount,
                 Meta: row.goal_amount,
@@ -214,7 +229,6 @@ export default function Reports({
                 advisor_id: filters.advisor_id ?? undefined,
                 start_date: next.start_date ?? filters.start_date ?? undefined,
                 end_date: next.end_date ?? filters.end_date ?? undefined,
-                include_inactive: filters.include_inactive ? '1' : undefined,
             },
             { preserveScroll: true },
         );
@@ -277,7 +291,6 @@ export default function Reports({
                 advisor_id: (formData.get('advisor_id') as string) || undefined,
                 start_date: (formData.get('start_date') as string) || undefined,
                 end_date: (formData.get('end_date') as string) || undefined,
-                include_inactive: (formData.get('include_inactive') as string) || undefined,
             },
             { preserveScroll: true },
         );
@@ -498,17 +511,6 @@ export default function Reports({
                                 defaultValue={filters.end_date ?? ''}
                                 className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-slate-300"
                             />
-                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                                <input type="hidden" name="include_inactive" value="0" />
-                                <input
-                                    type="checkbox"
-                                    name="include_inactive"
-                                    value="1"
-                                    defaultChecked={Boolean(filters.include_inactive)}
-                                    className="size-4 rounded border-input"
-                                />
-                                Incluir inactivos
-                            </label>
                             <Button
                                 type="submit"
                                 className="shrink-0 rounded-xl px-5"
@@ -563,41 +565,46 @@ export default function Reports({
                                     Ranking por ventas
                                 </h2>
                                 <p className="text-xs text-slate-500">
-                                    Hasta 12 filas · color según % cumplimiento
-                                    de meta por fila
+                                    {topRows.length}{' '}
+                                    {view === 'projects'
+                                        ? topRows.length === 1
+                                            ? 'proyecto'
+                                            : 'proyectos'
+                                        : topRows.length === 1
+                                          ? 'equipo'
+                                          : 'equipos'}{' '}
+                                    · color según % cumplimiento de meta por
+                                    fila
                                 </p>
                             </div>
                         </div>
                         {topRows.length === 0 ? (
                             <EmptyState />
                         ) : (
-                            <div className="h-[380px] w-full min-w-0">
+                            <div
+                                className="w-full min-w-0"
+                                style={{
+                                    height: Math.max(320, topRows.length * 36),
+                                }}
+                            >
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart
                                         data={topRows}
+                                        layout="vertical"
                                         margin={{
                                             top: 8,
-                                            right: 8,
-                                            left: 0,
-                                            bottom: 48,
+                                            right: 16,
+                                            left: 8,
+                                            bottom: 8,
                                         }}
                                     >
                                         <CartesianGrid
                                             strokeDasharray="3 3"
-                                            vertical={false}
+                                            horizontal={false}
                                             stroke="#e2e8f0"
                                         />
                                         <XAxis
-                                            dataKey="name"
-                                            interval={0}
-                                            angle={-32}
-                                            textAnchor="end"
-                                            height={70}
-                                            axisLine={false}
-                                            tickLine={false}
-                                            tick={{ fontSize: 10 }}
-                                        />
-                                        <YAxis
+                                            type="number"
                                             axisLine={false}
                                             tickLine={false}
                                             tick={{ fontSize: 11 }}
@@ -606,6 +613,15 @@ export default function Reports({
                                                     ? `${Math.round(v / 1000)}k`
                                                     : String(v)
                                             }
+                                        />
+                                        <YAxis
+                                            type="category"
+                                            dataKey="name"
+                                            width={148}
+                                            interval={0}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fontSize: 11 }}
                                         />
                                         <Tooltip
                                             cursor={{ fill: '#f8fafc' }}
@@ -626,7 +642,7 @@ export default function Reports({
                                         />
                                         <Bar
                                             dataKey="Ventas"
-                                            radius={[8, 8, 0, 0]}
+                                            radius={[0, 8, 8, 0]}
                                             maxBarSize={48}
                                         >
                                             {topRows.map((entry) => (
@@ -786,7 +802,27 @@ export default function Reports({
                                                         )}
                                                     </td>
                                                     <td className="px-6 py-4 text-slate-600 tabular-nums">
-                                                        {row.lots_count}
+                                                        <div className="flex items-center gap-2">
+                                                            <span>
+                                                                {row.lots_count}
+                                                            </span>
+                                                            {row.lots_count >
+                                                                0 && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() =>
+                                                                        setSelectedRow(
+                                                                            row,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Eye className="h-4 w-4" />
+                                                                    Ver
+                                                                </Button>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -875,8 +911,25 @@ export default function Reports({
                                                 <dt className="text-slate-500">
                                                     Lotes
                                                 </dt>
-                                                <dd className="font-semibold text-slate-700">
-                                                    {row.lots_count}
+                                                <dd className="flex items-center gap-2 font-semibold text-slate-700">
+                                                    <span>
+                                                        {row.lots_count}
+                                                    </span>
+                                                    {row.lots_count > 0 && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                setSelectedRow(
+                                                                    row,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                            Ver
+                                                        </Button>
+                                                    )}
                                                 </dd>
                                             </div>
                                         </dl>
@@ -908,7 +961,106 @@ export default function Reports({
                     )}
                 </div>
             </div>
+
+            <SoldLotsDialog
+                row={selectedRow}
+                entityLabel={entityLabel}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setSelectedRow(null);
+                    }
+                }}
+            />
         </AppLayout>
+    );
+}
+
+function SoldLotsDialog({
+    row,
+    entityLabel,
+    onOpenChange,
+}: {
+    row: ReportRow | null;
+    entityLabel: string;
+    onOpenChange: (open: boolean) => void;
+}) {
+    const lots = row?.lots ?? [];
+
+    return (
+        <Dialog open={row !== null} onOpenChange={onOpenChange}>
+            <DialogContent className="flex max-h-[min(90vh,820px)] w-[min(96vw,72rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
+                <DialogHeader className="border-b border-slate-100 px-6 py-5">
+                    <p className="text-xs font-black tracking-[0.18em] text-slate-400 uppercase">
+                        {entityLabel}
+                    </p>
+                    <DialogTitle className="text-2xl font-black text-slate-950">
+                        Lotes vendidos — {row?.label}
+                    </DialogTitle>
+                    <p className="text-sm text-slate-500">
+                        {lots.length}{' '}
+                        {lots.length === 1 ? 'lote' : 'lotes'} en el periodo
+                        filtrado.
+                    </p>
+                </DialogHeader>
+
+                <div className="min-h-0 flex-1 overflow-auto">
+                    <table className="w-full min-w-[720px] text-left text-sm">
+                        <thead className="sticky top-0 bg-slate-50">
+                            <tr>
+                                <th className="px-4 py-3 font-bold text-slate-500">
+                                    Lote
+                                </th>
+                                <th className="px-4 py-3 font-bold text-slate-500">
+                                    Proyecto
+                                </th>
+                                <th className="px-4 py-3 font-bold text-slate-500">
+                                    Cliente
+                                </th>
+                                <th className="px-4 py-3 font-bold text-slate-500">
+                                    Asesor
+                                </th>
+                                <th className="px-4 py-3 font-bold text-slate-500">
+                                    Venta
+                                </th>
+                                <th className="px-4 py-3 font-bold text-slate-500">
+                                    Cobrado
+                                </th>
+                                <th className="px-4 py-3 font-bold text-slate-500">
+                                    Transferencia
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {lots.map((lot) => (
+                                <tr key={lot.id}>
+                                    <td className="px-4 py-3 font-black text-slate-900">
+                                        {lot.block}-{lot.number}
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-700">
+                                        {lot.project_name ?? '—'}
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-700">
+                                        {lot.client_name ?? '—'}
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-700">
+                                        {lot.advisor_name ?? '—'}
+                                    </td>
+                                    <td className="px-4 py-3 font-semibold text-slate-800">
+                                        {formatPen(lot.sold_amount)}
+                                    </td>
+                                    <td className="px-4 py-3 font-semibold text-emerald-700">
+                                        {formatPen(lot.collected_amount)}
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-600">
+                                        {formatDate(lot.notarial_transfer_date)}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </DialogContent>
+        </Dialog>
     );
 }
 

@@ -35,12 +35,9 @@ class SalesReportService
             'advisor_id' => $request->filled('advisor_id') ? $request->integer('advisor_id') : null,
             'start_date' => $dateRange['start_date'],
             'end_date' => $dateRange['end_date'],
-            'include_inactive' => $request->boolean('include_inactive'),
         ];
 
         $projects = Project::query()
-            ->when(! $filters['include_inactive'], fn (Builder $query) => $query->active())
-            ->when($filters['include_inactive'], fn (Builder $query) => $query->orderByDesc('is_active'))
             ->orderBy('name')
             ->get(['id', 'name', 'is_active']);
         $teams = Team::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color', 'is_active', 'group_sales_goal']);
@@ -57,7 +54,6 @@ class SalesReportService
                 $filters['start_date'],
                 $filters['end_date']
             ))
-            ->tap(fn (Builder $query) => $this->lotQueryBuilder->applyActiveProjectFilter($query, $request))
             ->when($filters['project_id'], fn (Builder $builder, int $projectId) => $builder->where('project_id', $projectId))
             ->when($filters['advisor_id'], fn (Builder $builder, int $advisorId) => $builder->where('advisor_id', $advisorId))
             ->when($filters['team_id'], fn (Builder $builder, int $teamId) => $builder->whereHas('advisor', fn (Builder $advisorQuery) => $advisorQuery->where('team_id', $teamId)))
@@ -189,8 +185,40 @@ class SalesReportService
             'collected_amount' => round($collectedAmount, 2),
             'lots_count' => $lotsCount,
             'pct' => $pct,
+            'lots' => $this->soldLotPayloads($lots),
             ...$extra,
         ];
+    }
+
+    /**
+     * @param  Collection<int, Lot>  $lots
+     * @return list<array<string, mixed>>
+     */
+    private function soldLotPayloads(Collection $lots): array
+    {
+        return $lots
+            ->sort(function (Lot $left, Lot $right): int {
+                $blockCompare = strnatcasecmp((string) $left->block, (string) $right->block);
+
+                if ($blockCompare !== 0) {
+                    return $blockCompare;
+                }
+
+                return strnatcasecmp((string) $left->number, (string) $right->number);
+            })
+            ->values()
+            ->map(fn (Lot $lot): array => [
+                'id' => $lot->id,
+                'block' => $lot->block,
+                'number' => $lot->number,
+                'project_name' => $lot->project?->name,
+                'client_name' => $lot->client_name ?: $lot->client?->name,
+                'advisor_name' => $lot->advisor?->name,
+                'sold_amount' => $this->goalAttributedAmount->forLot($lot),
+                'collected_amount' => round($this->collectedAmountForLot($lot), 2),
+                'notarial_transfer_date' => $lot->notarial_transfer_date?->toDateString(),
+            ])
+            ->all();
     }
 
     private function collectedAmountForLot(Lot $lot): float

@@ -17,6 +17,7 @@ use Database\Seeders\Inmopro\LotSeeder;
 use Database\Seeders\Inmopro\LotStatusSeeder;
 use Database\Seeders\Inmopro\ProjectSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Assert;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
@@ -71,7 +72,12 @@ class InmoproLotsTest extends TestCase
     public function test_authenticated_users_can_visit_lots_index(): void
     {
         $user = User::factory()->create();
-        $project = Project::query()->firstOrFail();
+        $lot = Lot::query()
+            ->whereNotNull('client_id')
+            ->whereNotNull('advisor_id')
+            ->with(['status', 'client', 'advisor'])
+            ->firstOrFail();
+        $project = Project::query()->findOrFail($lot->project_id);
         $project->update(['location' => '-12.069872155122834, -75.21095243577143']);
         $this->actingAs($user);
 
@@ -82,8 +88,31 @@ class InmoproLotsTest extends TestCase
         $response->assertInertia(fn ($page) => $page
             ->component('inmopro/inventory')
             ->has('lots', $lotsCount)
+            ->missing('clients')
+            ->missing('advisors')
             ->where('project.maps_url', 'https://www.google.com/maps/search/?api=1&query=-12.069872155122834%2C%20-75.21095243577143')
-            ->where('project.location_label', 'Abrir en Google Maps'));
+            ->where('project.location_label', 'Abrir en Google Maps')
+            ->where('lots', function ($lots) use ($lot) {
+                $payload = collect($lots)->firstWhere('id', $lot->id);
+
+                Assert::assertIsArray($payload);
+                Assert::assertSame($lot->block, $payload['block']);
+                Assert::assertSame($lot->number, $payload['number']);
+                Assert::assertArrayHasKey('area', $payload);
+                Assert::assertArrayHasKey('price', $payload);
+                Assert::assertSame($lot->status->code, $payload['status']['code']);
+                Assert::assertSame(['id', 'name'], array_keys($payload['client']));
+                Assert::assertSame($lot->client_id, $payload['client']['id']);
+                Assert::assertSame($lot->client->name, $payload['client']['name']);
+                Assert::assertSame(['id', 'name'], array_keys($payload['advisor']));
+                Assert::assertSame($lot->advisor_id, $payload['advisor']['id']);
+                Assert::assertSame($lot->advisor->name, $payload['advisor']['name']);
+                Assert::assertArrayNotHasKey('list_price', $payload);
+                Assert::assertArrayNotHasKey('notes', $payload);
+                Assert::assertArrayNotHasKey('phone', $payload['client']);
+
+                return true;
+            }));
     }
 
     public function test_authenticated_users_can_create_lot_with_alphanumeric_number(): void

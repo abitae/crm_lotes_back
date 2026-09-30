@@ -81,7 +81,27 @@ class SalesReportPercentageMetaTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('rows.0.sold_amount', 10000)
-                ->where('rows.0.goal_amount', 80000));
+                ->where('rows.0.goal_amount', 80000)
+                ->has('rows.0.lots', 1)
+                ->where('rows.0.lots.0.block', 'A')
+                ->where('rows.0.lots.0.number', '1')
+                ->where('rows.0.lots.0.project_name', 'Proyecto Meta')
+                ->where('rows.0.lots.0.advisor_name', 'Asesor')
+                ->where('rows.0.lots.0.sold_amount', 10000)
+                ->missing('rows.0.lots.0.phone'));
+
+        $this->actingAs($user)
+            ->get(route('inmopro.reports.sales.index', [
+                'view' => 'teams',
+                'start_date' => '2026-03-01',
+                'end_date' => '2026-03-31',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('rows.0.label', 'T1')
+                ->has('rows.0.lots', 1)
+                ->where('rows.0.lots.0.number', '1')
+                ->where('rows.0.lots.0.project_name', 'Proyecto Meta'));
 
         $type->update(['percentage_meta' => 0]);
 
