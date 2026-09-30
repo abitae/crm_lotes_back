@@ -75,11 +75,13 @@ class InmoproLotsTest extends TestCase
         $project->update(['location' => '-12.069872155122834, -75.21095243577143']);
         $this->actingAs($user);
 
+        $lotsCount = Lot::query()->where('project_id', $project->id)->count();
+
         $response = $this->get(route('inmopro.lots.index', ['project_id' => $project->id]));
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('inmopro/inventory')
-            ->has('lots')
+            ->has('lots', $lotsCount)
             ->where('project.maps_url', 'https://www.google.com/maps/search/?api=1&query=-12.069872155122834%2C%20-75.21095243577143')
             ->where('project.location_label', 'Abrir en Google Maps'));
     }

@@ -122,7 +122,7 @@ export default function LotsCreate({ projects, project, lotStatuses, clients, ad
                         </div>
                         <div>
                             <Label htmlFor="number">Número</Label>
-                            <Input id="number" type="number" min={1} value={data.number} onChange={(e) => setData('number', e.target.value)} className="mt-1" />
+                            <Input id="number" value={data.number} onChange={(e) => setData('number', e.target.value)} className="mt-1" />
                             <InputError message={errors.number} />
                         </div>
                     </div>

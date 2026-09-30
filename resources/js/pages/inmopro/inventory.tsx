@@ -66,12 +66,14 @@ type Lot = {
 
 const currencyFormatter = new Intl.NumberFormat('es-PE', {
     currency: 'PEN',
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
     style: 'currency',
 });
 
 const numberFormatter = new Intl.NumberFormat('es-PE', {
-    maximumFractionDigits: 1,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
 });
 
 const compareLotNumbers = (a: string, b: string): number =>
@@ -153,10 +155,12 @@ function googleMapsEmbedUrl(
 }
 
 function uniqueBlocks(project: Project, lots: Lot[]): string[] {
-    const fromProject = project.blocks ?? [];
-    const fromLots = Array.from(new Set(lots.map((lot) => lot.block)));
+    const blocks = new Set<string>([
+        ...(project.blocks ?? []),
+        ...lots.map((lot) => lot.block),
+    ]);
 
-    return (fromProject.length > 0 ? fromProject : fromLots).sort((a, b) =>
+    return Array.from(blocks).sort((a, b) =>
         a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' }),
     );
 }
@@ -227,12 +231,15 @@ export default function Inventory({
         { title: 'Inventario', href: '/inmopro/lots' },
     ];
 
-    const filteredLots = lots.filter(
-        (lot) =>
-            lot.id.toString().includes(searchTerm) ||
-            lot.number.toString().includes(searchTerm) ||
-            lot.block.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
+    const search = searchTerm.trim().toLowerCase();
+    const filteredLots =
+        search === ''
+            ? lots
+            : lots.filter(
+                  (lot) =>
+                      lot.number.toLowerCase().includes(search) ||
+                      lot.block.toLowerCase().includes(search),
+              );
 
     const blockGroups = project
         ? uniqueBlocks(project, filteredLots).map((block) => ({
@@ -268,7 +275,7 @@ export default function Inventory({
                                         <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
                                             <span className="inline-flex items-center gap-1.5">
                                                 <Building2 className="h-4 w-4" />
-                                                {project.blocks?.length ?? 0} manzanas
+                                                {uniqueBlocks(project, lots).length} manzanas
                                             </span>
                                             <span>{lots.length} lotes registrados</span>
                                             {project.maps_url && (

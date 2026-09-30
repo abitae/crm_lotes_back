@@ -126,9 +126,17 @@ class LotController extends Controller
 
         $lots = Lot::with('status')
             ->where('project_id', $project->id)
-            ->orderBy('block')
-            ->orderBy('number')
-            ->get();
+            ->get()
+            ->sort(function (Lot $left, Lot $right): int {
+                $blockCompare = strnatcasecmp($left->block, $right->block);
+
+                if ($blockCompare !== 0) {
+                    return $blockCompare;
+                }
+
+                return strnatcasecmp((string) $left->number, (string) $right->number);
+            })
+            ->values();
 
         $blockGroups = $lots->groupBy('block');
 

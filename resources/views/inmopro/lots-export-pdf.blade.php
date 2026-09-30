@@ -34,8 +34,8 @@
             @foreach ($lots as $lot)
             <tr>
                 <td>{{ $lot->number }}</td>
-                <td>{{ $lot->area }}</td>
-                <td>{{ number_format((float) $lot->price, 0, ',', '.') }}</td>
+                <td>{{ number_format((float) $lot->area, 2, ',', '.') }}</td>
+                <td>{{ number_format((float) $lot->price, 2, ',', '.') }}</td>
                 <td>{{ $lot->status?->name ?? '—' }}</td>
             </tr>
             @endforeach
