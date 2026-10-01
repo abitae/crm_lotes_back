@@ -31,9 +31,9 @@ class RoleController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(): RedirectResponse
     {
-        return Inertia::render('inmopro/access-control/roles/create');
+        return redirect()->route('inmopro.access-control.roles.index', ['create' => 1]);
     }
 
     public function store(StoreRoleRequest $request): RedirectResponse

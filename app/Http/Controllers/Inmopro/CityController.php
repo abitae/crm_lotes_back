@@ -36,9 +36,9 @@ class CityController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(): RedirectResponse
     {
-        return Inertia::render('inmopro/cities/create');
+        return redirect()->route('inmopro.cities.index', ['create' => 1]);
     }
 
     public function store(StoreCityRequest $request): RedirectResponse

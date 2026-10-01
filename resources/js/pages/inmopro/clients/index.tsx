@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { formatDateTime } from '@/lib/date';
 import { clientsListingQuerySuffix } from '@/lib/inmopro-listing-query';
+import ClientsCreate from '@/pages/inmopro/clients/create';
 import { formatClientPhone, useCanViewClientPhone } from '@/lib/inmopro-permissions';
 import { confirmDelete } from '@/lib/swal';
 import { cn } from '@/lib/utils';
@@ -259,6 +260,13 @@ export default function ClientsIndex({
 
     const editClientTarget = openModal === 'edit_client' ? clientForModal : null;
     const editClientModalOpen = editClientTarget !== null;
+    const [createClientOpen, setCreateClientOpen] = useState(openModal === 'create_client');
+
+    useEffect(() => {
+        if (openModal === 'create_client') {
+            setCreateClientOpen(true);
+        }
+    }, [openModal]);
 
     const clearEditModalQuery = () => {
         const query = Object.fromEntries(
@@ -422,11 +430,9 @@ export default function ClientsIndex({
                             <FileSpreadsheet className="h-4 w-4" />
                             Importar Excel
                         </Button>
-                        <Button size="sm" asChild>
-                            <Link href={`/inmopro/clients/create${listQs}`}>
-                                <UserPlus className="h-4 w-4" />
-                                Nuevo cliente
-                            </Link>
+                        <Button size="sm" type="button" onClick={() => setCreateClientOpen(true)}>
+                            <UserPlus className="h-4 w-4" />
+                            Nuevo cliente
                         </Button>
                     </div>
                 </div>
@@ -706,8 +712,8 @@ export default function ClientsIndex({
                                 </div>
                                 <p className="mt-4 font-medium text-slate-700">Sin coincidencias</p>
                                 <p className="mt-1 text-sm text-slate-500">No hay clientes con los criterios de busqueda.</p>
-                                <Button className="mt-4" variant="outline" asChild>
-                                    <Link href={`/inmopro/clients/create${listQs}`}>Nuevo cliente</Link>
+                                <Button className="mt-4" variant="outline" type="button" onClick={() => setCreateClientOpen(true)}>
+                                    Nuevo cliente
                                 </Button>
                             </div>
                         ) : (
@@ -869,6 +875,26 @@ export default function ClientsIndex({
                 onOpenChange={setPhoneMergeModalOpen}
                 listQs={listQs}
             />
+
+            <Dialog open={createClientOpen} onOpenChange={setCreateClientOpen}>
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Nuevo cliente</DialogTitle>
+                        <DialogDescription>
+                            Registre los datos del cliente y asígnelo a un vendedor.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ClientsCreate
+                        embedded
+                        clientTypes={clientTypes}
+                        clientStatuses={clientStatuses}
+                        clientTags={clientTags}
+                        cities={cities}
+                        advisors={advisors}
+                        onCancel={() => setCreateClientOpen(false)}
+                    />
+                </DialogContent>
+            </Dialog>
 
             <ClientEditModal
                 open={editClientModalOpen}

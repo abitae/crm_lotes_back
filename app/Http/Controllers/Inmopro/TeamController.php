@@ -32,9 +32,9 @@ class TeamController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(): RedirectResponse
     {
-        return Inertia::render('inmopro/teams/create');
+        return redirect()->route('inmopro.teams.index', ['create' => 1]);
     }
 
     public function store(StoreTeamRequest $request): RedirectResponse

@@ -1,8 +1,12 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Download, Eye, FileSpreadsheet, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
+import InputError from '@/components/input-error';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { confirmDelete } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
@@ -11,8 +15,18 @@ type AdvisorLevelRow = { id: number; name: string; code?: string; direct_rate?: 
 
 export default function AdvisorLevelsIndex({ advisorLevels }: { advisorLevels: { data: AdvisorLevelRow[]; links: PaginationLink[] } }) {
     const items = advisorLevels.data;
+    const page = usePage();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [importing, setImporting] = useState(false);
+    const [createOpen, setCreateOpen] = useState(() => page.url.includes('create=1'));
+    const createForm = useForm({
+        name: '',
+        code: '',
+        direct_rate: '',
+        pyramid_rate: '',
+        color: '#10b981',
+        sort_order: '0',
+    });
 
     const handleImportSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -94,9 +108,9 @@ export default function AdvisorLevelsIndex({ advisorLevels }: { advisorLevels: {
                                 {importing ? 'Importando...' : 'Importar Excel'}
                             </Button>
                         </form>
-                        <Link href="/inmopro/advisor-levels/create" className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">
+                        <button type="button" onClick={() => setCreateOpen(true)} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">
                             <Plus className="h-5 w-5" /> Nuevo
-                        </Link>
+                        </button>
                     </div>
                 </div>
                 <div className="rounded-2xl border border-border bg-card text-card-foreground overflow-hidden">
@@ -133,6 +147,52 @@ export default function AdvisorLevelsIndex({ advisorLevels }: { advisorLevels: {
                     )}
                 </div>
             </div>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Nuevo nivel de asesor</DialogTitle>
+                    </DialogHeader>
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            createForm.post('/inmopro/advisor-levels', { preserveScroll: true, onSuccess: () => setCreateOpen(false) });
+                        }}
+                        className="space-y-4"
+                    >
+                        <div>
+                            <Label htmlFor="advisor-level-name">Nombre</Label>
+                            <Input id="advisor-level-name" value={createForm.data.name} onChange={(e) => createForm.setData('name', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.name} />
+                        </div>
+                        <div>
+                            <Label htmlFor="advisor-level-code">Código (opcional)</Label>
+                            <Input id="advisor-level-code" value={createForm.data.code} onChange={(e) => createForm.setData('code', e.target.value)} className="mt-1" />
+                        </div>
+                        <div>
+                            <Label htmlFor="advisor-level-direct">Comisión directa %</Label>
+                            <Input id="advisor-level-direct" type="number" min={0} max={100} value={createForm.data.direct_rate} onChange={(e) => createForm.setData('direct_rate', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.direct_rate} />
+                        </div>
+                        <div>
+                            <Label htmlFor="advisor-level-pyramid">Comisión piramidal %</Label>
+                            <Input id="advisor-level-pyramid" type="number" min={0} max={100} value={createForm.data.pyramid_rate} onChange={(e) => createForm.setData('pyramid_rate', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.pyramid_rate} />
+                        </div>
+                        <div>
+                            <Label htmlFor="advisor-level-color">Color</Label>
+                            <Input id="advisor-level-color" value={createForm.data.color} onChange={(e) => createForm.setData('color', e.target.value)} className="mt-1" />
+                        </div>
+                        <div>
+                            <Label htmlFor="advisor-level-order">Orden</Label>
+                            <Input id="advisor-level-order" type="number" min={0} value={createForm.data.sort_order} onChange={(e) => createForm.setData('sort_order', e.target.value)} className="mt-1" />
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+                            <Button type="submit" disabled={createForm.processing}>Guardar</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

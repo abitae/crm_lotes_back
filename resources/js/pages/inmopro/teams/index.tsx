@@ -1,8 +1,12 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Download, Eye, FileSpreadsheet, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { useRef, useState } from 'react';
+import InputError from '@/components/input-error';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { confirmDelete } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
@@ -19,8 +23,19 @@ type Team = {
 
 export default function TeamsIndex({ teams }: { teams: { data: Team[]; links: PaginationLink[]; total?: number } }) {
     const items = teams.data;
+    const page = usePage();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [importing, setImporting] = useState(false);
+    const [createOpen, setCreateOpen] = useState(() => page.url.includes('create=1'));
+    const createForm = useForm({
+        name: '',
+        code: '',
+        description: '',
+        color: '#0f766e',
+        sort_order: 0,
+        is_active: true,
+        group_sales_goal: 0,
+    });
 
     const handleImportSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -100,9 +115,9 @@ export default function TeamsIndex({ teams }: { teams: { data: Team[]; links: Pa
                                 {importing ? 'Importando...' : 'Importar Excel'}
                             </Button>
                         </form>
-                        <Link href="/inmopro/teams/create" className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">
+                        <button type="button" onClick={() => setCreateOpen(true)} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">
                             <Plus className="h-5 w-5" /> Nuevo
-                        </Link>
+                        </button>
                     </div>
                 </div>
 
@@ -156,6 +171,57 @@ export default function TeamsIndex({ teams }: { teams: { data: Team[]; links: Pa
                     )}
                 </div>
             </div>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Nuevo team</DialogTitle>
+                    </DialogHeader>
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            createForm.post('/inmopro/teams', { preserveScroll: true, onSuccess: () => setCreateOpen(false) });
+                        }}
+                        className="space-y-4"
+                    >
+                        <div>
+                            <Label htmlFor="team-name">Nombre</Label>
+                            <Input id="team-name" value={createForm.data.name} onChange={(e) => createForm.setData('name', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.name} />
+                        </div>
+                        <div>
+                            <Label htmlFor="team-code">Código</Label>
+                            <Input id="team-code" value={createForm.data.code} onChange={(e) => createForm.setData('code', e.target.value.toUpperCase())} className="mt-1" />
+                            <InputError message={createForm.errors.code} />
+                        </div>
+                        <div>
+                            <Label htmlFor="team-description">Descripción</Label>
+                            <Input id="team-description" value={createForm.data.description} onChange={(e) => createForm.setData('description', e.target.value)} className="mt-1" />
+                        </div>
+                        <div>
+                            <Label htmlFor="team-color">Color</Label>
+                            <Input id="team-color" value={createForm.data.color} onChange={(e) => createForm.setData('color', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.color} />
+                        </div>
+                        <div>
+                            <Label htmlFor="team-order">Orden</Label>
+                            <Input id="team-order" type="number" min={0} value={createForm.data.sort_order} onChange={(e) => createForm.setData('sort_order', Number(e.target.value))} className="mt-1" />
+                        </div>
+                        <div>
+                            <Label htmlFor="team-goal">Meta grupal (S/)</Label>
+                            <Input id="team-goal" type="number" min={0} step="0.01" value={createForm.data.group_sales_goal} onChange={(e) => createForm.setData('group_sales_goal', Number(e.target.value))} className="mt-1" />
+                            <InputError message={createForm.errors.group_sales_goal} />
+                        </div>
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                            <input type="checkbox" checked={createForm.data.is_active} onChange={(e) => createForm.setData('is_active', e.target.checked)} />
+                            Team activo
+                        </label>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+                            <Button type="submit" disabled={createForm.processing}>Guardar</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

@@ -1,6 +1,12 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Tag, Plus, Eye, Pencil, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import InputError from '@/components/input-error';
 import Pagination, { type PaginationLink } from '@/components/pagination';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { confirmDelete } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
@@ -14,6 +20,10 @@ export default function LotStatusesIndex({ lotStatuses }: { lotStatuses: { data:
         { title: 'Inmopro', href: '/inmopro/dashboard' },
         { title: 'Estados de lote', href: '/inmopro/lot-statuses' },
     ];
+
+    const page = usePage();
+    const [createOpen, setCreateOpen] = useState(() => page.url.includes('create=1'));
+    const createForm = useForm({ name: '', code: '', color: '#10b981', sort_order: '0' });
 
     const handleDestroy = async (id: number, name: string) => {
         if (await confirmDelete(`¿Eliminar estado "${name}"?`)) {
@@ -30,9 +40,9 @@ export default function LotStatusesIndex({ lotStatuses }: { lotStatuses: { data:
                         <h2 className="text-2xl font-black text-slate-800">Estados de lote</h2>
                         <p className="text-sm text-slate-500">Administrar estados para el inventario.</p>
                     </div>
-                    <Link href="/inmopro/lot-statuses/create" className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 font-bold text-white hover:bg-emerald-700">
+                    <button type="button" onClick={() => setCreateOpen(true)} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 font-bold text-white hover:bg-emerald-700">
                         <Plus className="h-5 w-5" /> Nuevo
-                    </Link>
+                    </button>
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
                     <AdminMetric label="Estados" value={String(totalStatuses)} />
@@ -71,7 +81,7 @@ export default function LotStatusesIndex({ lotStatuses }: { lotStatuses: { data:
                     {items.length === 0 ? (
                         <div className="py-12 text-center text-slate-500">
                             <Tag className="mx-auto mb-2 h-10 w-10" />
-                            <p>No hay estados. <Link href="/inmopro/lot-statuses/create" className="text-emerald-600 hover:underline">Crear uno</Link></p>
+                            <p>No hay estados. <button type="button" onClick={() => setCreateOpen(true)} className="text-emerald-600 hover:underline">Crear uno</button></p>
                         </div>
                     ) : (
                         <div className="border-t border-slate-100 px-4 py-3">
@@ -80,6 +90,49 @@ export default function LotStatusesIndex({ lotStatuses }: { lotStatuses: { data:
                     )}
                 </div>
             </div>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Nuevo estado de lote</DialogTitle>
+                    </DialogHeader>
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            createForm.transform((formData) => ({
+                                ...formData,
+                                sort_order: formData.sort_order ? Number(formData.sort_order) : 0,
+                            }));
+                            createForm.post('/inmopro/lot-statuses', { preserveScroll: true, onSuccess: () => setCreateOpen(false) });
+                        }}
+                        className="space-y-4"
+                    >
+                        <div>
+                            <Label htmlFor="lot-status-name">Nombre</Label>
+                            <Input id="lot-status-name" value={createForm.data.name} onChange={(e) => createForm.setData('name', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.name} />
+                        </div>
+                        <div>
+                            <Label htmlFor="lot-status-code">Código</Label>
+                            <Input id="lot-status-code" value={createForm.data.code} onChange={(e) => createForm.setData('code', e.target.value.toUpperCase())} className="mt-1" />
+                            <InputError message={createForm.errors.code} />
+                        </div>
+                        <div>
+                            <Label htmlFor="lot-status-color">Color</Label>
+                            <Input id="lot-status-color" value={createForm.data.color} onChange={(e) => createForm.setData('color', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.color} />
+                        </div>
+                        <div>
+                            <Label htmlFor="lot-status-order">Orden</Label>
+                            <Input id="lot-status-order" type="number" min={0} value={createForm.data.sort_order} onChange={(e) => createForm.setData('sort_order', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.sort_order} />
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+                            <Button type="submit" disabled={createForm.processing}>Guardar</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

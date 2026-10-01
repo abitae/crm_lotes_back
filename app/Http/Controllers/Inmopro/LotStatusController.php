@@ -22,9 +22,9 @@ class LotStatusController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(): RedirectResponse
     {
-        return Inertia::render('inmopro/lot-statuses/create');
+        return redirect()->route('inmopro.lot-statuses.index', ['create' => 1]);
     }
 
     public function store(StoreLotStatusRequest $request): RedirectResponse

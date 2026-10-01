@@ -131,7 +131,7 @@ export default function InmoproDashboard({
                         </div>
                     </section>
 
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
                         {statCards.map((stat) => (
                             <InmoproMetricCard
                                 key={stat.label}
@@ -139,6 +139,7 @@ export default function InmoproDashboard({
                                 value={String(stat.value)}
                                 icon={stat.icon}
                                 tone={stat.tone}
+                                size="sm"
                             />
                         ))}
                     </div>
@@ -287,7 +288,7 @@ export default function InmoproDashboard({
                                     Reservas recientes
                                 </h2>
                                 <p className={inmoproUi.pageSubtitle}>
-                                    Últimas reservas registradas.
+                                    Últimas 10 reservas.
                                 </p>
                             </div>
                             <Link
@@ -300,8 +301,8 @@ export default function InmoproDashboard({
                         </div>
 
                         <div className="p-5">
-                            <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800">
-                                <table className="w-full text-left text-sm">
+                            <div className="rounded-xl border border-slate-100 dark:border-slate-800">
+                                <table className="w-full table-fixed text-left text-sm">
                                     <thead>
                                         <tr className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-950">
                                             <th className={`px-4 py-3 ${inmoproUi.tableHeadCell}`}>
@@ -342,11 +343,11 @@ export default function InmoproDashboard({
                                                     <td className="px-4 py-3 font-black text-slate-900 dark:text-white">
                                                         {lot.block}-{lot.number}
                                                     </td>
-                                                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                                                    <td className="px-4 py-3 break-words text-slate-600 dark:text-slate-300">
                                                         {lot.project?.name ??
                                                             '—'}
                                                     </td>
-                                                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                                                    <td className="px-4 py-3 break-words text-slate-600 dark:text-slate-300">
                                                         {lot.client?.name ??
                                                             '—'}
                                                     </td>

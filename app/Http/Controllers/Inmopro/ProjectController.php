@@ -149,6 +149,7 @@ class ProjectController extends Controller
                 ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get(['id', 'name', 'code']),
+            'cities' => $this->activeCitiesForSelect(),
             'locations' => Project::query()
                 ->whereNotNull('location')
                 ->where('location', '!=', '')
@@ -171,16 +172,9 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(): RedirectResponse
     {
-        return Inertia::render('inmopro/projects/create', [
-            'projectTypes' => ProjectType::query()
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(['id', 'name', 'code']),
-            'cities' => $this->activeCitiesForSelect(),
-        ]);
+        return redirect()->route('inmopro.projects.index', ['create' => 1]);
     }
 
     public function store(StoreProjectRequest $request): RedirectResponse

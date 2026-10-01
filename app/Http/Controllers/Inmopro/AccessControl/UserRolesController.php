@@ -32,20 +32,15 @@ class UserRolesController extends Controller
 
         return Inertia::render('inmopro/access-control/users/index', [
             'users' => $users,
+            'roles' => Role::query()->where('guard_name', 'web')->orderBy('name')->get(['id', 'name']),
             'filters' => $request->only('search'),
+            'openCreate' => $request->query('create') === '1',
         ]);
     }
 
-    public function create(): Response
+    public function create(): RedirectResponse
     {
-        $roles = Role::query()
-            ->where('guard_name', 'web')
-            ->orderBy('name')
-            ->get(['id', 'name']);
-
-        return Inertia::render('inmopro/access-control/users/create', [
-            'roles' => $roles,
-        ]);
+        return redirect()->route('inmopro.access-control.users.index', ['create' => 1]);
     }
 
     public function store(StoreAccessControlUserRequest $request): RedirectResponse

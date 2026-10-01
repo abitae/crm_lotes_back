@@ -78,12 +78,14 @@ export default function AdvisorsNew({
     teams,
     cities,
     materialTypes,
+    embedded = false,
 }: {
     advisorLevels: AdvisorLevel[];
     advisorsList: { id: number; name: string }[];
     teams: Team[];
     cities: CityOption[];
     materialTypes: MaterialTypeRow[];
+    embedded?: boolean;
 }) {
     const listQs = advisorsListingQuerySuffix(usePage().url);
     const { data, setData, post, processing, errors } = useForm<AdvisorCreateForm>({
@@ -120,15 +122,8 @@ export default function AdvisorsNew({
         post(`/inmopro/advisors${listQs}`, { forceFormData: true });
     };
 
-    return (
-        <InmoproMobileFormLayout
-            title="Registro completo"
-            description="Complete identidad y contacto, perfil profesional y documentación."
-            backHref={`/inmopro/advisors${listQs}`}
-            backLabel="Volver a vendedores"
-        >
-            <Head title="Nuevo vendedor - Inmopro" />
-            <form onSubmit={submit} className="space-y-4 pb-28">
+    const form = (
+            <form onSubmit={submit} className={embedded ? 'space-y-4' : 'space-y-4 pb-28'}>
                 <FormSection title="Identidad y contacto" description="Datos personales y de contacto del vendedor.">
                     <div>
                         <Label htmlFor="dni">DNI (8 dígitos)</Label>
@@ -318,17 +313,38 @@ export default function AdvisorsNew({
                     </div>
                 </FormSection>
 
-                <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200/80 bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/85 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-                    <div className="mx-auto flex w-full max-w-xl flex-col gap-2">
-                        <Button type="submit" disabled={processing} className="h-11 w-full text-base">
-                            Guardar vendedor
-                        </Button>
-                        <Button type="button" variant="outline" className="h-11 w-full text-base" asChild>
-                            <Link href={`/inmopro/advisors${listQs}`}>Cancelar</Link>
-                        </Button>
+                {embedded ? (
+                    <Button type="submit" disabled={processing} className="h-11 w-full text-base">
+                        Guardar vendedor
+                    </Button>
+                ) : (
+                    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200/80 bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/85 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                        <div className="mx-auto flex w-full max-w-xl flex-col gap-2">
+                            <Button type="submit" disabled={processing} className="h-11 w-full text-base">
+                                Guardar vendedor
+                            </Button>
+                            <Button type="button" variant="outline" className="h-11 w-full text-base" asChild>
+                                <Link href={`/inmopro/advisors${listQs}`}>Cancelar</Link>
+                            </Button>
+                        </div>
                     </div>
-                </div>
+                )}
             </form>
+    );
+
+    if (embedded) {
+        return form;
+    }
+
+    return (
+        <InmoproMobileFormLayout
+            title="Registro completo"
+            description="Complete identidad y contacto, perfil profesional y documentación."
+            backHref={`/inmopro/advisors${listQs}`}
+            backLabel="Volver a vendedores"
+        >
+            <Head title="Nuevo vendedor - Inmopro" />
+            {form}
         </InmoproMobileFormLayout>
     );
 }

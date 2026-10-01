@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     AlertTriangle,
     Download,
@@ -43,6 +43,8 @@ import {
 } from '@/lib/project-location';
 import { confirmDelete, confirmToggleProjectActive } from '@/lib/swal';
 import { cn } from '@/lib/utils';
+import ProjectsCreate from '@/pages/inmopro/projects/create';
+import type { CityOption } from '@/pages/inmopro/projects/project-form-fields';
 import type { BreadcrumbItem } from '@/types';
 
 type Project = {
@@ -137,6 +139,7 @@ type PageProps = {
         is_active?: string;
     };
     projectTypes: ProjectTypeOption[];
+    cities: CityOption[];
     locations: Array<ProjectLocationOption | string>;
     summary: {
         totalProjects: number;
@@ -151,6 +154,7 @@ export default function ProjectsIndex({
     projects,
     filters,
     projectTypes,
+    cities,
     locations,
     summary,
 }: PageProps) {
@@ -164,6 +168,8 @@ export default function ProjectsIndex({
         { title: 'Proyectos', href: '/inmopro/projects' },
     ];
     const [importModalOpen, setImportModalOpen] = useState(false);
+    const page = usePage();
+    const [createOpen, setCreateOpen] = useState(() => page.url.includes('create=1'));
 
     const handleDestroy = async (id: number, name: string) => {
         if (await confirmDelete(`Eliminar el proyecto "${name}"?`)) {
@@ -226,11 +232,9 @@ export default function ProjectsIndex({
                             <FileSpreadsheet className="h-4 w-4" />
                             Importar Excel
                         </Button>
-                        <Button size="sm" asChild>
-                            <Link href="/inmopro/projects/create">
-                                <Plus className="h-4 w-4" />
-                                Nuevo proyecto
-                            </Link>
+                        <Button size="sm" type="button" onClick={() => setCreateOpen(true)}>
+                            <Plus className="h-4 w-4" />
+                            Nuevo proyecto
                         </Button>
                     </div>
                 </div>
@@ -386,11 +390,9 @@ export default function ProjectsIndex({
                                 <p className="mt-1 text-sm text-slate-500">
                                     Cree uno manualmente o importe desde Excel.
                                 </p>
-                                <Button className="mt-4" asChild>
-                                    <Link href="/inmopro/projects/create">
-                                        <Plus className="h-4 w-4" />
-                                        Crear proyecto
-                                    </Link>
+                                <Button className="mt-4" type="button" onClick={() => setCreateOpen(true)}>
+                                    <Plus className="h-4 w-4" />
+                                    Crear proyecto
                                 </Button>
                             </div>
                         ) : (
@@ -682,6 +684,18 @@ export default function ProjectsIndex({
                     </CardContent>
                 </Card>
             </div>
+
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Nuevo proyecto</DialogTitle>
+                        <DialogDescription>
+                            Datos del proyecto, ubicación y archivos de publicación.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ProjectsCreate embedded projectTypes={projectTypes} cities={cities} />
+                </DialogContent>
+            </Dialog>
 
             <ProjectExcelImportModal
                 open={importModalOpen}

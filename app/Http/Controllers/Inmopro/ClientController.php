@@ -252,15 +252,12 @@ class ClientController extends Controller
             ->with('success', 'Clientes importados correctamente.');
     }
 
-    public function create(): Response
+    public function create(Request $request): RedirectResponse
     {
-        return Inertia::render('inmopro/clients/create', [
-            'clientTypes' => ClientType::orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
-            'clientStatuses' => ClientStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'advisor_id', 'name', 'color']),
-            'clientTags' => ClientTag::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'advisor_id', 'name', 'color']),
-            'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'department']),
-            'advisors' => Advisor::query()->with('team')->orderBy('name')->get(['id', 'name', 'team_id']),
-        ]);
+        return redirect()->route('inmopro.clients.index', array_merge(
+            InertiaListingRedirect::clientsIndexQuery($request),
+            ['modal' => 'create_client'],
+        ));
     }
 
     public function store(StoreClientRequest $request): RedirectResponse

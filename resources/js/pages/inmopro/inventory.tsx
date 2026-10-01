@@ -8,6 +8,7 @@ import {
     Map,
     MapPin,
     Pencil,
+    Plus,
     Ruler,
     Search,
     UserRound,
@@ -15,6 +16,7 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
+import LotsCreate from '@/pages/inmopro/lots/create';
 import { ProjectLocationLink } from '@/components/inmopro/project-location-link';
 import { Button } from '@/components/ui/button';
 import {
@@ -165,18 +167,28 @@ function uniqueBlocks(project: Project, lots: Lot[]): string[] {
     );
 }
 
+type LotFormOptions = {
+    projects: Array<{ id: number; name: string }>;
+    project: { id: number; name: string } | null;
+    lotStatuses: Array<{ id: number; name: string; code: string }>;
+    clients: Array<{ id: number; name: string; dni: string }>;
+    advisors: Array<{ id: number; name: string }>;
+};
+
 export default function Inventory({
     projects,
     project,
     lots,
     lotStatuses,
     filters = { include_inactive: false },
+    lotForm = null,
 }: {
     projects: Project[];
     project: Project | null;
     lots: Lot[];
     lotStatuses: LotStatus[];
     filters?: { include_inactive?: boolean };
+    lotForm?: LotFormOptions | null;
 }) {
     const includeInactive = Boolean(filters.include_inactive);
     const [searchTerm, setSearchTerm] = useState('');
@@ -320,6 +332,25 @@ export default function Inventory({
                                         </button>
                                         Mostrar inactivos
                                     </label>
+                                    <Button
+                                        type="button"
+                                        className="rounded-xl bg-emerald-600 font-black text-white hover:bg-emerald-700"
+                                        onClick={() => {
+                                            const query: Record<string, string | number> = {
+                                                modal: 'create_lot',
+                                            };
+                                            if (project?.id) {
+                                                query.project_id = project.id;
+                                            }
+                                            if (includeInactive) {
+                                                query.include_inactive = 1;
+                                            }
+                                            router.get('/inmopro/lots', query, { preserveScroll: true });
+                                        }}
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        Nuevo lote
+                                    </Button>
                                     {projects.length > 0 && (
                                         <select
                                             value={project?.id ?? ''}
@@ -538,6 +569,39 @@ export default function Inventory({
                     </aside>
                 </div>
             </div>
+
+            <Dialog
+                open={lotForm !== null}
+                onOpenChange={(open) => {
+                    if (open) {
+                        return;
+                    }
+                    const query: Record<string, string | number> = {};
+                    if (project?.id) {
+                        query.project_id = project.id;
+                    }
+                    if (includeInactive) {
+                        query.include_inactive = 1;
+                    }
+                    router.get('/inmopro/lots', query, { preserveScroll: true, replace: true });
+                }}
+            >
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Nuevo lote</DialogTitle>
+                    </DialogHeader>
+                    {lotForm ? (
+                        <LotsCreate
+                            embedded
+                            projects={lotForm.projects}
+                            project={lotForm.project}
+                            lotStatuses={lotForm.lotStatuses}
+                            clients={lotForm.clients}
+                            advisors={lotForm.advisors}
+                        />
+                    ) : null}
+                </DialogContent>
+            </Dialog>
 
             <LotDetailDialog
                 open={detailModalOpen}

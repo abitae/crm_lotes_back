@@ -1,6 +1,12 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Plus, Eye, Pencil, Trash2, UserPlus } from 'lucide-react';
+import { useState } from 'react';
+import InputError from '@/components/input-error';
 import Pagination, { type PaginationLink } from '@/components/pagination';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { confirmDelete } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
@@ -24,6 +30,15 @@ export default function MembershipTypesIndex({
         { title: 'Tipos de membresía', href: '/inmopro/membership-types' },
     ];
 
+    const page = usePage();
+    const currentYear = new Date().getFullYear();
+    const [createOpen, setCreateOpen] = useState(() => page.url.includes('create=1'));
+    const createForm = useForm({
+        name: `Membresía ${currentYear}`,
+        months: '12',
+        amount: '0',
+    });
+
     const handleDestroy = async (id: number, name: string) => {
         if (await confirmDelete(`¿Eliminar tipo de membresía "${name}"?`)) {
             router.delete(`/inmopro/membership-types/${id}`);
@@ -39,12 +54,13 @@ export default function MembershipTypesIndex({
                         <h2 className="text-2xl font-black text-slate-800">Tipos de membresía</h2>
                         <p className="text-sm text-slate-500">Duración en meses. Al asignar a un vendedor se define la fecha de inicio y se calcula el vencimiento.</p>
                     </div>
-                    <Link
-                        href="/inmopro/membership-types/create"
+                    <button
+                        type="button"
+                        onClick={() => setCreateOpen(true)}
                         className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 font-bold text-white hover:bg-emerald-700"
                     >
                         <Plus className="h-5 w-5" /> Nuevo tipo
-                    </Link>
+                    </button>
                 </div>
                 <div className="rounded-2xl border border-border bg-card text-card-foreground overflow-hidden">
                     <table className="w-full">
@@ -104,6 +120,40 @@ export default function MembershipTypesIndex({
                     )}
                 </div>
             </div>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Nuevo tipo de membresía</DialogTitle>
+                    </DialogHeader>
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            createForm.post('/inmopro/membership-types', { preserveScroll: true, onSuccess: () => setCreateOpen(false) });
+                        }}
+                        className="space-y-4"
+                    >
+                        <div>
+                            <Label htmlFor="membership-type-name">Nombre</Label>
+                            <Input id="membership-type-name" value={createForm.data.name} onChange={(e) => createForm.setData('name', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.name} />
+                        </div>
+                        <div>
+                            <Label htmlFor="membership-type-months">Duración (meses)</Label>
+                            <Input id="membership-type-months" type="number" min={1} max={120} value={createForm.data.months} onChange={(e) => createForm.setData('months', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.months} />
+                        </div>
+                        <div>
+                            <Label htmlFor="membership-type-amount">Monto (S/)</Label>
+                            <Input id="membership-type-amount" type="number" step="0.01" min="0" value={createForm.data.amount} onChange={(e) => createForm.setData('amount', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.amount} />
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+                            <Button type="submit" disabled={createForm.processing}>Guardar</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

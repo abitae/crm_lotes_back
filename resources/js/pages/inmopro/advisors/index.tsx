@@ -26,6 +26,7 @@ import {
     toIsoDate,
 } from '@/lib/date';
 import { advisorsListingQuerySuffix } from '@/lib/inmopro-listing-query';
+import AdvisorsNew from '@/pages/inmopro/advisors/new';
 import { confirmDelete, confirmToggleAdvisorActive } from '@/lib/swal';
 import { cn } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
@@ -279,6 +280,7 @@ export default function AdvisorsIndex({
     filters,
 }: PageProps) {
     const [modalCreateAdvisor, setModalCreateAdvisor] = useState(false);
+    const [modalFullCreateAdvisor, setModalFullCreateAdvisor] = useState(false);
     const [modalEditAdvisor, setModalEditAdvisor] = useState<Advisor | null>(null);
     const [modalCazadorAccess, setModalCazadorAccess] = useState<Advisor | null>(null);
     const [modalCreateMembership, setModalCreateMembership] = useState(false);
@@ -299,6 +301,9 @@ export default function AdvisorsIndex({
     useEffect(() => {
         if (openModal === 'create_advisor') {
             setModalCreateAdvisor(true);
+        }
+        if (openModal === 'create_advisor_full') {
+            setModalFullCreateAdvisor(true);
         }
         if (openModal === 'edit_advisor' && advisorForModal) {
             setModalEditAdvisor(advisorForModal);
@@ -523,8 +528,8 @@ export default function AdvisorsIndex({
                             <UserPlus className="h-5 w-5" />
                             Nuevo vendedor
                         </Button>
-                        <Button variant="outline" size="sm" asChild>
-                            <Link href="/inmopro/advisors/new">Registro completo</Link>
+                        <Button variant="outline" size="sm" type="button" onClick={() => setModalFullCreateAdvisor(true)}>
+                            Registro completo
                         </Button>
                     </div>
                 </div>
@@ -902,6 +907,25 @@ export default function AdvisorsIndex({
                 <AdvisorExcelImportModal open={modalAdvisorImport} onOpenChange={setModalAdvisorImport} />
 
                 {/* Modal: Crear vendedor */}
+                <Dialog open={modalFullCreateAdvisor} onOpenChange={setModalFullCreateAdvisor}>
+                    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                        <DialogHeader>
+                            <DialogTitle>Registro completo</DialogTitle>
+                            <DialogDescription>
+                                Identidad, contacto, perfil profesional y documentación del vendedor.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <AdvisorsNew
+                            embedded
+                            advisorLevels={advisorLevels}
+                            advisorsList={advisorsList}
+                            teams={teams}
+                            cities={cities}
+                            materialTypes={materialTypes}
+                        />
+                    </DialogContent>
+                </Dialog>
+
                 <CreateAdvisorModal
                     open={modalCreateAdvisor}
                     onOpenChange={setModalCreateAdvisor}

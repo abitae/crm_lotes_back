@@ -1,4 +1,7 @@
 import { Head, useForm } from '@inertiajs/react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { formatDate, todayIsoDate } from '@/lib/date';
 import type { BreadcrumbItem } from '@/types';
@@ -30,6 +33,7 @@ export default function CashAccountsIndex({ accounts }: { accounts: Account[] })
         { title: 'Caja y bancos', href: '/inmopro/cash-accounts' },
     ];
 
+    const [accountOpen, setAccountOpen] = useState(false);
     const accountForm = useForm({
         name: '',
         type: 'CAJA',
@@ -42,47 +46,62 @@ export default function CashAccountsIndex({ accounts }: { accounts: Account[] })
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Caja y bancos - Inmopro" />
             <div className="space-y-6 p-4 md:p-6">
-                <form
-                    onSubmit={(event) => {
-                        event.preventDefault();
-                        accountForm.post('/inmopro/cash-accounts', {
-                            preserveScroll: true,
-                            onSuccess: () => accountForm.reset('name', 'initial_balance'),
-                        });
-                    }}
-                    className="grid gap-3 rounded-3xl border border-border bg-card text-card-foreground p-6 shadow-sm md:grid-cols-5"
-                >
-                    <input
-                        placeholder="Nombre"
-                        value={accountForm.data.name}
-                        onChange={(event) => accountForm.setData('name', event.target.value)}
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
-                    />
-                    <select
-                        value={accountForm.data.type}
-                        onChange={(event) => accountForm.setData('type', event.target.value)}
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
-                    >
-                        <option value="CAJA">Caja</option>
-                        <option value="BANCO">Banco</option>
-                    </select>
-                    <input
-                        value={accountForm.data.currency}
-                        onChange={(event) => accountForm.setData('currency', event.target.value.toUpperCase())}
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
-                    />
-                    <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={accountForm.data.initial_balance}
-                        onChange={(event) => accountForm.setData('initial_balance', event.target.value)}
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
-                    />
-                    <button type="submit" className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white">
-                        Guardar cuenta
-                    </button>
-                </form>
+                <div className="flex justify-end">
+                    <Button type="button" onClick={() => setAccountOpen(true)}>
+                        Nueva cuenta
+                    </Button>
+                </div>
+                <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Nueva cuenta</DialogTitle>
+                        </DialogHeader>
+                        <form
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                accountForm.post('/inmopro/cash-accounts', {
+                                    preserveScroll: true,
+                                    onSuccess: () => {
+                                        accountForm.reset('name', 'initial_balance');
+                                        setAccountOpen(false);
+                                    },
+                                });
+                            }}
+                            className="space-y-3"
+                        >
+                            <input
+                                placeholder="Nombre"
+                                value={accountForm.data.name}
+                                onChange={(event) => accountForm.setData('name', event.target.value)}
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
+                            />
+                            <select
+                                value={accountForm.data.type}
+                                onChange={(event) => accountForm.setData('type', event.target.value)}
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
+                            >
+                                <option value="CAJA">Caja</option>
+                                <option value="BANCO">Banco</option>
+                            </select>
+                            <input
+                                value={accountForm.data.currency}
+                                onChange={(event) => accountForm.setData('currency', event.target.value.toUpperCase())}
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
+                            />
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={accountForm.data.initial_balance}
+                                onChange={(event) => accountForm.setData('initial_balance', event.target.value)}
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none"
+                            />
+                            <DialogFooter>
+                                <Button type="submit" disabled={accountForm.processing}>Guardar cuenta</Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
 
                 <div className="space-y-6">
                     {accounts.map((account) => (
@@ -95,6 +114,7 @@ export default function CashAccountsIndex({ accounts }: { accounts: Account[] })
 }
 
 function CashAccountCard({ account }: { account: Account }) {
+    const [entryOpen, setEntryOpen] = useState(false);
     const entryForm = useForm({
         type: 'EGRESO',
         concept: '',
@@ -122,6 +142,18 @@ function CashAccountCard({ account }: { account: Account }) {
             </div>
 
             <div className="grid gap-6 xl:grid-cols-2">
+                <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                        <h3 className="text-sm font-black uppercase text-slate-700">Movimientos</h3>
+                        <Button type="button" size="sm" onClick={() => setEntryOpen(true)}>
+                            Nuevo movimiento
+                        </Button>
+                    </div>
+                <Dialog open={entryOpen} onOpenChange={setEntryOpen}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Nuevo movimiento</DialogTitle>
+                        </DialogHeader>
                 <form
                     onSubmit={(event) => {
                         event.preventDefault();
@@ -130,12 +162,12 @@ function CashAccountCard({ account }: { account: Account }) {
                             onSuccess: () => {
                                 entryForm.reset('concept', 'amount', 'reference', 'notes');
                                 entryForm.setData('entry_date', todayIsoDate());
+                                setEntryOpen(false);
                             },
                         });
                     }}
-                    className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-4"
+                    className="space-y-3"
                 >
-                    <h3 className="text-sm font-black uppercase text-slate-700">Nuevo movimiento</h3>
                     <select
                         value={entryForm.data.type}
                         onChange={(event) => entryForm.setData('type', event.target.value)}
@@ -165,10 +197,13 @@ function CashAccountCard({ account }: { account: Account }) {
                         onChange={(event) => entryForm.setData('entry_date', event.target.value)}
                         className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none"
                     />
-                    <button type="submit" className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white">
-                        Registrar
-                    </button>
+                    <DialogFooter>
+                        <Button type="submit" disabled={entryForm.processing}>Registrar</Button>
+                    </DialogFooter>
                 </form>
+                    </DialogContent>
+                </Dialog>
+                </div>
 
                 <div className="rounded-2xl border border-slate-100 p-4">
                     <h3 className="mb-3 text-sm font-black uppercase text-slate-700">Movimientos recientes</h3>

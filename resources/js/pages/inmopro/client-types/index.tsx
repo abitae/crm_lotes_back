@@ -1,6 +1,12 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Users, Plus, Eye, Pencil, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import InputError from '@/components/input-error';
 import Pagination, { type PaginationLink } from '@/components/pagination';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { confirmDelete } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
@@ -21,6 +27,17 @@ export default function ClientTypesIndex({ clientTypes }: { clientTypes: { data:
         { title: 'Tipos de cliente', href: '/inmopro/client-types' },
     ];
 
+    const page = usePage();
+    const [createOpen, setCreateOpen] = useState(() => page.url.includes('create=1'));
+    const createForm = useForm({
+        name: '',
+        code: '',
+        description: '',
+        color: '#475569',
+        sort_order: 0,
+        is_active: true,
+    });
+
     const handleDestroy = async (id: number, name: string) => {
         if (await confirmDelete(`Eliminar tipo "${name}"?`)) {
             router.delete(`/inmopro/client-types/${id}`);
@@ -36,9 +53,9 @@ export default function ClientTypesIndex({ clientTypes }: { clientTypes: { data:
                         <h2 className="text-2xl font-black text-slate-800">Tipos de cliente</h2>
                         <p className="text-sm text-slate-500">Clasifique prospectos, compradores e inversionistas.</p>
                     </div>
-                    <Link href="/inmopro/client-types/create" className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 font-bold text-white hover:bg-emerald-700">
+                    <button type="button" onClick={() => setCreateOpen(true)} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 font-bold text-white hover:bg-emerald-700">
                         <Plus className="h-5 w-5" /> Nuevo
-                    </Link>
+                    </button>
                 </div>
 
                 <div className="rounded-2xl border border-border bg-card text-card-foreground overflow-hidden">
@@ -91,6 +108,53 @@ export default function ClientTypesIndex({ clientTypes }: { clientTypes: { data:
                     )}
                 </div>
             </div>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Nuevo tipo de cliente</DialogTitle>
+                    </DialogHeader>
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            createForm.post('/inmopro/client-types', { preserveScroll: true, onSuccess: () => setCreateOpen(false) });
+                        }}
+                        className="space-y-4"
+                    >
+                        <div>
+                            <Label htmlFor="client-type-name">Nombre</Label>
+                            <Input id="client-type-name" value={createForm.data.name} onChange={(e) => createForm.setData('name', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.name} />
+                        </div>
+                        <div>
+                            <Label htmlFor="client-type-code">Código</Label>
+                            <Input id="client-type-code" value={createForm.data.code} onChange={(e) => createForm.setData('code', e.target.value.toUpperCase())} className="mt-1" />
+                            <InputError message={createForm.errors.code} />
+                        </div>
+                        <div>
+                            <Label htmlFor="client-type-description">Descripción</Label>
+                            <Input id="client-type-description" value={createForm.data.description} onChange={(e) => createForm.setData('description', e.target.value)} className="mt-1" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label htmlFor="client-type-color">Color</Label>
+                                <Input id="client-type-color" value={createForm.data.color} onChange={(e) => createForm.setData('color', e.target.value)} className="mt-1" />
+                            </div>
+                            <div>
+                                <Label htmlFor="client-type-order">Orden</Label>
+                                <Input id="client-type-order" type="number" min={0} value={createForm.data.sort_order} onChange={(e) => createForm.setData('sort_order', Number(e.target.value))} className="mt-1" />
+                            </div>
+                        </div>
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                            <input type="checkbox" checked={createForm.data.is_active} onChange={(e) => createForm.setData('is_active', e.target.checked)} />
+                            Tipo activo
+                        </label>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+                            <Button type="submit" disabled={createForm.processing}>Guardar</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

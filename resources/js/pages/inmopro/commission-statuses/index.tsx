@@ -1,6 +1,12 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Plus, Eye, Pencil, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import InputError from '@/components/input-error';
 import Pagination, { type PaginationLink } from '@/components/pagination';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { confirmDelete } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
@@ -14,6 +20,10 @@ export default function CommissionStatusesIndex({ commissionStatuses }: { commis
         { title: 'Inmopro', href: '/inmopro/dashboard' },
         { title: 'Estados de comision', href: '/inmopro/commission-statuses' },
     ];
+
+    const page = usePage();
+    const [createOpen, setCreateOpen] = useState(() => page.url.includes('create=1'));
+    const createForm = useForm({ name: '', code: '', color: '#10b981', sort_order: '0' });
 
     const handleDestroy = async (id: number, name: string) => {
         if (await confirmDelete(`¿Eliminar estado "${name}"?`)) {
@@ -29,9 +39,9 @@ export default function CommissionStatusesIndex({ commissionStatuses }: { commis
                     <div>
                         <h2 className="text-2xl font-black text-slate-800">Estados de comision</h2>
                     </div>
-                    <Link href="/inmopro/commission-statuses/create" className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 font-bold text-white hover:bg-emerald-700">
+                    <button type="button" onClick={() => setCreateOpen(true)} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 font-bold text-white hover:bg-emerald-700">
                         <Plus className="h-5 w-5" /> Nuevo
-                    </Link>
+                    </button>
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
                     <CommissionMetric label="Estados" value={String(totalStatuses)} />
@@ -70,6 +80,49 @@ export default function CommissionStatusesIndex({ commissionStatuses }: { commis
                     )}
                 </div>
             </div>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Nuevo estado de comisión</DialogTitle>
+                    </DialogHeader>
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            createForm.transform((formData) => ({
+                                ...formData,
+                                sort_order: Number(formData.sort_order) || 0,
+                            }));
+                            createForm.post('/inmopro/commission-statuses', { preserveScroll: true, onSuccess: () => setCreateOpen(false) });
+                        }}
+                        className="space-y-4"
+                    >
+                        <div>
+                            <Label htmlFor="commission-status-name">Nombre</Label>
+                            <Input id="commission-status-name" value={createForm.data.name} onChange={(e) => createForm.setData('name', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.name} />
+                        </div>
+                        <div>
+                            <Label htmlFor="commission-status-code">Código</Label>
+                            <Input id="commission-status-code" value={createForm.data.code} onChange={(e) => createForm.setData('code', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.code} />
+                        </div>
+                        <div>
+                            <Label htmlFor="commission-status-color">Color</Label>
+                            <Input id="commission-status-color" value={createForm.data.color} onChange={(e) => createForm.setData('color', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.color} />
+                        </div>
+                        <div>
+                            <Label htmlFor="commission-status-order">Orden</Label>
+                            <Input id="commission-status-order" type="number" min={0} value={createForm.data.sort_order} onChange={(e) => createForm.setData('sort_order', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.sort_order} />
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+                            <Button type="submit" disabled={createForm.processing}>Guardar</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

@@ -188,7 +188,7 @@ class InmoproActiveFlagsTest extends TestCase
         $this->assertTrue($advisor->fresh()->is_active);
     }
 
-    public function test_financial_index_does_not_expose_date_filters(): void
+    public function test_financial_index_defaults_date_filters_to_current_month(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
@@ -197,8 +197,8 @@ class InmoproActiveFlagsTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('inmopro/financial')
-                ->missing('filters.start_date')
-                ->missing('filters.end_date'));
+                ->where('filters.start_date', now()->startOfMonth()->toDateString())
+                ->where('filters.end_date', now()->endOfMonth()->toDateString()));
     }
 
     public function test_inactive_projects_are_included_in_financial_and_receivables(): void

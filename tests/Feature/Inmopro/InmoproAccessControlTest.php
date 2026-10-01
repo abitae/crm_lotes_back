@@ -47,8 +47,7 @@ class InmoproAccessControlTest extends TestCase
 
         $this->actingAs($user)
             ->get(route('inmopro.access-control.users.create'))
-            ->assertOk()
-            ->assertInertia(fn ($page) => $page->component('inmopro/access-control/users/create'));
+            ->assertRedirect(route('inmopro.access-control.users.index', ['create' => 1]));
     }
 
     public function test_super_admin_can_store_user_from_access_control(): void

@@ -53,6 +53,7 @@ class LotController extends Controller
                 'filters' => [
                     'include_inactive' => $includeInactive,
                 ],
+                'lotForm' => $this->lotCreateFormPayload($request),
             ]);
         }
 
@@ -97,6 +98,7 @@ class LotController extends Controller
             'filters' => [
                 'include_inactive' => $includeInactive,
             ],
+            'lotForm' => $this->lotCreateFormPayload($request, $project),
         ]);
     }
 
@@ -107,22 +109,35 @@ class LotController extends Controller
         return back();
     }
 
-    public function create(Request $request): Response
+    public function create(Request $request): RedirectResponse
     {
-        $projectId = $request->query('project_id');
-        $project = $projectId ? $this->resolveActiveProject((int) $projectId) : null;
-        $lotStatuses = LotStatus::orderBy('sort_order')->get();
-        $clients = $this->clientsForSelect();
-        $advisors = Advisor::with('level')->orderBy('name')->get();
-        $projects = $this->activeProjects()->get();
+        return redirect()->route('inmopro.lots.index', array_filter([
+            'project_id' => $request->query('project_id'),
+            'modal' => 'create_lot',
+        ], fn ($value) => $value !== null && $value !== ''));
+    }
 
-        return Inertia::render('inmopro/lots/create', [
-            'projects' => $projects,
-            'project' => $project,
-            'lotStatuses' => $lotStatuses,
-            'clients' => $clients,
-            'advisors' => $advisors,
-        ]);
+    /**
+     * Catálogos del alta de lote. Solo viajan cuando el modal está abierto.
+     *
+     * @return array{projects: Collection, project: Project|null, lotStatuses: Collection, clients: mixed, advisors: Collection}|null
+     */
+    private function lotCreateFormPayload(Request $request, ?Project $selectedProject = null): ?array
+    {
+        if ($request->query('modal') !== 'create_lot') {
+            return null;
+        }
+
+        $projectId = $request->query('project_id');
+        $project = $selectedProject ?? ($projectId ? $this->resolveActiveProject((int) $projectId) : null);
+
+        return [
+            'projects' => $this->activeProjects()->get(['id', 'name']),
+            'project' => $project ? ['id' => $project->id, 'name' => $project->name] : null,
+            'lotStatuses' => LotStatus::orderBy('sort_order')->get(['id', 'name', 'code']),
+            'clients' => $this->clientsForSelect(),
+            'advisors' => Advisor::query()->orderBy('name')->get(['id', 'name']),
+        ];
     }
 
     public function store(StoreLotRequest $request): RedirectResponse

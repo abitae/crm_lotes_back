@@ -1,10 +1,14 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { MapPin, Plus, Eye, Pencil, Trash2, Search } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { useState } from 'react';
+import InputError from '@/components/input-error';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { confirmDelete } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
@@ -37,6 +41,16 @@ export default function CitiesIndex({
         }
     };
 
+    const page = usePage();
+    const [createOpen, setCreateOpen] = useState(() => page.url.includes('create=1'));
+    const createForm = useForm({
+        name: '',
+        code: '',
+        department: '',
+        sort_order: 0,
+        is_active: true,
+    });
+
     const handleSearch = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
@@ -53,9 +67,9 @@ export default function CitiesIndex({
                         <h2 className="text-2xl font-black text-slate-800">Ciudades de procedencia</h2>
                         <p className="text-sm text-slate-500">Catálogo de ciudades para la base de clientes.</p>
                     </div>
-                    <Link href="/inmopro/cities/create" className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 font-bold text-white hover:bg-emerald-700">
+                    <button type="button" onClick={() => setCreateOpen(true)} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 font-bold text-white hover:bg-emerald-700">
                         <Plus className="h-5 w-5" /> Nueva
-                    </Link>
+                    </button>
                 </div>
 
                 <Card>
@@ -121,6 +135,48 @@ export default function CitiesIndex({
                     )}
                 </div>
             </div>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Nueva ciudad</DialogTitle>
+                    </DialogHeader>
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            createForm.post('/inmopro/cities', { preserveScroll: true, onSuccess: () => setCreateOpen(false) });
+                        }}
+                        className="space-y-4"
+                    >
+                        <div>
+                            <Label htmlFor="city-name">Nombre</Label>
+                            <Input id="city-name" value={createForm.data.name} onChange={(e) => createForm.setData('name', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.name} />
+                        </div>
+                        <div>
+                            <Label htmlFor="city-code">Código</Label>
+                            <Input id="city-code" value={createForm.data.code} onChange={(e) => createForm.setData('code', e.target.value.toUpperCase())} className="mt-1" />
+                            <InputError message={createForm.errors.code} />
+                        </div>
+                        <div>
+                            <Label htmlFor="city-department">Departamento</Label>
+                            <Input id="city-department" value={createForm.data.department} onChange={(e) => createForm.setData('department', e.target.value)} className="mt-1" />
+                            <InputError message={createForm.errors.department} />
+                        </div>
+                        <div>
+                            <Label htmlFor="city-sort">Orden</Label>
+                            <Input id="city-sort" type="number" min={0} value={createForm.data.sort_order} onChange={(e) => createForm.setData('sort_order', Number(e.target.value))} className="mt-1" />
+                        </div>
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                            <input type="checkbox" checked={createForm.data.is_active} onChange={(e) => createForm.setData('is_active', e.target.checked)} />
+                            Ciudad activa
+                        </label>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+                            <Button type="submit" disabled={createForm.processing}>Guardar</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

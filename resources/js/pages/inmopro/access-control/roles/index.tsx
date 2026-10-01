@@ -1,7 +1,8 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import { KeyRound, Pencil, Plus, Search, Shield, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import Pagination, { type PaginationLink } from '@/components/pagination';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { confirmDelete } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
@@ -19,7 +20,9 @@ export default function AccessControlRolesIndex({
     roles: { data: RoleRow[]; links: PaginationLink[] };
     filters: { search?: string };
 }) {
+    const page = usePage();
     const [search, setSearch] = useState(filters.search ?? '');
+    const [createOpen, setCreateOpen] = useState(() => page.url.includes('create=1'));
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
@@ -48,12 +51,13 @@ export default function AccessControlRolesIndex({
                             Agrupe permisos y asígnelos a usuarios.
                         </p>
                     </div>
-                    <Link
-                        href="/inmopro/access-control/roles/create"
+                    <button
+                        type="button"
+                        onClick={() => setCreateOpen(true)}
                         className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 font-bold text-white hover:bg-emerald-700"
                     >
                         <Plus className="h-5 w-5" /> Nuevo rol
-                    </Link>
+                    </button>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -135,6 +139,28 @@ export default function AccessControlRolesIndex({
 
                 <Pagination links={roles.links} />
             </div>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Nuevo rol</DialogTitle>
+                    </DialogHeader>
+                    <Form action="/inmopro/access-control/roles" method="post" className="space-y-4">
+                        {({ processing, errors }) => (
+                            <>
+                                <div>
+                                    <label htmlFor="role-name" className="block text-sm font-semibold">Nombre</label>
+                                    <input id="role-name" name="name" required className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900" />
+                                    {errors.name ? <p className="mt-1 text-sm text-red-600">{errors.name}</p> : null}
+                                </div>
+                                <DialogFooter>
+                                    <button type="button" onClick={() => setCreateOpen(false)} className="rounded-xl border border-slate-200 px-4 py-2 font-semibold">Cancelar</button>
+                                    <button type="submit" disabled={processing} className="rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white disabled:opacity-50">Guardar</button>
+                                </DialogFooter>
+                            </>
+                        )}
+                    </Form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

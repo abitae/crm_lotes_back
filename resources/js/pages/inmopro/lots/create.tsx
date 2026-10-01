@@ -33,12 +33,13 @@ type LotCreateForm = {
     observations: string;
 };
 
-export default function LotsCreate({ projects, project, lotStatuses, clients, advisors }: {
+export default function LotsCreate({ projects, project, lotStatuses, clients, advisors, embedded = false }: {
     projects: Project[];
     project: Project | null;
     lotStatuses: LotStatus[];
     clients: Client[];
     advisors: Advisor[];
+    embedded?: boolean;
 }) {
     const availableLotStatuses = lotStatuses.filter((status) => status.code !== 'TRANSFERIDO');
     const defaultProject = project?.id ?? projects[0]?.id ?? '';
@@ -92,12 +93,8 @@ export default function LotsCreate({ projects, project, lotStatuses, clients, ad
         post('/inmopro/lots');
     };
 
-    return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Nuevo Lote - Inmopro" />
-            <div className="p-4">
-                <h2 className="mb-6 text-2xl font-black text-slate-800">Nuevo Lote</h2>
-                <form onSubmit={submit} className="max-w-2xl space-y-4">
+    const form = (
+                <form onSubmit={submit} className="space-y-4">
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div>
                             <Label htmlFor="project_id">Proyecto</Label>
@@ -218,6 +215,18 @@ export default function LotsCreate({ projects, project, lotStatuses, clients, ad
                     </div>
                     <Button type="submit" disabled={processing}>Guardar</Button>
                 </form>
+    );
+
+    if (embedded) {
+        return form;
+    }
+
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Nuevo Lote - Inmopro" />
+            <div className="p-4">
+                <h2 className="mb-6 text-2xl font-black text-slate-800">Nuevo Lote</h2>
+                {form}
             </div>
         </AppLayout>
     );

@@ -27,9 +27,9 @@ class AdvisorLevelController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(): RedirectResponse
     {
-        return Inertia::render('inmopro/advisor-levels/create');
+        return redirect()->route('inmopro.advisor-levels.index', ['create' => 1]);
     }
 
     public function store(StoreAdvisorLevelRequest $request): RedirectResponse

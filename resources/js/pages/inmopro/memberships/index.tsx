@@ -52,7 +52,7 @@ export default function MembershipsIndex({
                         <p className="mt-1 text-sm text-slate-500">Control de pago de membresía y abonos por vendedor y año.</p>
                     </div>
                     <Button size="sm" asChild>
-                        <Link href="/inmopro/advisor-memberships/create">
+                        <Link href="/inmopro/advisors?modal=create_membership">
                             <Plus className="h-4 w-4" />
                             Nueva membresía
                         </Link>
@@ -106,7 +106,7 @@ export default function MembershipsIndex({
                                 <p className="mt-4 font-medium text-slate-700">Sin membresías</p>
                                 <p className="mt-1 text-sm text-slate-500">Registre una membresía anual para un vendedor.</p>
                                 <Button className="mt-4" variant="outline" asChild>
-                                    <Link href="/inmopro/advisor-memberships/create">Nueva membresía</Link>
+                                    <Link href="/inmopro/advisors?modal=create_membership">Nueva membresía</Link>
                                 </Button>
                             </div>
                         ) : (

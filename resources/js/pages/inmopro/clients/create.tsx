@@ -25,12 +25,16 @@ export default function ClientsCreate({
     clientTags,
     cities,
     advisors,
+    embedded = false,
+    onCancel,
 }: {
     clientTypes: ClientType[];
     clientStatuses: ClientType[];
     clientTags: ClientType[];
     cities: City[];
     advisors: Advisor[];
+    embedded?: boolean;
+    onCancel?: () => void;
 }) {
     const listQs = clientsListingQuerySuffix(usePage().url);
     const { data, setData, post, processing, errors } = useForm({
@@ -65,27 +69,7 @@ export default function ClientsCreate({
         post(`/inmopro/clients${listQs}`);
     };
 
-    return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Nuevo Cliente - Inmopro" />
-            <div className="p-4 md:p-6">
-                <div className="mb-6">
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                        Nuevo cliente
-                    </h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Registre los datos del cliente y asígnelo a un vendedor.
-                    </p>
-                </div>
-                <Card className="max-w-2xl">
-                    <CardHeader>
-                        <CardTitle>Datos del cliente</CardTitle>
-                        <CardDescription>
-                            Complete la ficha comercial y la procedencia del
-                            cliente.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
+    const form = (
                         <form onSubmit={submit} className="space-y-4">
                             <InputError
                                 message={
@@ -307,13 +291,39 @@ export default function ClientsCreate({
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() => window.history.back()}
+                                    onClick={() => (onCancel ? onCancel() : window.history.back())}
                                 >
                                     Cancelar
                                 </Button>
                             </div>
                         </form>
-                    </CardContent>
+    );
+
+    if (embedded) {
+        return form;
+    }
+
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Nuevo Cliente - Inmopro" />
+            <div className="p-4 md:p-6">
+                <div className="mb-6">
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                        Nuevo cliente
+                    </h1>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Registre los datos del cliente y asígnelo a un vendedor.
+                    </p>
+                </div>
+                <Card className="max-w-2xl">
+                    <CardHeader>
+                        <CardTitle>Datos del cliente</CardTitle>
+                        <CardDescription>
+                            Complete la ficha comercial y la procedencia del
+                            cliente.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>{form}</CardContent>
                 </Card>
             </div>
         </AppLayout>

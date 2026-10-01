@@ -371,23 +371,11 @@ class AdvisorController extends Controller
         ]));
     }
 
-    public function new(): Response
+    public function new(Request $request): RedirectResponse
     {
-        return Inertia::render('inmopro/advisors/new', [
-            'advisorLevels' => AdvisorLevel::orderBy('sort_order')->get(['id', 'name']),
-            'advisorsList' => Advisor::orderBy('name')->get(['id', 'name']),
-            'teams' => Team::orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'color']),
-            'cities' => City::query()
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(['id', 'name', 'department']),
-            'materialTypes' => AdvisorMaterialType::query()
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(['id', 'code', 'name']),
-        ]);
+        return redirect()->route('inmopro.advisors.index', InertiaListingRedirect::advisorsIndexQueryMerged($request, [
+            'modal' => 'create_advisor_full',
+        ]));
     }
 
     public function store(StoreAdvisorRequest $request, AdvisorProfileService $profileService): RedirectResponse

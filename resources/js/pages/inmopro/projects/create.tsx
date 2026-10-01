@@ -40,9 +40,11 @@ type ProjectCreateForm = {
 export default function ProjectsCreate({
     projectTypes,
     cities,
+    embedded = false,
 }: {
     projectTypes: Array<{ id: number; name: string; code: string }>;
     cities: CityOption[];
+    embedded?: boolean;
 }) {
     const [blockInput, setBlockInput] = useState('');
     const [blocks, setBlocks] = useState<string[]>([]);
@@ -127,14 +129,8 @@ export default function ProjectsCreate({
         post('/inmopro/projects', { forceFormData: true });
     };
 
-    return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Nuevo Proyecto - Inmopro" />
-            <div className="p-4">
-                <h2 className="mb-6 text-2xl font-black text-slate-800">
-                    Nuevo Proyecto
-                </h2>
-                <form onSubmit={submit} className="max-w-2xl space-y-4">
+    const form = (
+                <form onSubmit={submit} className="space-y-4">
                     <div>
                         <Label htmlFor="name">Nombre</Label>
                         <Input
@@ -418,6 +414,20 @@ export default function ProjectsCreate({
                         Guardar
                     </Button>
                 </form>
+    );
+
+    if (embedded) {
+        return form;
+    }
+
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Nuevo Proyecto - Inmopro" />
+            <div className="p-4">
+                <h2 className="mb-6 text-2xl font-black text-slate-800">
+                    Nuevo Proyecto
+                </h2>
+                {form}
             </div>
         </AppLayout>
     );

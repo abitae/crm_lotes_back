@@ -22,9 +22,9 @@ class CommissionStatusController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(): RedirectResponse
     {
-        return Inertia::render('inmopro/commission-statuses/create');
+        return redirect()->route('inmopro.commission-statuses.index', ['create' => 1]);
     }
 
     public function store(StoreCommissionStatusRequest $request): RedirectResponse

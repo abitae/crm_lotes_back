@@ -28,9 +28,9 @@ class MembershipTypeController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(): RedirectResponse
     {
-        return Inertia::render('inmopro/membership-types/create');
+        return redirect()->route('inmopro.membership-types.index', ['create' => 1]);
     }
 
     public function store(StoreMembershipTypeRequest $request): RedirectResponse

@@ -60,7 +60,7 @@ class DashboardController extends Controller
             ->with(['project', 'status', 'client', 'advisor'])
             ->where('lot_status_id', $statusReservado?->id)
             ->latest('updated_at')
-            ->limit(5)
+            ->limit(10)
             ->get();
 
         return Inertia::render('inmopro/dashboard', [

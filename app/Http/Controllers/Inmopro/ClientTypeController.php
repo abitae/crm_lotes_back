@@ -27,9 +27,9 @@ class ClientTypeController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(): RedirectResponse
     {
-        return Inertia::render('inmopro/client-types/create');
+        return redirect()->route('inmopro.client-types.index', ['create' => 1]);
     }
 
     public function store(StoreClientTypeRequest $request): RedirectResponse
