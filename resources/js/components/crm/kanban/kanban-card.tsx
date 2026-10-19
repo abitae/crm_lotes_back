@@ -17,7 +17,7 @@ export type KanbanClient = {
     id: number;
     name: string;
     dni: string | null;
-    phone: string;
+    phone: string | null;
     email: string | null;
     referred_by: string | null;
     client_type_id: number;
@@ -119,7 +119,7 @@ export function KanbanCard({
             </div>
             <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Phone className="size-3" />
-                {client.phone}
+                {client.phone ?? '—'}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-1">
                 {client.tags.map((tag) => (

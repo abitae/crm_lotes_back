@@ -1,4 +1,8 @@
-export function getWhatsAppUrl(phone: string): string | null {
+export function getWhatsAppUrl(phone: string | null | undefined): string | null {
+    if (!phone) {
+        return null;
+    }
+
     const digits = phone.replace(/\D/g, '');
 
     if (digits.length < 9) {

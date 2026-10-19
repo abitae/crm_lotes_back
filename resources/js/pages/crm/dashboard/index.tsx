@@ -257,8 +257,8 @@ export default function CrmDashboard({
                             <CardTitle className="text-base">Clientes por mes</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="h-56">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <div className="h-56 min-w-0">
+                                <ResponsiveContainer width="100%" height={224} minWidth={0}>
                                     <BarChart data={clientsByMonth} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                                         <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                                         <XAxis

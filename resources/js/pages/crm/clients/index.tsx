@@ -155,7 +155,7 @@ export default function CrmClientsIndex({
             id: client.id,
             name: client.name,
             dni: client.dni,
-            phone: client.phone,
+            phone: client.phone ?? '',
             email: client.email,
             referred_by: client.referred_by,
             city_id: client.city_id,

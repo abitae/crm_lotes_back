@@ -61,7 +61,11 @@ type CatalogOption = { id: number; code?: string; name: string; color?: string |
 
 const panelClass = 'rounded-2xl border-0 bg-white shadow-sm dark:bg-card';
 
-function whatsappHref(phone: string): string | null {
+function whatsappHref(phone: string | null | undefined): string | null {
+    if (!phone) {
+        return null;
+    }
+
     const digits = phone.replace(/\D/g, '');
 
     if (digits.length < 9) {
