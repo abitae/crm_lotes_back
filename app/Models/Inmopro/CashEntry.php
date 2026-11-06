@@ -13,6 +13,8 @@ class CashEntry extends Model
     protected $fillable = [
         'cash_account_id',
         'lot_payment_id',
+        'investor_contract_id',
+        'investor_payment_id',
         'type',
         'concept',
         'amount',

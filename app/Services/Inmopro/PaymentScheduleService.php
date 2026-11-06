@@ -6,6 +6,7 @@ use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotInstallment;
 use App\Models\Inmopro\LotPaymentPlan;
 use App\Models\Inmopro\LotStatus;
+use App\Support\ScheduleMath;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -32,19 +33,13 @@ class PaymentScheduleService
      */
     public function buildInstallments(float $financedAmount, int $count, string $frequency, string $firstDueDate): array
     {
-        $totalCents = (int) round($financedAmount * 100);
-        $baseCents = intdiv($totalCents, $count);
         $firstDate = CarbonImmutable::parse($firstDueDate)->startOfDay();
         $rows = [];
 
-        for ($index = 0; $index < $count; $index++) {
-            $cents = $index === $count - 1
-                ? $totalCents - ($baseCents * ($count - 1))
-                : $baseCents;
-
+        foreach (ScheduleMath::splitCents(ScheduleMath::toCents($financedAmount), $count) as $index => $cents) {
             $rows[] = [
                 'sequence_offset' => $index + 1,
-                'due_date' => $this->dueDate($firstDate, $frequency, $index)->toDateString(),
+                'due_date' => ScheduleMath::dueDate($firstDate, $frequency, $index)->toDateString(),
                 'amount' => $cents / 100,
             ];
         }
@@ -160,14 +155,5 @@ class PaymentScheduleService
             ->whereDoesntHave('allocations')
             ->whereDoesntHave('payments')
             ->delete();
-    }
-
-    private function dueDate(CarbonImmutable $firstDate, string $frequency, int $index): CarbonImmutable
-    {
-        return match ($frequency) {
-            LotPaymentPlan::FREQUENCY_BIWEEKLY => $firstDate->addDays(15 * $index),
-            LotPaymentPlan::FREQUENCY_WEEKLY => $firstDate->addWeeks($index),
-            default => $firstDate->addMonthsNoOverflow($index),
-        };
     }
 }

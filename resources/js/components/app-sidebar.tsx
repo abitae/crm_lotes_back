@@ -9,6 +9,7 @@ import {
     DollarSign,
     FileCheck,
     GitBranch,
+    HandCoins,
     KeyRound,
     Landmark,
     Layers,
@@ -99,6 +100,11 @@ const managementSections: NavSection[] = [
                 title: 'Cuentas por cobrar',
                 href: '/inmopro/accounts-receivable',
                 icon: WalletCards,
+            },
+            {
+                title: 'Inversionistas',
+                href: '/inmopro/investors',
+                icon: HandCoins,
             },
             {
                 title: 'Comisiones',

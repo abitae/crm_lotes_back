@@ -41,6 +41,9 @@ class EnsureInmoproRoutePermission
         'inmopro.project-flat.polygons.update' => 'inmopro.project-flat.manage',
         'inmopro.project-flat.polygons.destroy' => 'inmopro.project-flat.manage',
         'inmopro.projects.inventory' => 'inmopro.projects.show',
+        'inmopro.investor-contracts.document' => 'inmopro.investor-contracts.show',
+        'inmopro.investor-contracts.export' => 'inmopro.investor-contracts.show',
+        'inmopro.investor-payments.voucher' => 'inmopro.investor-contracts.show',
     ];
 
     /**
