@@ -11,6 +11,11 @@ class LotPayment extends Model
     /**
      * @var list<string>
      */
+    public const PAYMENT_METHODS = ['TRANSFERENCIA', 'EFECTIVO', 'POS'];
+
+    /**
+     * @var list<string>
+     */
     protected $fillable = [
         'lot_id',
         'lot_installment_id',
@@ -64,5 +69,13 @@ class LotPayment extends Model
     public function cashEntries(): HasMany
     {
         return $this->hasMany(CashEntry::class, 'lot_payment_id');
+    }
+
+    /**
+     * @return HasMany<LotPaymentAllocation, $this>
+     */
+    public function allocations(): HasMany
+    {
+        return $this->hasMany(LotPaymentAllocation::class, 'lot_payment_id');
     }
 }

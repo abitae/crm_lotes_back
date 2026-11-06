@@ -137,6 +137,14 @@ class Lot extends Model
     }
 
     /**
+     * @return HasMany<LotPaymentPlan, $this>
+     */
+    public function paymentPlans(): HasMany
+    {
+        return $this->hasMany(LotPaymentPlan::class, 'lot_id')->latest('id');
+    }
+
+    /**
      * @return HasMany<LotPreReservation, $this>
      */
     public function preReservations(): HasMany

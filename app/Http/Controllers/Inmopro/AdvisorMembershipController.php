@@ -11,6 +11,7 @@ use App\Models\Inmopro\AdvisorMembership;
 use App\Models\Inmopro\MembershipType;
 use App\Services\Inmopro\MembershipReceivableService;
 use App\Support\InertiaListingRedirect;
+use App\Support\InstallmentStatus;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -115,7 +116,7 @@ class AdvisorMembershipController extends Controller
         }
 
         $due = Carbon::parse($validated['due_date'])->startOfDay();
-        $status = $due->isPast() ? 'VENCIDA' : 'PENDIENTE';
+        $status = InstallmentStatus::resolve((float) $validated['amount'], 0, $due);
 
         $advisor_membership->installments()->create([
             'sequence' => $sequence,

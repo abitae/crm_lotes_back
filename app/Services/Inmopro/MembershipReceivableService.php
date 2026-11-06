@@ -7,6 +7,7 @@ use App\Models\Inmopro\AdvisorMembershipInstallment;
 use App\Models\Inmopro\AdvisorMembershipPayment;
 use App\Models\Inmopro\CashAccount;
 use App\Models\Inmopro\CashEntry;
+use App\Support\InstallmentStatus;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -39,7 +40,7 @@ class MembershipReceivableService
                     'due_date' => $dueDate,
                     'amount' => $amount,
                     'paid_amount' => 0,
-                    'status' => 'PENDIENTE',
+                    'status' => InstallmentStatus::PENDIENTE,
                 ]);
             }
         });
@@ -124,22 +125,10 @@ class MembershipReceivableService
 
     public function refreshMembershipInstallmentStatus(AdvisorMembershipInstallment $installment): void
     {
-        if ((float) $installment->paid_amount >= (float) $installment->amount) {
-            $installment->status = 'PAGADA';
-
-            return;
-        }
-
-        if ((float) $installment->paid_amount > 0) {
-            $installment->status = 'PARCIAL';
-
-            return;
-        }
-
-        if ($installment->due_date) {
-            $installment->status = $installment->due_date->isPast() ? 'VENCIDA' : 'PENDIENTE';
-        } else {
-            $installment->status = 'PENDIENTE';
-        }
+        $installment->status = InstallmentStatus::resolve(
+            (float) $installment->amount,
+            (float) $installment->paid_amount,
+            $installment->due_date,
+        );
     }
 }

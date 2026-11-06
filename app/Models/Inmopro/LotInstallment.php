@@ -13,6 +13,7 @@ class LotInstallment extends Model
      */
     protected $fillable = [
         'lot_id',
+        'lot_payment_plan_id',
         'sequence',
         'due_date',
         'amount',
@@ -47,5 +48,26 @@ class LotInstallment extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(LotPayment::class, 'lot_installment_id');
+    }
+
+    /**
+     * @return HasMany<LotPaymentAllocation, $this>
+     */
+    public function allocations(): HasMany
+    {
+        return $this->hasMany(LotPaymentAllocation::class, 'lot_installment_id');
+    }
+
+    /**
+     * @return BelongsTo<LotPaymentPlan, $this>
+     */
+    public function paymentPlan(): BelongsTo
+    {
+        return $this->belongsTo(LotPaymentPlan::class, 'lot_payment_plan_id');
+    }
+
+    public function balance(): float
+    {
+        return max(0, round((float) $this->amount - (float) $this->paid_amount, 2));
     }
 }

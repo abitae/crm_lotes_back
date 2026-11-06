@@ -1,8 +1,8 @@
 <?php
 
-use App\Http\Controllers\Meta\MetaWebhookController;
 use App\Http\Controllers\Inmopro\DashboardController;
 use App\Http\Controllers\LegalDocumentController;
+use App\Http\Controllers\Meta\MetaWebhookController;
 use App\Http\Controllers\PublicDateroClientRegistrationController;
 use App\Http\Controllers\PublicProject360Controller;
 use Illuminate\Support\Facades\Route;

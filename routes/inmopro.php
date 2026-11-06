@@ -175,8 +175,10 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::get('financial', [FinancialController::class, 'index'])->name('financial.index');
         Route::get('accounts-receivable', [AccountsReceivableController::class, 'index'])->name('accounts-receivable.index');
         Route::post('lots/{lot}/installments', [AccountsReceivableController::class, 'storeInstallment'])->name('lots.installments.store');
+        Route::post('lots/{lot}/payment-schedule', [AccountsReceivableController::class, 'storePaymentSchedule'])->name('lots.payment-schedule.store');
         Route::post('lots/{lot}/payments', [AccountsReceivableController::class, 'storePayment'])->name('lots.payments.store');
         Route::get('lot-payments/{lot_payment}/voucher', [AccountsReceivableController::class, 'voucher'])->name('lot-payments.voucher');
+        Route::delete('lot-payments/{lot_payment}', [AccountsReceivableController::class, 'destroyPayment'])->name('lot-payments.destroy');
         Route::get('cash-accounts', [CashAccountController::class, 'index'])->name('cash-accounts.index');
         Route::post('cash-accounts', [CashAccountController::class, 'store'])->name('cash-accounts.store');
         Route::post('cash-accounts/{cash_account}/entries', [CashAccountController::class, 'storeEntry'])->name('cash-accounts.entries.store');

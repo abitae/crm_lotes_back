@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\ExpireStalePreReservations;
+use App\Console\Commands\MarkOverdueLotInstallments;
 use App\Console\Commands\NotifyDueReminders;
 use App\Console\Commands\SyncGoogleCalendarCommand;
 use Illuminate\Foundation\Inspiring;
@@ -16,6 +17,11 @@ Schedule::command(ExpireStalePreReservations::class)
     ->everyFifteenMinutes()
     ->withoutOverlapping()
     ->name('expire-stale-pre-reservations');
+
+Schedule::command(MarkOverdueLotInstallments::class)
+    ->dailyAt('00:10')
+    ->withoutOverlapping()
+    ->name('mark-overdue-lot-installments');
 
 Schedule::command(NotifyDueReminders::class)
     ->everyFifteenMinutes()
