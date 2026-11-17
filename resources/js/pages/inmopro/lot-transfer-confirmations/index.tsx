@@ -1,7 +1,22 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Check, Eye, FileSpreadsheet, ImagePlus, MessageSquare, Search, Upload, X } from 'lucide-react';
-import type { ChangeEvent, CSSProperties, FormEvent } from 'react';
+import {
+    Check,
+    Eye,
+    FileSpreadsheet,
+    MessageSquare,
+    Search,
+    Upload,
+    X,
+} from 'lucide-react';
+import type { CSSProperties, FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import TransferPayerVouchersFields, {
+    initialTransferPayerVouchers,
+    type TransferVoucherInput,
+} from '@/components/inmopro/transfer-payer-vouchers-fields';
+import TransferVouchersGallery, {
+    type TransferVoucher,
+} from '@/components/inmopro/transfer-vouchers-gallery';
 import InputError from '@/components/input-error';
 import Pagination, { type PaginationLink } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
@@ -15,18 +30,31 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
-import { formatDate, calendarDateTimestamp, todayIsoDate, toIsoDate } from '@/lib/date';
+import {
+    formatDate,
+    calendarDateTimestamp,
+    todayIsoDate,
+    toIsoDate,
+} from '@/lib/date';
 import { formatPen } from '@/lib/report-utils';
 import { showSuccessToast } from '@/lib/swal';
 import type { BreadcrumbItem } from '@/types';
 
 type Project = { id: number; name: string };
 type AdvisorOption = { id: number; name: string };
-type LotStatusOption = { id: number; name: string; code: string; color?: string | null };
+type LotStatusOption = {
+    id: number;
+    name: string;
+    code: string;
+    color?: string | null;
+};
 type TransferConfirmation = {
     id: number;
     status: string;
-    evidence_path: string;
+    evidence_path?: string | null;
+    payer_name?: string | null;
+    payer_dni?: string | null;
+    vouchers?: TransferVoucher[];
     created_at: string;
     reviewed_at?: string | null;
     review_notes?: string | null;
@@ -46,9 +74,15 @@ type LotRow = {
     payment_limit_date?: string | null;
     notarial_transfer_date?: string | null;
     notes?: string | null;
+    client_name?: string | null;
+    client_dni?: string | null;
     status?: { name: string; code: string; color?: string | null } | null;
     project?: { name: string } | null;
-    client?: { name: string; dni?: string | null; phone?: string | null } | null;
+    client?: {
+        name: string;
+        dni?: string | null;
+        phone?: string | null;
+    } | null;
     advisor?: { id?: number; name: string } | null;
     latest_transfer_confirmation?: TransferConfirmation;
 };
@@ -106,7 +140,8 @@ const QUEUE_STATUS_ORDER: Record<string, number> = {
 };
 
 function compareQueueLots(a: LotRow, b: LotRow): number {
-    const statusRank = (lot: LotRow) => QUEUE_STATUS_ORDER[lot.status?.code ?? ''] ?? 9;
+    const statusRank = (lot: LotRow) =>
+        QUEUE_STATUS_ORDER[lot.status?.code ?? ''] ?? 9;
     const dateRank = (value?: string | null) => {
         const timestamp = calendarDateTimestamp(value);
 
@@ -125,7 +160,8 @@ function compareQueueLots(a: LotRow, b: LotRow): number {
         return contractDiff;
     }
 
-    const paymentDiff = dateRank(a.payment_limit_date) - dateRank(b.payment_limit_date);
+    const paymentDiff =
+        dateRank(a.payment_limit_date) - dateRank(b.payment_limit_date);
 
     if (paymentDiff !== 0) {
         return paymentDiff;
@@ -155,7 +191,10 @@ export default function LotTransferConfirmationsIndex({
 }) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Inmopro', href: '/inmopro/dashboard' },
-        { title: 'Transferencias', href: '/inmopro/lot-transfer-confirmations' },
+        {
+            title: 'Transferencias',
+            href: '/inmopro/lot-transfer-confirmations',
+        },
     ];
     const filterForm = useForm({
         project_id: filters.project_id ?? '',
@@ -168,21 +207,31 @@ export default function LotTransferConfirmationsIndex({
     const [advisorFilterOpen, setAdvisorFilterOpen] = useState(false);
     const advisorFilterRef = useRef<HTMLDivElement>(null);
     const [selectedLot, setSelectedLot] = useState<LotRow | null>(null);
-    const [selectedTransfer, setSelectedTransfer] = useState<Exclude<TransferConfirmation, null> | null>(null);
+    const [selectedTransfer, setSelectedTransfer] = useState<Exclude<
+        TransferConfirmation,
+        null
+    > | null>(null);
     const [registerOpen, setRegisterOpen] = useState(false);
     const [approveOpen, setApproveOpen] = useState(false);
     const [rejectOpen, setRejectOpen] = useState(false);
     const [notesOpen, setNotesOpen] = useState(false);
-    const [registerPreview, setRegisterPreview] = useState<string | null>(null);
     const registerForm = useForm<{
-        evidence_image: File | null;
         transfer_date: string;
         transfer_amount: string;
-        expenses: Array<{ category: string; concept: string; amount: string; expense_date: string; notes: string }>;
+        payer_name: string;
+        payer_dni: string;
+        vouchers: TransferVoucherInput[];
+        expenses: Array<{
+            category: string;
+            concept: string;
+            amount: string;
+            expense_date: string;
+            notes: string;
+        }>;
     }>({
-        evidence_image: null,
         transfer_date: todayIsoDate(),
         transfer_amount: '',
+        ...initialTransferPayerVouchers(),
         expenses: [],
     });
     const approveForm = useForm({
@@ -206,7 +255,9 @@ export default function LotTransferConfirmationsIndex({
             return advisors;
         }
 
-        return advisors.filter((advisor) => advisor.name.toLowerCase().includes(search));
+        return advisors.filter((advisor) =>
+            advisor.name.toLowerCase().includes(search),
+        );
     }, [advisorFilterSearch, advisors]);
 
     const exportQueryString = useMemo(() => {
@@ -241,13 +292,19 @@ export default function LotTransferConfirmationsIndex({
     const submitFilters = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
-        router.get('/inmopro/lot-transfer-confirmations', {
-            project_id: filterForm.data.project_id || undefined,
-            lot_status_id: filterForm.data.lot_status_id || undefined,
-            search: filterForm.data.search || undefined,
-            advisor_id: filterForm.data.advisor_id || undefined,
-            pending_review: filterForm.data.pending_review ? '1' : undefined,
-        }, { preserveState: true });
+        router.get(
+            '/inmopro/lot-transfer-confirmations',
+            {
+                project_id: filterForm.data.project_id || undefined,
+                lot_status_id: filterForm.data.lot_status_id || undefined,
+                search: filterForm.data.search || undefined,
+                advisor_id: filterForm.data.advisor_id || undefined,
+                pending_review: filterForm.data.pending_review
+                    ? '1'
+                    : undefined,
+            },
+            { preserveState: true },
+        );
     };
 
     const clearAdvisorFilter = () => {
@@ -273,40 +330,27 @@ export default function LotTransferConfirmationsIndex({
 
         document.addEventListener('mousedown', handleClickOutside);
 
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        return () =>
+            document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    useEffect(() => {
-        return () => {
-            if (registerPreview) {
-                URL.revokeObjectURL(registerPreview);
-            }
-        };
-    }, [registerPreview]);
+    const lotClient = (lot: LotRow) => ({
+        name: lot.client?.name ?? lot.client_name ?? null,
+        dni: lot.client?.dni ?? lot.client_dni ?? null,
+    });
 
     const openRegisterDialog = (lot: LotRow) => {
         const amount = lot.sale_price ?? lot.price;
         registerForm.clearErrors();
         registerForm.setData({
-            evidence_image: null,
             transfer_date: todayIsoDate(),
-            transfer_amount: amount == null || amount === '' ? '' : String(amount),
+            transfer_amount:
+                amount == null || amount === '' ? '' : String(amount),
+            ...initialTransferPayerVouchers(lotClient(lot)),
             expenses: [],
         });
         setSelectedLot(lot);
-        setRegisterPreview(null);
         setRegisterOpen(true);
-    };
-
-    const handleRegisterImageChange = (event: ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0] ?? null;
-        registerForm.setData('evidence_image', file);
-
-        if (registerPreview) {
-            URL.revokeObjectURL(registerPreview);
-        }
-
-        setRegisterPreview(file ? URL.createObjectURL(file) : null);
     };
 
     const submitRegister = (event: FormEvent<HTMLFormElement>) => {
@@ -316,22 +360,25 @@ export default function LotTransferConfirmationsIndex({
             return;
         }
 
-        registerForm.post(`/inmopro/lots/${selectedLot.id}/transfer-confirmation`, {
-            forceFormData: true,
-            onSuccess: () => {
-                setRegisterOpen(false);
-                setSelectedLot(null);
-                registerForm.reset();
-                if (registerPreview) {
-                    URL.revokeObjectURL(registerPreview);
-                }
-                setRegisterPreview(null);
-                showSuccessToast('Transferencia registrada correctamente');
+        registerForm.post(
+            `/inmopro/lots/${selectedLot.id}/transfer-confirmation`,
+            {
+                forceFormData: true,
+                onSuccess: () => {
+                    setRegisterOpen(false);
+                    setSelectedLot(null);
+                    registerForm.reset();
+                    showSuccessToast('Transferencia registrada correctamente');
+                },
             },
-        });
+        );
     };
 
-    const openApproveDialog = (transfer: Exclude<TransferConfirmation, null>) => {
+    const openApproveDialog = (
+        transfer: Exclude<TransferConfirmation, null>,
+        lot: LotRow,
+    ) => {
+        setSelectedLot(lot);
         approveForm.reset();
         approveForm.clearErrors();
         setSelectedTransfer(transfer);
@@ -345,17 +392,24 @@ export default function LotTransferConfirmationsIndex({
             return;
         }
 
-        approveForm.post(`/inmopro/lot-transfer-confirmations/${selectedTransfer.id}/approve`, {
-            onSuccess: () => {
-                setApproveOpen(false);
-                setSelectedTransfer(null);
-                approveForm.reset();
-                showSuccessToast('Transferencia aprobada correctamente');
+        approveForm.post(
+            `/inmopro/lot-transfer-confirmations/${selectedTransfer.id}/approve`,
+            {
+                onSuccess: () => {
+                    setApproveOpen(false);
+                    setSelectedTransfer(null);
+                    approveForm.reset();
+                    showSuccessToast('Transferencia aprobada correctamente');
+                },
             },
-        });
+        );
     };
 
-    const openRejectDialog = (transfer: Exclude<TransferConfirmation, null>) => {
+    const openRejectDialog = (
+        transfer: Exclude<TransferConfirmation, null>,
+        lot: LotRow,
+    ) => {
+        setSelectedLot(lot);
         rejectForm.reset();
         rejectForm.clearErrors();
         setSelectedTransfer(transfer);
@@ -369,13 +423,16 @@ export default function LotTransferConfirmationsIndex({
             return;
         }
 
-        rejectForm.post(`/inmopro/lot-transfer-confirmations/${selectedTransfer.id}/reject`, {
-            onSuccess: () => {
-                setRejectOpen(false);
-                setSelectedTransfer(null);
-                rejectForm.reset();
+        rejectForm.post(
+            `/inmopro/lot-transfer-confirmations/${selectedTransfer.id}/reject`,
+            {
+                onSuccess: () => {
+                    setRejectOpen(false);
+                    setSelectedTransfer(null);
+                    rejectForm.reset();
+                },
             },
-        });
+        );
     };
 
     const openNotesDialog = (lot: LotRow) => {
@@ -393,15 +450,18 @@ export default function LotTransferConfirmationsIndex({
             return;
         }
 
-        notesForm.patch(`/inmopro/lots/${selectedLot.id}/transfer-queue-notes`, {
-            preserveScroll: true,
-            onSuccess: () => {
-                setNotesOpen(false);
-                setSelectedLot(null);
-                notesForm.reset();
-                showSuccessToast('Anotaciones guardadas correctamente');
+        notesForm.patch(
+            `/inmopro/lots/${selectedLot.id}/transfer-queue-notes`,
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setNotesOpen(false);
+                    setSelectedLot(null);
+                    notesForm.reset();
+                    showSuccessToast('Anotaciones guardadas correctamente');
+                },
             },
-        });
+        );
     };
 
     return (
@@ -410,12 +470,20 @@ export default function LotTransferConfirmationsIndex({
             <div className="space-y-4 p-3 sm:space-y-5 sm:p-4 md:p-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <h2 className="text-xl font-black text-slate-800 sm:text-2xl">Confirmacion de transferencias</h2>
+                        <h2 className="text-xl font-black text-slate-800 sm:text-2xl">
+                            Confirmacion de transferencias
+                        </h2>
                         <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-                            Gestione el registro y la revision de transferencias desde una sola bandeja operativa.
+                            Gestione el registro y la revision de transferencias
+                            desde una sola bandeja operativa.
                         </p>
                     </div>
-                    <Button asChild variant="outline" size="sm" className="h-9 shrink-0 gap-2 self-start">
+                    <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="h-9 shrink-0 gap-2 self-start"
+                    >
                         <a href={exportHref}>
                             <FileSpreadsheet className="h-4 w-4" />
                             Exportar Excel
@@ -425,19 +493,40 @@ export default function LotTransferConfirmationsIndex({
 
                 <div className="grid gap-3 sm:grid-cols-3 sm:gap-4">
                     <div className="rounded-2xl border border-border bg-card p-4 text-card-foreground shadow-sm sm:rounded-3xl sm:p-5">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Lotes totales</p>
-                        <p className="mt-2 text-2xl font-black text-slate-900 sm:mt-3 sm:text-3xl">{lots.total}</p>
+                        <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
+                            Lotes totales
+                        </p>
+                        <p className="mt-2 text-2xl font-black text-slate-900 sm:mt-3 sm:text-3xl">
+                            {lots.total}
+                        </p>
                     </div>
                     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm sm:rounded-3xl sm:p-5">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">Pendientes de revision</p>
+                        <p className="text-[10px] font-black tracking-widest text-amber-500 uppercase">
+                            Pendientes de revision
+                        </p>
                         <p className="mt-2 text-2xl font-black text-amber-700 sm:mt-3 sm:text-3xl">
-                            {lots.data.filter((lot) => lot.latest_transfer_confirmation?.status === 'PENDIENTE').length}
+                            {
+                                lots.data.filter(
+                                    (lot) =>
+                                        lot.latest_transfer_confirmation
+                                            ?.status === 'PENDIENTE',
+                                ).length
+                            }
                         </p>
                     </div>
                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm sm:rounded-3xl sm:p-5">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Listos para registrar</p>
+                        <p className="text-[10px] font-black tracking-widest text-emerald-500 uppercase">
+                            Listos para registrar
+                        </p>
                         <p className="mt-2 text-2xl font-black text-emerald-700 sm:mt-3 sm:text-3xl">
-                            {lots.data.filter((lot) => lot.status?.code === 'RESERVADO' && lot.latest_transfer_confirmation?.status !== 'PENDIENTE').length}
+                            {
+                                lots.data.filter(
+                                    (lot) =>
+                                        lot.status?.code === 'RESERVADO' &&
+                                        lot.latest_transfer_confirmation
+                                            ?.status !== 'PENDIENTE',
+                                ).length
+                            }
                         </p>
                     </div>
                 </div>
@@ -449,7 +538,12 @@ export default function LotTransferConfirmationsIndex({
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         <select
                             value={filterForm.data.project_id}
-                            onChange={(event) => filterForm.setData('project_id', event.target.value)}
+                            onChange={(event) =>
+                                filterForm.setData(
+                                    'project_id',
+                                    event.target.value,
+                                )
+                            }
                             className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none"
                         >
                             <option value="">Todos los proyectos</option>
@@ -461,7 +555,12 @@ export default function LotTransferConfirmationsIndex({
                         </select>
                         <select
                             value={filterForm.data.lot_status_id}
-                            onChange={(event) => filterForm.setData('lot_status_id', event.target.value)}
+                            onChange={(event) =>
+                                filterForm.setData(
+                                    'lot_status_id',
+                                    event.target.value,
+                                )
+                            }
                             className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none"
                         >
                             <option value="">Todos los estados</option>
@@ -472,25 +571,42 @@ export default function LotTransferConfirmationsIndex({
                             ))}
                         </select>
                         <div className="relative sm:col-span-2 lg:col-span-1">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                            <Search className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                             <Input
                                 value={filterForm.data.search}
-                                onChange={(event) => filterForm.setData('search', event.target.value)}
+                                onChange={(event) =>
+                                    filterForm.setData(
+                                        'search',
+                                        event.target.value,
+                                    )
+                                }
                                 placeholder="Lote, cliente, DNI o telefono"
                                 className="h-9 bg-slate-50 pl-9 text-sm"
                             />
                         </div>
-                        <div ref={advisorFilterRef} className="relative sm:col-span-2 lg:col-span-1">
+                        <div
+                            ref={advisorFilterRef}
+                            className="relative sm:col-span-2 lg:col-span-1"
+                        >
                             <div className="flex gap-1">
                                 <div className="relative min-w-0 flex-1">
-                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                                    <Search className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                                     <Input
-                                        value={advisorFilterOpen ? advisorFilterSearch : (selectedAdvisor?.name ?? advisorFilterSearch)}
+                                        value={
+                                            advisorFilterOpen
+                                                ? advisorFilterSearch
+                                                : (selectedAdvisor?.name ??
+                                                  advisorFilterSearch)
+                                        }
                                         onChange={(event) => {
-                                            setAdvisorFilterSearch(event.target.value);
+                                            setAdvisorFilterSearch(
+                                                event.target.value,
+                                            );
                                             setAdvisorFilterOpen(true);
                                         }}
-                                        onFocus={() => setAdvisorFilterOpen(true)}
+                                        onFocus={() =>
+                                            setAdvisorFilterOpen(true)
+                                        }
                                         placeholder="Buscar asesor"
                                         className="h-9 bg-slate-50 pl-9 text-sm"
                                     />
@@ -511,20 +627,32 @@ export default function LotTransferConfirmationsIndex({
                             {advisorFilterOpen ? (
                                 <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
                                     {filteredAdvisors.length === 0 ? (
-                                        <p className="px-3 py-2 text-xs text-slate-500">Sin resultados</p>
+                                        <p className="px-3 py-2 text-xs text-slate-500">
+                                            Sin resultados
+                                        </p>
                                     ) : (
                                         filteredAdvisors.map((advisor) => {
-                                            const selected = filterForm.data.advisor_id === String(advisor.id);
+                                            const selected =
+                                                filterForm.data.advisor_id ===
+                                                String(advisor.id);
 
                                             return (
                                                 <button
                                                     key={advisor.id}
                                                     type="button"
-                                                    onClick={() => selectAdvisorFilter(advisor.id)}
+                                                    onClick={() =>
+                                                        selectAdvisorFilter(
+                                                            advisor.id,
+                                                        )
+                                                    }
                                                     className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${selected ? 'bg-emerald-50 text-emerald-800' : 'hover:bg-slate-50'}`}
                                                 >
-                                                    <span className="truncate font-medium">{advisor.name}</span>
-                                                    {selected ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
+                                                    <span className="truncate font-medium">
+                                                        {advisor.name}
+                                                    </span>
+                                                    {selected ? (
+                                                        <Check className="h-3.5 w-3.5 shrink-0" />
+                                                    ) : null}
                                                 </button>
                                             );
                                         })
@@ -538,7 +666,12 @@ export default function LotTransferConfirmationsIndex({
                             <input
                                 type="checkbox"
                                 checked={filterForm.data.pending_review}
-                                onChange={(event) => filterForm.setData('pending_review', event.target.checked)}
+                                onChange={(event) =>
+                                    filterForm.setData(
+                                        'pending_review',
+                                        event.target.checked,
+                                    )
+                                }
                                 className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                             />
                             Solo pendientes de revision
@@ -552,40 +685,72 @@ export default function LotTransferConfirmationsIndex({
                 <div className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm sm:rounded-3xl">
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[1040px] text-[11px]">
-                            <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wide text-slate-500">
+                            <thead className="bg-slate-50 text-[10px] font-black tracking-wide text-slate-500 uppercase">
                                 <tr>
-                                    <th className="px-1.5 py-1.5 text-left">Lote</th>
-                                    <th className="px-1.5 py-1.5 text-left">Cliente</th>
-                                    <th className="px-1.5 py-1.5 text-left">Asesor</th>
-                                    <th className="px-1.5 py-1.5 text-left">F. reserva</th>
-                                    <th className="px-1.5 py-1.5 text-left">F. límite</th>
-                                    <th className="px-1.5 py-1.5 text-left">F. transferencia</th>
-                                    <th className="px-1.5 py-1.5 text-right">Montos</th>
-                                    <th className="px-1.5 py-1.5 text-left">Estado</th>
-                                    <th className="px-1.5 py-1.5 text-left">Rev.</th>
-                                    <th className="px-1.5 py-1.5 text-right">Acciones</th>
+                                    <th className="px-1.5 py-1.5 text-left">
+                                        Lote
+                                    </th>
+                                    <th className="px-1.5 py-1.5 text-left">
+                                        Cliente
+                                    </th>
+                                    <th className="px-1.5 py-1.5 text-left">
+                                        Asesor
+                                    </th>
+                                    <th className="px-1.5 py-1.5 text-left">
+                                        F. reserva
+                                    </th>
+                                    <th className="px-1.5 py-1.5 text-left">
+                                        F. límite
+                                    </th>
+                                    <th className="px-1.5 py-1.5 text-left">
+                                        F. transferencia
+                                    </th>
+                                    <th className="px-1.5 py-1.5 text-right">
+                                        Montos
+                                    </th>
+                                    <th className="px-1.5 py-1.5 text-left">
+                                        Estado
+                                    </th>
+                                    <th className="px-1.5 py-1.5 text-left">
+                                        Rev.
+                                    </th>
+                                    <th className="px-1.5 py-1.5 text-right">
+                                        Acciones
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {sortedLots.length === 0 ? (
                                     <tr>
-                                        <td colSpan={10} className="px-1.5 py-5 text-center text-[11px] text-slate-500">
-                                            No se encontraron lotes para los filtros seleccionados.
+                                        <td
+                                            colSpan={10}
+                                            className="px-1.5 py-5 text-center text-[11px] text-slate-500"
+                                        >
+                                            No se encontraron lotes para los
+                                            filtros seleccionados.
                                         </td>
                                     </tr>
                                 ) : (
                                     sortedLots.map((lot, index) => {
-                                        const transfer = lot.latest_transfer_confirmation;
-                                        const canRegister = lot.status?.code === 'RESERVADO' && transfer?.status !== 'PENDIENTE';
-                                        const isPending = transfer?.status === 'PENDIENTE';
-                                        const paymentOverdue = isPaymentLimitOverdue(lot.payment_limit_date);
-                                        const previousStatus = sortedLots[index - 1]?.status?.code;
+                                        const transfer =
+                                            lot.latest_transfer_confirmation;
+                                        const canRegister =
+                                            lot.status?.code === 'RESERVADO' &&
+                                            transfer?.status !== 'PENDIENTE';
+                                        const isPending =
+                                            transfer?.status === 'PENDIENTE';
+                                        const paymentOverdue =
+                                            isPaymentLimitOverdue(
+                                                lot.payment_limit_date,
+                                            );
+                                        const previousStatus =
+                                            sortedLots[index - 1]?.status?.code;
                                         const currentStatus = lot.status?.code;
                                         const showStatusDivider =
-                                            index > 0
-                                            && previousStatus
-                                            && currentStatus
-                                            && previousStatus !== currentStatus;
+                                            index > 0 &&
+                                            previousStatus &&
+                                            currentStatus &&
+                                            previousStatus !== currentStatus;
 
                                         return (
                                             <tr
@@ -597,56 +762,88 @@ export default function LotTransferConfirmationsIndex({
                                                         {lot.block}-{lot.number}
                                                     </div>
                                                     <div className="max-w-[90px] truncate text-[10px] text-slate-500">
-                                                        {lot.project?.name ?? '—'}
+                                                        {lot.project?.name ??
+                                                            '—'}
                                                     </div>
                                                 </td>
                                                 <td className="max-w-[110px] truncate px-1.5 py-1 font-medium text-slate-800">
-                                                    {lot.client?.name ?? 'Sin cliente'}
+                                                    {lot.client?.name ??
+                                                        'Sin cliente'}
                                                 </td>
                                                 <td className="max-w-[90px] truncate px-1.5 py-1 text-slate-700">
                                                     {lot.advisor?.name ?? '—'}
                                                 </td>
-                                                <td className="whitespace-nowrap px-1.5 py-1 tabular-nums text-slate-700">
-                                                    {formatDate(lot.contract_date)}
+                                                <td className="px-1.5 py-1 whitespace-nowrap text-slate-700 tabular-nums">
+                                                    {formatDate(
+                                                        lot.contract_date,
+                                                    )}
                                                 </td>
-                                                <td className={`whitespace-nowrap px-1.5 py-1 tabular-nums ${paymentOverdue ? 'font-semibold text-red-600' : 'text-slate-700'}`}>
-                                                    {formatDate(lot.payment_limit_date)}
+                                                <td
+                                                    className={`px-1.5 py-1 whitespace-nowrap tabular-nums ${paymentOverdue ? 'font-semibold text-red-600' : 'text-slate-700'}`}
+                                                >
+                                                    {formatDate(
+                                                        lot.payment_limit_date,
+                                                    )}
                                                 </td>
-                                                <td className="whitespace-nowrap px-1.5 py-1 tabular-nums text-slate-700">
-                                                    {formatDate(lot.notarial_transfer_date)}
+                                                <td className="px-1.5 py-1 whitespace-nowrap text-slate-700 tabular-nums">
+                                                    {formatDate(
+                                                        lot.notarial_transfer_date,
+                                                    )}
                                                 </td>
-                                                <td className="whitespace-nowrap px-1.5 py-1 text-right tabular-nums text-slate-800">
+                                                <td className="px-1.5 py-1 text-right whitespace-nowrap text-slate-800 tabular-nums">
                                                     {formatLotMoney(lot.price)}
                                                     <span className="text-[10px] text-slate-500">
-                                                        {' · Rest. '}{formatLotMoney(lot.remaining_balance)}
+                                                        {' · Rest. '}
+                                                        {formatLotMoney(
+                                                            lot.remaining_balance,
+                                                        )}
                                                     </span>
                                                 </td>
                                                 <td className="px-1.5 py-1">
                                                     <span
                                                         className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-bold ${lot.status?.color ? '' : 'bg-slate-100 text-slate-700'}`}
-                                                        style={lotStatusBadgeStyle(lot.status?.color)}
+                                                        style={lotStatusBadgeStyle(
+                                                            lot.status?.color,
+                                                        )}
                                                     >
-                                                        {lot.status?.name ?? '—'}
+                                                        {lot.status?.name ??
+                                                            '—'}
                                                     </span>
                                                 </td>
                                                 <td className="px-1.5 py-1">
                                                     {transfer ? (
-                                                        <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-bold ${transferStatusBadgeClass(transfer.status)}`}>
+                                                        <span
+                                                            className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-bold ${transferStatusBadgeClass(transfer.status)}`}
+                                                        >
                                                             {transfer.status}
                                                         </span>
                                                     ) : (
-                                                        <span className="text-[10px] text-slate-400">—</span>
+                                                        <span className="text-[10px] text-slate-400">
+                                                            —
+                                                        </span>
                                                     )}
                                                 </td>
                                                 <td className="px-1.5 py-1">
                                                     <div className="flex flex-nowrap justify-end gap-0.5">
                                                         {transfer ? (
                                                             <a
-                                                                href={`/inmopro/lot-transfer-confirmations/${transfer.id}/evidence`}
+                                                                href={
+                                                                    transfer
+                                                                        .vouchers
+                                                                        ?.length
+                                                                        ? `/inmopro/lot-transfer-vouchers/${transfer.vouchers[0].id}/image`
+                                                                        : `/inmopro/lot-transfer-confirmations/${transfer.id}/evidence`
+                                                                }
                                                                 target="_blank"
                                                                 rel="noreferrer"
                                                                 className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
-                                                                title="Ver evidencia"
+                                                                title={
+                                                                    transfer
+                                                                        .vouchers
+                                                                        ?.length
+                                                                        ? `Ver comprobantes (${transfer.vouchers.length})`
+                                                                        : 'Ver evidencia'
+                                                                }
                                                             >
                                                                 <Eye className="h-3 w-3" />
                                                             </a>
@@ -656,22 +853,61 @@ export default function LotTransferConfirmationsIndex({
                                                             variant="outline"
                                                             size="icon"
                                                             className={`h-6 w-6 ${lot.notes ? 'border-amber-300 bg-amber-50 text-amber-700' : ''}`}
-                                                            onClick={() => openNotesDialog(lot)}
+                                                            onClick={() =>
+                                                                openNotesDialog(
+                                                                    lot,
+                                                                )
+                                                            }
                                                             title="Anotaciones"
                                                         >
                                                             <MessageSquare className="h-3 w-3" />
                                                         </Button>
                                                         {canRegister ? (
-                                                            <Button type="button" size="icon" variant="outline" className="h-6 w-6" onClick={() => openRegisterDialog(lot)} title="Registrar">
+                                                            <Button
+                                                                type="button"
+                                                                size="icon"
+                                                                variant="outline"
+                                                                className="h-6 w-6"
+                                                                onClick={() =>
+                                                                    openRegisterDialog(
+                                                                        lot,
+                                                                    )
+                                                                }
+                                                                title="Registrar"
+                                                            >
                                                                 <Upload className="h-3 w-3" />
                                                             </Button>
                                                         ) : null}
-                                                        {isPending && transfer ? (
+                                                        {isPending &&
+                                                        transfer ? (
                                                             <>
-                                                                <Button type="button" size="icon" className="h-6 w-6" onClick={() => openApproveDialog(transfer)} title="Aprobar">
+                                                                <Button
+                                                                    type="button"
+                                                                    size="icon"
+                                                                    className="h-6 w-6"
+                                                                    onClick={() =>
+                                                                        openApproveDialog(
+                                                                            transfer,
+                                                                            lot,
+                                                                        )
+                                                                    }
+                                                                    title="Aprobar"
+                                                                >
                                                                     <Check className="h-3 w-3" />
                                                                 </Button>
-                                                                <Button type="button" size="icon" variant="outline" className="h-6 w-6" onClick={() => openRejectDialog(transfer)} title="Rechazar">
+                                                                <Button
+                                                                    type="button"
+                                                                    size="icon"
+                                                                    variant="outline"
+                                                                    className="h-6 w-6"
+                                                                    onClick={() =>
+                                                                        openRejectDialog(
+                                                                            transfer,
+                                                                            lot,
+                                                                        )
+                                                                    }
+                                                                    title="Rechazar"
+                                                                >
                                                                     <X className="h-3 w-3" />
                                                                 </Button>
                                                             </>
@@ -691,59 +927,91 @@ export default function LotTransferConfirmationsIndex({
                 </div>
             </div>
 
-            <Dialog open={registerOpen} onOpenChange={(open) => {
-                setRegisterOpen(open);
+            <Dialog
+                open={registerOpen}
+                onOpenChange={(open) => {
+                    setRegisterOpen(open);
 
-                if (!open) {
-                    setSelectedLot(null);
-                    registerForm.reset();
-                    registerForm.clearErrors();
-                    if (registerPreview) {
-                        URL.revokeObjectURL(registerPreview);
+                    if (!open) {
+                        setSelectedLot(null);
+                        registerForm.reset();
+                        registerForm.clearErrors();
                     }
-                    setRegisterPreview(null);
-                }
-            }}>
-                <DialogContent className="flex max-h-[min(90vh,34rem)] w-[calc(100vw-1.5rem)] flex-col gap-2 overflow-hidden p-3 sm:max-w-lg">
+                }}
+            >
+                <DialogContent className="flex max-h-[min(92vh,46rem)] w-[calc(100vw-1.5rem)] flex-col gap-2 overflow-hidden p-3 sm:max-w-2xl">
                     <DialogHeader className="shrink-0 gap-1">
-                        <DialogTitle className="text-base">Registrar transferencia</DialogTitle>
+                        <DialogTitle className="text-base">
+                            Registrar transferencia
+                        </DialogTitle>
                         <DialogDescription className="text-xs">
-                            Adjunte el voucher para marcar el lote como transferido.
+                            Confirme quién transfiere y adjunte los comprobantes
+                            para marcar el lote como transferido.
                         </DialogDescription>
                     </DialogHeader>
                     {selectedLot ? (
-                        <form onSubmit={submitRegister} className="flex min-h-0 flex-1 flex-col gap-2">
+                        <form
+                            onSubmit={submitRegister}
+                            className="flex min-h-0 flex-1 flex-col gap-2"
+                        >
                             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
                                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
                                     <p className="font-semibold text-slate-800">
                                         {selectedLot.block}-{selectedLot.number}
                                         <span className="font-normal text-slate-500">
-                                            {' · '}{selectedLot.project?.name ?? 'Sin proyecto'}
+                                            {' · '}
+                                            {selectedLot.project?.name ??
+                                                'Sin proyecto'}
                                         </span>
                                     </p>
                                     <p className="mt-0.5 truncate text-slate-500">
-                                        {selectedLot.client?.name ?? 'Sin cliente'}
-                                        {' · '}{selectedLot.advisor?.name ?? 'Sin asesor'}
-                                        {' · Sep. '}{formatLotMoney(selectedLot.advance)}
-                                        {' · Rest. '}{formatLotMoney(selectedLot.remaining_balance)}
+                                        {selectedLot.client?.name ??
+                                            'Sin cliente'}
+                                        {' · '}
+                                        {selectedLot.advisor?.name ??
+                                            'Sin asesor'}
+                                        {' · Sep. '}
+                                        {formatLotMoney(selectedLot.advance)}
+                                        {' · Rest. '}
+                                        {formatLotMoney(
+                                            selectedLot.remaining_balance,
+                                        )}
                                     </p>
                                 </div>
 
                                 <div className="grid gap-2 sm:grid-cols-2">
                                     <div className="space-y-1">
-                                        <label htmlFor="register_transfer_date" className="text-xs font-medium text-slate-700">
+                                        <label
+                                            htmlFor="register_transfer_date"
+                                            className="text-xs font-medium text-slate-700"
+                                        >
                                             Fecha de transferencia
                                         </label>
                                         <Input
                                             id="register_transfer_date"
                                             type="date"
-                                            value={registerForm.data.transfer_date}
-                                            onChange={(event) => registerForm.setData('transfer_date', event.target.value)}
+                                            value={
+                                                registerForm.data.transfer_date
+                                            }
+                                            onChange={(event) =>
+                                                registerForm.setData(
+                                                    'transfer_date',
+                                                    event.target.value,
+                                                )
+                                            }
                                         />
-                                        <InputError message={registerForm.errors.transfer_date} />
+                                        <InputError
+                                            message={
+                                                registerForm.errors
+                                                    .transfer_date
+                                            }
+                                        />
                                     </div>
                                     <div className="space-y-1">
-                                        <label htmlFor="register_transfer_amount" className="text-xs font-medium text-slate-700">
+                                        <label
+                                            htmlFor="register_transfer_amount"
+                                            className="text-xs font-medium text-slate-700"
+                                        >
                                             Monto de transferencia
                                         </label>
                                         <Input
@@ -751,70 +1019,256 @@ export default function LotTransferConfirmationsIndex({
                                             type="number"
                                             min="0.01"
                                             step="0.01"
-                                            value={registerForm.data.transfer_amount}
-                                            onChange={(event) => registerForm.setData('transfer_amount', event.target.value)}
+                                            value={
+                                                registerForm.data
+                                                    .transfer_amount
+                                            }
+                                            onChange={(event) =>
+                                                registerForm.setData(
+                                                    'transfer_amount',
+                                                    event.target.value,
+                                                )
+                                            }
                                         />
-                                        <InputError message={registerForm.errors.transfer_amount} />
+                                        <InputError
+                                            message={
+                                                registerForm.errors
+                                                    .transfer_amount
+                                            }
+                                        />
                                     </div>
                                 </div>
 
-                                <label
-                                    htmlFor="register_transfer_image"
-                                    className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2.5 transition hover:border-emerald-400 hover:bg-emerald-50"
-                                >
-                                    <div className="rounded-full bg-white p-1.5 shadow-sm">
-                                        <ImagePlus className="h-4 w-4 text-emerald-600" />
-                                    </div>
-                                    <div className="min-w-0 flex-1 text-left">
-                                        <p className="text-xs font-semibold text-slate-800">
-                                            {registerForm.data.evidence_image ? 'Cambiar evidencia' : 'Seleccionar evidencia'}
-                                        </p>
-                                        <p className="text-[11px] text-slate-500">JPG, PNG, WEBP · máx. 5 MB</p>
-                                    </div>
-                                </label>
-                                <input
-                                    id="register_transfer_image"
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleRegisterImageChange}
-                                    className="hidden"
+                                <TransferPayerVouchersFields
+                                    idPrefix="register"
+                                    data={registerForm.data}
+                                    errors={
+                                        registerForm.errors as Partial<
+                                            Record<string, string>
+                                        >
+                                    }
+                                    client={lotClient(selectedLot)}
+                                    onChange={(patch) =>
+                                        registerForm.setData((previous) => ({
+                                            ...previous,
+                                            ...patch,
+                                        }))
+                                    }
                                 />
-                                <InputError message={registerForm.errors.evidence_image} />
-
-                                {registerPreview ? (
-                                    <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                                        <img
-                                            src={registerPreview}
-                                            alt="Vista previa de la evidencia"
-                                            className="max-h-36 w-full object-contain sm:max-h-44"
-                                        />
-                                    </div>
-                                ) : null}
                                 <div className="rounded-lg border border-slate-200 p-3">
                                     <div className="mb-2 flex items-center justify-between">
-                                        <p className="text-xs font-semibold text-slate-800">Gastos de la transferencia</p>
-                                        <Button type="button" size="sm" variant="outline" onClick={() => registerForm.setData('expenses', [...registerForm.data.expenses, { category: 'TRANSFERENCIA', concept: '', amount: '', expense_date: todayIsoDate(), notes: '' }])}>Agregar gasto</Button>
+                                        <p className="text-xs font-semibold text-slate-800">
+                                            Gastos de la transferencia
+                                        </p>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() =>
+                                                registerForm.setData(
+                                                    'expenses',
+                                                    [
+                                                        ...registerForm.data
+                                                            .expenses,
+                                                        {
+                                                            category:
+                                                                'TRANSFERENCIA',
+                                                            concept: '',
+                                                            amount: '',
+                                                            expense_date:
+                                                                todayIsoDate(),
+                                                            notes: '',
+                                                        },
+                                                    ],
+                                                )
+                                            }
+                                        >
+                                            Agregar gasto
+                                        </Button>
                                     </div>
                                     <div className="space-y-3">
-                                        {registerForm.data.expenses.map((expense, index) => (
-                                            <div key={index} className="grid gap-2 rounded-md bg-slate-50 p-2 sm:grid-cols-2">
-                                                <select value={expense.category} onChange={(e) => registerForm.setData('expenses', registerForm.data.expenses.map((item, position) => position === index ? { ...item, category: e.target.value } : item))} className="rounded-md border bg-white px-2 py-1.5 text-xs"><option value="TRANSFERENCIA">Transferencia</option><option value="OTRO">Otro</option></select>
-                                                <Input placeholder="Concepto" value={expense.concept} onChange={(e) => registerForm.setData('expenses', registerForm.data.expenses.map((item, position) => position === index ? { ...item, concept: e.target.value } : item))} />
-                                                <Input type="number" min="0.01" step="0.01" placeholder="Monto" value={expense.amount} onChange={(e) => registerForm.setData('expenses', registerForm.data.expenses.map((item, position) => position === index ? { ...item, amount: e.target.value } : item))} />
-                                                <Input type="date" value={expense.expense_date} onChange={(e) => registerForm.setData('expenses', registerForm.data.expenses.map((item, position) => position === index ? { ...item, expense_date: e.target.value } : item))} />
-                                                <Input className="sm:col-span-2" placeholder="Observaciones (opcional)" value={expense.notes} onChange={(e) => registerForm.setData('expenses', registerForm.data.expenses.map((item, position) => position === index ? { ...item, notes: e.target.value } : item))} />
-                                                <button type="button" className="text-left text-xs font-semibold text-red-600" onClick={() => registerForm.setData('expenses', registerForm.data.expenses.filter((_, position) => position !== index))}>Quitar</button>
-                                            </div>
-                                        ))}
+                                        {registerForm.data.expenses.map(
+                                            (expense, index) => (
+                                                <div
+                                                    key={index}
+                                                    className="grid gap-2 rounded-md bg-slate-50 p-2 sm:grid-cols-2"
+                                                >
+                                                    <select
+                                                        value={expense.category}
+                                                        onChange={(e) =>
+                                                            registerForm.setData(
+                                                                'expenses',
+                                                                registerForm.data.expenses.map(
+                                                                    (
+                                                                        item,
+                                                                        position,
+                                                                    ) =>
+                                                                        position ===
+                                                                        index
+                                                                            ? {
+                                                                                  ...item,
+                                                                                  category:
+                                                                                      e
+                                                                                          .target
+                                                                                          .value,
+                                                                              }
+                                                                            : item,
+                                                                ),
+                                                            )
+                                                        }
+                                                        className="rounded-md border bg-white px-2 py-1.5 text-xs"
+                                                    >
+                                                        <option value="TRANSFERENCIA">
+                                                            Transferencia
+                                                        </option>
+                                                        <option value="OTRO">
+                                                            Otro
+                                                        </option>
+                                                    </select>
+                                                    <Input
+                                                        placeholder="Concepto"
+                                                        value={expense.concept}
+                                                        onChange={(e) =>
+                                                            registerForm.setData(
+                                                                'expenses',
+                                                                registerForm.data.expenses.map(
+                                                                    (
+                                                                        item,
+                                                                        position,
+                                                                    ) =>
+                                                                        position ===
+                                                                        index
+                                                                            ? {
+                                                                                  ...item,
+                                                                                  concept:
+                                                                                      e
+                                                                                          .target
+                                                                                          .value,
+                                                                              }
+                                                                            : item,
+                                                                ),
+                                                            )
+                                                        }
+                                                    />
+                                                    <Input
+                                                        type="number"
+                                                        min="0.01"
+                                                        step="0.01"
+                                                        placeholder="Monto"
+                                                        value={expense.amount}
+                                                        onChange={(e) =>
+                                                            registerForm.setData(
+                                                                'expenses',
+                                                                registerForm.data.expenses.map(
+                                                                    (
+                                                                        item,
+                                                                        position,
+                                                                    ) =>
+                                                                        position ===
+                                                                        index
+                                                                            ? {
+                                                                                  ...item,
+                                                                                  amount: e
+                                                                                      .target
+                                                                                      .value,
+                                                                              }
+                                                                            : item,
+                                                                ),
+                                                            )
+                                                        }
+                                                    />
+                                                    <Input
+                                                        type="date"
+                                                        value={
+                                                            expense.expense_date
+                                                        }
+                                                        onChange={(e) =>
+                                                            registerForm.setData(
+                                                                'expenses',
+                                                                registerForm.data.expenses.map(
+                                                                    (
+                                                                        item,
+                                                                        position,
+                                                                    ) =>
+                                                                        position ===
+                                                                        index
+                                                                            ? {
+                                                                                  ...item,
+                                                                                  expense_date:
+                                                                                      e
+                                                                                          .target
+                                                                                          .value,
+                                                                              }
+                                                                            : item,
+                                                                ),
+                                                            )
+                                                        }
+                                                    />
+                                                    <Input
+                                                        className="sm:col-span-2"
+                                                        placeholder="Observaciones (opcional)"
+                                                        value={expense.notes}
+                                                        onChange={(e) =>
+                                                            registerForm.setData(
+                                                                'expenses',
+                                                                registerForm.data.expenses.map(
+                                                                    (
+                                                                        item,
+                                                                        position,
+                                                                    ) =>
+                                                                        position ===
+                                                                        index
+                                                                            ? {
+                                                                                  ...item,
+                                                                                  notes: e
+                                                                                      .target
+                                                                                      .value,
+                                                                              }
+                                                                            : item,
+                                                                ),
+                                                            )
+                                                        }
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        className="text-left text-xs font-semibold text-red-600"
+                                                        onClick={() =>
+                                                            registerForm.setData(
+                                                                'expenses',
+                                                                registerForm.data.expenses.filter(
+                                                                    (
+                                                                        _,
+                                                                        position,
+                                                                    ) =>
+                                                                        position !==
+                                                                        index,
+                                                                ),
+                                                            )
+                                                        }
+                                                    >
+                                                        Quitar
+                                                    </button>
+                                                </div>
+                                            ),
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
                             <DialogFooter className="shrink-0 gap-2 border-t border-slate-100 pt-2">
-                                <Button type="button" variant="outline" size="sm" onClick={() => setRegisterOpen(false)}>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setRegisterOpen(false)}
+                                >
                                     Cancelar
                                 </Button>
-                                <Button type="submit" size="sm" disabled={registerForm.processing}>
+                                <Button
+                                    type="submit"
+                                    size="sm"
+                                    disabled={registerForm.processing}
+                                >
                                     Registrar
                                 </Button>
                             </DialogFooter>
@@ -823,51 +1277,82 @@ export default function LotTransferConfirmationsIndex({
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={approveOpen} onOpenChange={(open) => {
-                setApproveOpen(open);
+            <Dialog
+                open={approveOpen}
+                onOpenChange={(open) => {
+                    setApproveOpen(open);
 
-                if (!open) {
-                    setSelectedTransfer(null);
-                    approveForm.reset();
-                }
-            }}>
+                    if (!open) {
+                        setSelectedTransfer(null);
+                        approveForm.reset();
+                    }
+                }}
+            >
                 <DialogContent className="flex max-h-[min(90vh,32rem)] w-[calc(100vw-1.5rem)] flex-col gap-2 overflow-hidden p-3 sm:max-w-lg">
                     <DialogHeader className="shrink-0 gap-1">
-                        <DialogTitle className="text-base">Aprobar transferencia</DialogTitle>
+                        <DialogTitle className="text-base">
+                            Aprobar transferencia
+                        </DialogTitle>
                         <DialogDescription className="text-xs">
                             Revise la evidencia y confirme la aprobación.
                         </DialogDescription>
                     </DialogHeader>
                     {selectedTransfer ? (
-                        <form onSubmit={approve} className="flex min-h-0 flex-1 flex-col gap-2">
+                        <form
+                            onSubmit={approve}
+                            className="flex min-h-0 flex-1 flex-col gap-2"
+                        >
                             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
-                                <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                                    <img
-                                        src={`/inmopro/lot-transfer-confirmations/${selectedTransfer.id}/evidence`}
-                                        alt={`Evidencia transferencia ${selectedTransfer.id}`}
-                                        className="max-h-36 w-full object-contain sm:max-h-44"
-                                    />
-                                </div>
+                                <TransferVouchersGallery
+                                    transfer={selectedTransfer}
+                                    clientName={
+                                        selectedLot
+                                            ? lotClient(selectedLot).name
+                                            : null
+                                    }
+                                    compact
+                                />
                                 <div className="space-y-1">
-                                    <label htmlFor="transfer_review_notes" className="text-xs font-medium text-slate-700">
+                                    <label
+                                        htmlFor="transfer_review_notes"
+                                        className="text-xs font-medium text-slate-700"
+                                    >
                                         Reseña de aprobación
                                     </label>
                                     <textarea
                                         id="transfer_review_notes"
                                         value={approveForm.data.review_notes}
-                                        onChange={(event) => approveForm.setData('review_notes', event.target.value)}
+                                        onChange={(event) =>
+                                            approveForm.setData(
+                                                'review_notes',
+                                                event.target.value,
+                                            )
+                                        }
                                         rows={2}
                                         className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none"
                                         placeholder="Detalle breve de la validación"
                                     />
-                                    <InputError message={approveForm.errors.review_notes} />
+                                    <InputError
+                                        message={
+                                            approveForm.errors.review_notes
+                                        }
+                                    />
                                 </div>
                             </div>
                             <DialogFooter className="shrink-0 gap-2 border-t border-slate-100 pt-2">
-                                <Button type="button" variant="outline" size="sm" onClick={() => setApproveOpen(false)}>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setApproveOpen(false)}
+                                >
                                     Cancelar
                                 </Button>
-                                <Button type="submit" size="sm" disabled={approveForm.processing}>
+                                <Button
+                                    type="submit"
+                                    size="sm"
+                                    disabled={approveForm.processing}
+                                >
                                     Aprobar
                                 </Button>
                             </DialogFooter>
@@ -876,46 +1361,72 @@ export default function LotTransferConfirmationsIndex({
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={rejectOpen} onOpenChange={(open) => {
-                setRejectOpen(open);
+            <Dialog
+                open={rejectOpen}
+                onOpenChange={(open) => {
+                    setRejectOpen(open);
 
-                if (!open) {
-                    setSelectedTransfer(null);
-                    rejectForm.reset();
-                }
-            }}>
+                    if (!open) {
+                        setSelectedTransfer(null);
+                        rejectForm.reset();
+                    }
+                }}
+            >
                 <DialogContent className="flex max-h-[min(90vh,28rem)] w-[calc(100vw-1.5rem)] flex-col gap-2 overflow-hidden p-3 sm:max-w-md">
                     <DialogHeader className="shrink-0 gap-1">
-                        <DialogTitle className="text-base">Rechazar transferencia</DialogTitle>
+                        <DialogTitle className="text-base">
+                            Rechazar transferencia
+                        </DialogTitle>
                         <DialogDescription className="text-xs">
                             Indique el motivo para devolver el lote a reservado.
                         </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={submitReject} className="flex min-h-0 flex-1 flex-col gap-2">
+                    <form
+                        onSubmit={submitReject}
+                        className="flex min-h-0 flex-1 flex-col gap-2"
+                    >
                         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
                             {selectedTransfer ? (
-                                <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                                    <img
-                                        src={`/inmopro/lot-transfer-confirmations/${selectedTransfer.id}/evidence`}
-                                        alt={`Evidencia transferencia ${selectedTransfer.id}`}
-                                        className="max-h-28 w-full object-contain sm:max-h-36"
-                                    />
-                                </div>
+                                <TransferVouchersGallery
+                                    transfer={selectedTransfer}
+                                    clientName={
+                                        selectedLot
+                                            ? lotClient(selectedLot).name
+                                            : null
+                                    }
+                                    compact
+                                />
                             ) : null}
                             <textarea
                                 value={rejectForm.data.rejection_reason}
-                                onChange={(event) => rejectForm.setData('rejection_reason', event.target.value)}
+                                onChange={(event) =>
+                                    rejectForm.setData(
+                                        'rejection_reason',
+                                        event.target.value,
+                                    )
+                                }
                                 rows={2}
                                 className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none"
                                 placeholder="Motivo del rechazo"
                             />
-                            <InputError message={rejectForm.errors.rejection_reason} />
+                            <InputError
+                                message={rejectForm.errors.rejection_reason}
+                            />
                         </div>
                         <DialogFooter className="shrink-0 gap-2 border-t border-slate-100 pt-2">
-                            <Button type="button" variant="outline" size="sm" onClick={() => setRejectOpen(false)}>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setRejectOpen(false)}
+                            >
                                 Cancelar
                             </Button>
-                            <Button type="submit" size="sm" disabled={rejectForm.processing}>
+                            <Button
+                                type="submit"
+                                size="sm"
+                                disabled={rejectForm.processing}
+                            >
                                 Rechazar
                             </Button>
                         </DialogFooter>
@@ -923,39 +1434,55 @@ export default function LotTransferConfirmationsIndex({
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={notesOpen} onOpenChange={(open) => {
-                setNotesOpen(open);
+            <Dialog
+                open={notesOpen}
+                onOpenChange={(open) => {
+                    setNotesOpen(open);
 
-                if (!open) {
-                    setSelectedLot(null);
-                    notesForm.reset();
-                    notesForm.clearErrors();
-                }
-            }}>
+                    if (!open) {
+                        setSelectedLot(null);
+                        notesForm.reset();
+                        notesForm.clearErrors();
+                    }
+                }}
+            >
                 <DialogContent className="flex max-h-[min(90vh,28rem)] w-[calc(100vw-1.5rem)] flex-col gap-2 overflow-hidden p-3 sm:max-w-md">
                     <DialogHeader className="shrink-0 gap-1">
-                        <DialogTitle className="text-base">Anotaciones</DialogTitle>
+                        <DialogTitle className="text-base">
+                            Anotaciones
+                        </DialogTitle>
                         <DialogDescription className="text-xs">
                             Registre observaciones operativas sobre este lote.
                         </DialogDescription>
                     </DialogHeader>
                     {selectedLot ? (
-                        <form onSubmit={submitNotes} className="flex min-h-0 flex-1 flex-col gap-2">
+                        <form
+                            onSubmit={submitNotes}
+                            className="flex min-h-0 flex-1 flex-col gap-2"
+                        >
                             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
                                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
                                     <p className="font-semibold text-slate-800">
                                         {selectedLot.block}-{selectedLot.number}
                                         <span className="font-normal text-slate-500">
-                                            {' · '}{selectedLot.project?.name ?? 'Sin proyecto'}
+                                            {' · '}
+                                            {selectedLot.project?.name ??
+                                                'Sin proyecto'}
                                         </span>
                                     </p>
                                     <p className="mt-0.5 truncate text-slate-500">
-                                        {selectedLot.client?.name ?? 'Sin cliente'}
+                                        {selectedLot.client?.name ??
+                                            'Sin cliente'}
                                     </p>
                                 </div>
                                 <textarea
                                     value={notesForm.data.notes}
-                                    onChange={(event) => notesForm.setData('notes', event.target.value)}
+                                    onChange={(event) =>
+                                        notesForm.setData(
+                                            'notes',
+                                            event.target.value,
+                                        )
+                                    }
                                     rows={4}
                                     className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none"
                                     placeholder="Escriba sus anotaciones aquí..."
@@ -963,10 +1490,19 @@ export default function LotTransferConfirmationsIndex({
                                 <InputError message={notesForm.errors.notes} />
                             </div>
                             <DialogFooter className="shrink-0 gap-2 border-t border-slate-100 pt-2">
-                                <Button type="button" variant="outline" size="sm" onClick={() => setNotesOpen(false)}>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setNotesOpen(false)}
+                                >
                                     Cancelar
                                 </Button>
-                                <Button type="submit" size="sm" disabled={notesForm.processing}>
+                                <Button
+                                    type="submit"
+                                    size="sm"
+                                    disabled={notesForm.processing}
+                                >
                                     Guardar
                                 </Button>
                             </DialogFooter>

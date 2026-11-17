@@ -4,6 +4,7 @@ namespace Tests\Feature\Inmopro;
 
 use App\Models\Inmopro\CashAccount;
 use App\Models\Inmopro\CashEntry;
+use App\Models\Inmopro\InmoproAuditLog;
 use App\Models\Inmopro\Investor;
 use App\Models\Inmopro\InvestorContract;
 use App\Models\Inmopro\InvestorInstallment;
@@ -368,6 +369,24 @@ class InmoproInvestorsTest extends TestCase
         $this->assertSame('0.00', $contract->installments()->first()->paid_amount);
         $this->assertSame(2000.0, (float) $this->cash->refresh()->current_balance);
         $this->assertDatabaseHas('cash_entries', ['investor_contract_id' => $contract->id, 'type' => 'INGRESO', 'amount' => 1100]);
+
+        $created = InmoproAuditLog::query()->where('action', 'investor-payments.created')->sole();
+        $this->assertSame($this->user->id, $created->user_id);
+        $this->assertSame(InvestorPayment::class, $created->subject_type);
+        $this->assertSame($payment->id, $created->subject_id);
+        $this->assertSame('1100.00', $created->meta['amount']);
+        $this->assertSame($contract->code, $created->meta['contract_code']);
+        $this->assertSame(InvestorContract::STATUS_SETTLED, $created->meta['contract_status_after']);
+
+        $voided = InmoproAuditLog::query()->where('action', 'investor-payments.voided')->sole();
+        $this->assertSame('Pago duplicado', $voided->meta['reason']);
+        $this->assertSame('1100.00', $voided->meta['amount']);
+        $this->assertSame(InvestorContract::STATUS_ACTIVE, $voided->meta['contract_status_after']);
+
+        // The successful request is logged once (detailed event), without a generic duplicate.
+        $this->assertSame(1, InmoproAuditLog::query()
+            ->where('route_name', 'inmopro.investor-contracts.payments.store')
+            ->count());
     }
 
     public function test_contract_with_payments_cannot_be_voided_and_without_payments_reverses_income(): void

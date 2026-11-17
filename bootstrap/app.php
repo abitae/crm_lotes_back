@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AuthenticateAdvisorApiToken;
 use App\Http\Middleware\AuthenticateDateroApiToken;
+use App\Http\Middleware\AuthenticateUserApiToken;
 use App\Http\Middleware\EnsureAdvisorIsActive;
 use App\Http\Middleware\EnsureAdvisorPinIsCurrent;
 use App\Http\Middleware\EnsureInmoproRoutePermission;
@@ -39,6 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'advisor.api' => AuthenticateAdvisorApiToken::class,
+            'user.api' => AuthenticateUserApiToken::class,
             'datero.api' => AuthenticateDateroApiToken::class,
             'openai.cazador' => EnsureOpenAiCazadorEnabled::class,
             'inmopro.permission' => EnsureInmoproRoutePermission::class,

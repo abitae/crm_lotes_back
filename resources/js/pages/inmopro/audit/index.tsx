@@ -18,8 +18,46 @@ type AuditLog = {
     url: string;
     ip_address: string | null;
     created_at: string;
+    meta?: Record<string, unknown> | null;
     user?: { id: number; name: string } | null;
 };
+
+const EVENT_LABELS: Record<string, string> = {
+    'commissions.paid': 'Pago de comisión',
+    'lots.payments.created': 'Pago registrado (cuentas por cobrar)',
+    'lots.payments.voided': 'Pago anulado (cuentas por cobrar)',
+    'investor-payments.created': 'Pago a inversionista',
+    'investor-payments.voided': 'Pago a inversionista anulado',
+    'lots.released': 'Lote liberado',
+};
+
+function text(value: unknown): string {
+    return value === null || value === undefined || value === ''
+        ? '—'
+        : String(value);
+}
+
+function auditSummary(log: AuditLog): string | null {
+    const meta = log.meta ?? {};
+
+    switch (log.action) {
+        case 'commissions.paid':
+            return `${text(meta.advisor_name)} · Lote ${text(meta.lot)} (${text(meta.project)}) · ${text(meta.type)} · S/ ${text(meta.paid_amount)}`;
+        case 'lots.payments.created':
+        case 'lots.payments.voided':
+            return `Lote ${text(meta.lot)} · ${text(meta.client_name)} · S/ ${text(meta.amount)} · ${text(meta.payment_method)}${meta.reason ? ` · Motivo: ${text(meta.reason)}` : ''}`;
+        case 'investor-payments.created':
+        case 'investor-payments.voided':
+            return `${text(meta.investor_name)} · ${text(meta.contract_code)} · ${text(meta.currency)} ${text(meta.amount)} (neto ${text(meta.net_amount)})${meta.reason ? ` · Motivo: ${text(meta.reason)}` : ''}`;
+        case 'lots.released': {
+            const sale = (meta.sale ?? {}) as Record<string, unknown>;
+
+            return `Lote ${text(meta.lot)} · ${text(meta.reason)} · Cliente anterior: ${text(sale.client_name)}`;
+        }
+        default:
+            return null;
+    }
+}
 
 type Filters = {
     user_id?: string | number | null;
@@ -39,7 +77,9 @@ export default function InmoproAuditIndex({
     users: Array<{ id: number; name: string }>;
     actions: string[];
 }) {
-    const [userId, setUserId] = useState(filters.user_id ? String(filters.user_id) : '');
+    const [userId, setUserId] = useState(
+        filters.user_id ? String(filters.user_id) : '',
+    );
     const [action, setAction] = useState(filters.action ?? '');
     const [from, setFrom] = useState(filters.from ?? '');
     const [to, setTo] = useState(filters.to ?? '');
@@ -130,7 +170,11 @@ export default function InmoproAuditIndex({
                         </datalist>
                     </div>
                     <div className="flex items-end">
-                        <Button type="button" onClick={applyFilters} className="w-full">
+                        <Button
+                            type="button"
+                            onClick={applyFilters}
+                            className="w-full"
+                        >
                             <Search className="h-4 w-4" />
                             Filtrar
                         </Button>
@@ -176,12 +220,46 @@ export default function InmoproAuditIndex({
                                             {formatDateTime(log.created_at)}
                                         </td>
                                         <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
-                                            {log.user?.name ?? log.user_name ?? '—'}
+                                            {log.user?.name ??
+                                                log.user_name ??
+                                                '—'}
                                         </td>
-                                        <td className="px-4 py-3 font-mono text-xs text-slate-800 dark:text-slate-100">
-                                            {log.action}
+                                        <td className="px-4 py-3 text-xs text-slate-800 dark:text-slate-100">
+                                            {EVENT_LABELS[log.action] ? (
+                                                <div className="space-y-1">
+                                                    <div className="font-bold">
+                                                        {
+                                                            EVENT_LABELS[
+                                                                log.action
+                                                            ]
+                                                        }
+                                                    </div>
+                                                    <div className="text-slate-600 dark:text-slate-300">
+                                                        {auditSummary(log)}
+                                                    </div>
+                                                    <details>
+                                                        <summary className="cursor-pointer font-mono text-[11px] text-slate-500">
+                                                            {log.action}
+                                                        </summary>
+                                                        <pre className="mt-1 max-w-[28rem] overflow-x-auto rounded bg-slate-50 p-2 text-[11px] dark:bg-slate-900">
+                                                            {JSON.stringify(
+                                                                log.meta,
+                                                                null,
+                                                                2,
+                                                            )}
+                                                        </pre>
+                                                    </details>
+                                                </div>
+                                            ) : (
+                                                <span className="font-mono">
+                                                    {log.action}
+                                                </span>
+                                            )}
                                         </td>
-                                        <td className="max-w-[18rem] truncate px-4 py-3 font-mono text-xs text-slate-500" title={log.route_name ?? log.url}>
+                                        <td
+                                            className="max-w-[18rem] truncate px-4 py-3 font-mono text-xs text-slate-500"
+                                            title={log.route_name ?? log.url}
+                                        >
                                             {log.route_name ?? log.url}
                                         </td>
                                         <td className="px-4 py-3 font-mono text-xs text-slate-500">

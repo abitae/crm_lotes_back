@@ -30,6 +30,7 @@ use App\Http\Controllers\Inmopro\LotAiFollowUpSuggestionController;
 use App\Http\Controllers\Inmopro\LotController;
 use App\Http\Controllers\Inmopro\LotExpenseController;
 use App\Http\Controllers\Inmopro\LotPreReservationController;
+use App\Http\Controllers\Inmopro\LotReleaseController;
 use App\Http\Controllers\Inmopro\LotStatusController;
 use App\Http\Controllers\Inmopro\LotTransferConfirmationController;
 use App\Http\Controllers\Inmopro\MembershipTypeController;
@@ -60,6 +61,7 @@ use App\Http\Controllers\Inmopro\Reports\TeamGoalsReportController;
 use App\Http\Controllers\Inmopro\Reports\TopAdvisorsReportController;
 use App\Http\Controllers\Inmopro\Reports\TransfersByProjectReportController;
 use App\Http\Controllers\Inmopro\ReportSalesConfigController;
+use App\Http\Controllers\Inmopro\TaskController;
 use App\Http\Controllers\Inmopro\TeamController;
 use Illuminate\Support\Facades\Route;
 
@@ -129,6 +131,7 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
             ->middleware('throttle:ai')
             ->name('lots.ai-follow-up-suggestion');
         Route::resource('lots', LotController::class);
+        Route::post('lots/{lot}/release', LotReleaseController::class)->name('lots.release');
         Route::post('lots/{lot}/expenses', [LotExpenseController::class, 'store'])->name('lots.expenses.store');
         Route::put('lots/{lot}/expenses/{expense}', [LotExpenseController::class, 'update'])->name('lots.expenses.update');
         Route::delete('lots/{lot}/expenses/{expense}', [LotExpenseController::class, 'destroy'])->name('lots.expenses.destroy');
@@ -248,6 +251,11 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::post('openai-cazador/knowledge/{document}/reindex', [OpenAiCazadorConfigController::class, 'reindexKnowledge'])->name('openai-cazador.knowledge.reindex');
         Route::post('openai-cazador/knowledge/{document}/activate', [OpenAiCazadorConfigController::class, 'activateKnowledge'])->name('openai-cazador.knowledge.activate');
         Route::post('openai-cazador/knowledge/preview', [OpenAiCazadorConfigController::class, 'previewKnowledge'])->name('openai-cazador.knowledge.preview');
+        Route::get('tasks', [TaskController::class, 'index'])->name('tasks.index');
+        Route::post('tasks', [TaskController::class, 'store'])->name('tasks.store');
+        Route::put('tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
+        Route::patch('tasks/{task}/completion', [TaskController::class, 'completion'])->name('tasks.completion');
+        Route::delete('tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
         Route::get('attention-tickets/calendar', [AttentionTicketController::class, 'calendar'])->name('attention-tickets.calendar');
         Route::get('attention-tickets/{attention_ticket}/delivery-deed', [AttentionTicketController::class, 'deliveryDeed'])->name('attention-tickets.delivery-deed');
         Route::post('attention-tickets/{attention_ticket}/delivery-deed/mark-signed', [AttentionTicketController::class, 'markDeedSigned'])->name('attention-tickets.delivery-deed.mark-signed');
@@ -263,6 +271,7 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::get('lot-transfer-confirmations', [LotTransferConfirmationController::class, 'index'])->name('lot-transfer-confirmations.index');
         Route::get('lot-transfer-confirmations/export-excel', [LotTransferConfirmationController::class, 'exportExcel'])->name('lot-transfer-confirmations.export-excel');
         Route::get('lot-transfer-confirmations/{lot_transfer_confirmation}/evidence', [LotTransferConfirmationController::class, 'evidence'])->name('lot-transfer-confirmations.evidence');
+        Route::get('lot-transfer-vouchers/{lot_transfer_voucher}/image', [LotTransferConfirmationController::class, 'voucherImage'])->name('lot-transfer-vouchers.image');
         Route::get('lots/{lot}/transfer-confirmation', [LotTransferConfirmationController::class, 'create'])->name('lots.transfer-confirmation');
         Route::post('lots/{lot}/transfer-confirmation', [LotTransferConfirmationController::class, 'store'])->name('lots.transfer-confirmation.store');
         Route::patch('lots/{lot}/transfer-queue-notes', [LotTransferConfirmationController::class, 'updateLotNotes'])->name('lots.transfer-queue-notes.update');

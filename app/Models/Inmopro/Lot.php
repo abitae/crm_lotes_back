@@ -165,6 +165,14 @@ class Lot extends Model
         return $this->hasMany(LotExpense::class)->latest('expense_date');
     }
 
+    /**
+     * @return HasMany<LotHistory, $this>
+     */
+    public function histories(): HasMany
+    {
+        return $this->hasMany(LotHistory::class, 'lot_id')->latest('created_at')->latest('id');
+    }
+
     public function financialMetrics(): array
     {
         $salePrice = $this->sale_price !== null ? (float) $this->sale_price : null;

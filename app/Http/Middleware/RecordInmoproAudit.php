@@ -38,6 +38,10 @@ class RecordInmoproAudit
             return false;
         }
 
+        if ($request->attributes->get(InmoproAuditLogger::RECORDED_ATTRIBUTE) === true) {
+            return false;
+        }
+
         $name = $request->route()?->getName();
         if (! is_string($name) || ! str_starts_with($name, 'inmopro.')) {
             return false;

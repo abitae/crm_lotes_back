@@ -26,6 +26,12 @@ use App\Http\Controllers\Api\v1\Datero\GoogleAuthController as DateroGoogleAuthC
 use App\Http\Controllers\Api\v1\Datero\ProfileController as DateroProfileController;
 use App\Http\Controllers\Api\v1\Datero\ProjectController as DateroProjectController;
 use App\Http\Controllers\Api\v1\Datero\RegistrationLookupController;
+use App\Http\Controllers\Api\v1\Interno\AuthController as InternoAuthController;
+use App\Http\Controllers\Api\v1\Interno\DeviceController as InternoDeviceController;
+use App\Http\Controllers\Api\v1\Interno\NotificationController as InternoNotificationController;
+use App\Http\Controllers\Api\v1\Interno\ProfileController as InternoProfileController;
+use App\Http\Controllers\Api\v1\Interno\TaskController as InternoTaskController;
+use App\Http\Controllers\Api\v1\Interno\UserController as InternoUserController;
 use App\Http\Controllers\Api\v1\Web\Project360Controller as WebProject360Controller;
 use App\Http\Controllers\Api\v1\Web\WebController;
 use Illuminate\Support\Facades\Route;
@@ -104,6 +110,27 @@ Route::prefix('v1/cazador')->name('api.v1.cazador.')->group(function (): void {
         Route::get('lots', [LotController::class, 'index'])->name('lots.index');
         Route::get('lots/{lot}', [LotController::class, 'show'])->name('lots.show');
         Route::post('lots/{lot}/pre-reservations', [PreReservationController::class, 'store'])->name('lots.pre-reservations.store');
+    });
+});
+
+Route::prefix('v1/interno')->name('api.v1.interno.')->group(function (): void {
+    Route::post('auth/login', [InternoAuthController::class, 'login'])
+        ->middleware('throttle:interno-login')
+        ->name('auth.login');
+    Route::post('auth/two-factor', [InternoAuthController::class, 'twoFactor'])
+        ->middleware('throttle:interno-login')
+        ->name('auth.two-factor');
+
+    Route::middleware('user.api')->group(function (): void {
+        Route::post('auth/logout', [InternoAuthController::class, 'logout'])->name('auth.logout');
+        Route::get('me', [InternoProfileController::class, 'show'])->name('me.show');
+        Route::get('users', [InternoUserController::class, 'index'])->name('users.index');
+        Route::get('tasks', [InternoTaskController::class, 'index'])->name('tasks.index');
+        Route::post('tasks', [InternoTaskController::class, 'store'])->name('tasks.store');
+        Route::patch('tasks/{task}/completion', [InternoTaskController::class, 'completion'])->name('tasks.completion');
+        Route::get('notifications', [InternoNotificationController::class, 'index'])->name('notifications.index');
+        Route::post('notifications/read', [InternoNotificationController::class, 'read'])->name('notifications.read');
+        Route::put('devices', [InternoDeviceController::class, 'update'])->name('devices.update');
     });
 });
 

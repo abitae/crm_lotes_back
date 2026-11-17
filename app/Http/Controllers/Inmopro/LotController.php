@@ -11,6 +11,7 @@ use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
 use App\Services\Inmopro\LotPersistService;
+use App\Services\Inmopro\LotReleaseService;
 use App\Services\Inmopro\ProjectLocationMapsResolver;
 use App\Support\ClientPhoneGuard;
 use Illuminate\Database\Eloquent\Builder;
@@ -207,11 +208,17 @@ class LotController extends Controller
             'expenses.creator',
             'latestTransferConfirmation.requester',
             'latestTransferConfirmation.reviewer',
+            'latestTransferConfirmation.vouchers',
+            'histories.fromStatus:id,name,code,color',
+            'histories.toStatus:id,name,code,color',
         ]);
 
         return Inertia::render('inmopro/lots/show', [
             'lot' => ClientPhoneGuard::redactArray($lot->toArray()),
             'financialMetrics' => $lot->financialMetrics(),
+            'releaseReasons' => LotReleaseService::REASONS,
+            'canReleaseLot' => (request()->user()?->can('inmopro.lots.release') ?? false)
+                && in_array($lot->status?->code, LotReleaseService::RELEASABLE_STATUS_CODES, true),
             'canConfirmTransfer' => request()->user()?->can('inmopro.lots.transfer-confirmation') ?? false,
             'canManageFinancials' => request()->user()?->can('inmopro.lots.financial.update') ?? false,
             'canManageExpenses' => request()->user()?->can('inmopro.lots.expenses.store') ?? false,

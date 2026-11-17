@@ -3,6 +3,7 @@
 namespace App\Exports\Inmopro;
 
 use App\Models\Inmopro\Lot;
+use App\Models\Inmopro\LotTransferVoucher;
 use App\Support\ClientPhoneGuard;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
@@ -37,6 +38,9 @@ class LotTransferConfirmationsExport implements FromCollection, WithHeadings
             'Saldo restante',
             'Estado lote',
             'Estado revision',
+            'Transfiere',
+            'DNI transfiere',
+            'Comprobantes',
             'Anotaciones',
         ];
     }
@@ -64,6 +68,15 @@ class LotTransferConfirmationsExport implements FromCollection, WithHeadings
                 self::formatMoney($lot->remaining_balance),
                 $lot->status?->name,
                 $transfer?->status,
+                $transfer?->payer_name,
+                $transfer?->payer_dni,
+                $transfer?->vouchers
+                    ->map(fn (LotTransferVoucher $voucher): string => implode(' · ', array_filter([
+                        $voucher->bank_label,
+                        $voucher->operation_number,
+                        $voucher->amount !== null ? 'S/ '.number_format((float) $voucher->amount, 2) : null,
+                    ])))
+                    ->implode('; '),
                 $lot->notes,
             ];
         });

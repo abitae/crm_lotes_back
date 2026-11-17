@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Inmopro;
 
+use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\Commission;
 use App\Models\Inmopro\CommissionStatus;
+use App\Models\Inmopro\InmoproAuditLog;
 use App\Models\Inmopro\Lot;
 use App\Models\User;
 use App\Services\Inmopro\CommissionService;
@@ -76,5 +78,41 @@ class InmoproCommissionsTest extends TestCase
         $response->assertRedirect();
         $commission->refresh();
         $this->assertSame((int) $paidStatus->id, (int) $commission->commission_status_id);
+    }
+
+    public function test_paying_a_commission_is_audited_and_cannot_be_paid_twice(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $lot = Lot::query()->firstOrFail();
+        $lot->update([
+            'advisor_id' => Advisor::query()->firstOrFail()->id,
+            'sale_price' => 10000,
+        ]);
+        app(CommissionService::class)->createCommissionsForTransferredLot($lot->fresh());
+        $commission = Commission::query()->where('lot_id', $lot->id)->where('type', 'DIRECTA')->firstOrFail();
+
+        $this->post(route('inmopro.commissions.mark-as-paid', $commission))
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        $commission->refresh();
+        $paidAt = $commission->paid_at;
+
+        $log = InmoproAuditLog::query()->where('action', 'commissions.paid')->sole();
+        $this->assertSame($user->id, $log->user_id);
+        $this->assertSame(Commission::class, $log->subject_type);
+        $this->assertSame($commission->id, $log->subject_id);
+        $this->assertSame((string) $commission->paid_amount, $log->meta['paid_amount']);
+        $this->assertSame('PENDIENTE', $log->meta['status_before']);
+        $this->assertSame('PAGADO', $log->meta['status_after']);
+        $this->assertSame($commission->advisor_id, $log->meta['advisor_id']);
+
+        $this->post(route('inmopro.commissions.mark-as-paid', $commission))
+            ->assertSessionHasErrors('commission');
+
+        $this->assertSame(1, InmoproAuditLog::query()->where('action', 'commissions.paid')->count());
+        $this->assertTrue($paidAt->equalTo($commission->fresh()->paid_at));
     }
 }

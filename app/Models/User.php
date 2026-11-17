@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -64,5 +65,37 @@ class User extends Authenticatable
             ->sort()
             ->values()
             ->all();
+    }
+
+    /**
+     * @return HasMany<UserApiToken, $this>
+     */
+    public function apiTokens(): HasMany
+    {
+        return $this->hasMany(UserApiToken::class);
+    }
+
+    /**
+     * @return HasMany<UserPushToken, $this>
+     */
+    public function pushTokens(): HasMany
+    {
+        return $this->hasMany(UserPushToken::class);
+    }
+
+    /**
+     * @return HasMany<Task, $this>
+     */
+    public function createdTasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'created_by');
+    }
+
+    /**
+     * @return HasMany<Task, $this>
+     */
+    public function assignedTasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'assigned_to');
     }
 }

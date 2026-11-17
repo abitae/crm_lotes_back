@@ -21,7 +21,8 @@ class InvestorContractService
     private const AMOUNT_TOLERANCE = 0.005;
 
     public function __construct(
-        private InvestorScheduleService $scheduleService
+        private InvestorScheduleService $scheduleService,
+        private InmoproAuditLogger $auditLogger,
     ) {}
 
     /**
@@ -266,7 +267,14 @@ class InvestorContractService
                     'notes' => $withholding > 0 ? sprintf('Retención %s', number_format($withholding, 2)) : null,
                 ]);
 
+                $statusBefore = $locked->status;
                 $this->syncContractStatus($locked);
+
+                $this->auditLogger->recordEvent('investor-payments.created', $payment, [
+                    ...$this->investorPaymentAuditData($payment, $locked),
+                    'contract_status_before' => $statusBefore,
+                    'contract_status_after' => $locked->status,
+                ]);
 
                 return $payment;
             });
@@ -291,6 +299,8 @@ class InvestorContractService
 
             /** @var InvestorPayment $lockedPayment */
             $lockedPayment = InvestorPayment::query()->with('allocations.installment')->lockForUpdate()->findOrFail($payment->id);
+            $paymentData = $this->investorPaymentAuditData($lockedPayment, $locked);
+            $statusBefore = $locked->status;
 
             foreach ($lockedPayment->allocations as $allocation) {
                 $installment = $allocation->installment;
@@ -317,6 +327,13 @@ class InvestorContractService
             $lockedPayment->delete();
 
             $this->syncContractStatus($locked);
+
+            $this->auditLogger->recordEvent('investor-payments.voided', $lockedPayment, [
+                ...$paymentData,
+                'reason' => $reason,
+                'contract_status_before' => $statusBefore,
+                'contract_status_after' => $locked->status,
+            ]);
 
             return $voucherPath;
         });
@@ -498,6 +515,37 @@ class InvestorContractService
         }
 
         return $cashAccount;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function investorPaymentAuditData(InvestorPayment $payment, InvestorContract $contract): array
+    {
+        return [
+            'payment_id' => $payment->id,
+            'investor_contract_id' => $contract->id,
+            'contract_code' => $contract->code,
+            'investor_id' => $contract->investor_id,
+            'investor_name' => $contract->investor()->value('name'),
+            'currency' => $contract->currency,
+            'amount' => number_format((float) $payment->amount, 2, '.', ''),
+            'withholding_amount' => number_format((float) $payment->withholding_amount, 2, '.', ''),
+            'net_amount' => number_format((float) $payment->net_amount, 2, '.', ''),
+            'paid_at' => $payment->paid_at?->toDateString(),
+            'payment_method' => $payment->payment_method,
+            'reference' => $payment->reference,
+            'cash_account_id' => $payment->cash_account_id,
+            'allocations' => $payment->allocations()
+                ->get(['investor_installment_id', 'amount', 'interest_amount', 'principal_amount'])
+                ->map(fn ($allocation): array => [
+                    'investor_installment_id' => $allocation->investor_installment_id,
+                    'amount' => number_format((float) $allocation->amount, 2, '.', ''),
+                    'interest_amount' => number_format((float) $allocation->interest_amount, 2, '.', ''),
+                    'principal_amount' => number_format((float) $allocation->principal_amount, 2, '.', ''),
+                ])
+                ->all(),
+        ];
     }
 
     private function lockContract(int $contractId): InvestorContract

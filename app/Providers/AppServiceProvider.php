@@ -6,10 +6,13 @@ use App\Console\ServeCommand;
 use App\Contracts\Google\GoogleIdTokenVerifier;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\AdvisorReminder;
+use App\Models\Inmopro\Lot;
 use App\Models\User;
 use App\Observers\AdvisorObserver;
 use App\Observers\AdvisorReminderObserver;
+use App\Observers\LotObserver;
 use App\Services\Google\GoogleIdTokenVerifierService;
+use App\Services\Inmopro\LotHistoryRecorder;
 use App\Support\AppBrandingResolver;
 use App\Support\OpenAiCazadorConfigResolver;
 use Carbon\CarbonImmutable;
@@ -32,6 +35,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(GoogleIdTokenVerifier::class, GoogleIdTokenVerifierService::class);
+        $this->app->singleton(LotHistoryRecorder::class);
 
         $this->app->extend(LaravelServeCommand::class, function ($command) {
             return $command instanceof ServeCommand
@@ -51,6 +55,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureViewComposers();
         Advisor::observe(AdvisorObserver::class);
         AdvisorReminder::observe(AdvisorReminderObserver::class);
+        Lot::observe(LotObserver::class);
     }
 
     protected function configureViewComposers(): void
@@ -105,6 +110,10 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('datero-login', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
+
+        RateLimiter::for('interno-login', function (Request $request) {
             return Limit::perMinute(10)->by($request->ip());
         });
 

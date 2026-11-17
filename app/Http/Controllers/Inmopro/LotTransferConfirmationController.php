@@ -10,10 +10,13 @@ use App\Http\Requests\Inmopro\StoreLotTransferConfirmationRequest;
 use App\Http\Requests\Inmopro\UpdateLotTransferQueueNotesRequest;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\Lot;
+use App\Models\Inmopro\LotHistory;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\LotTransferConfirmation;
+use App\Models\Inmopro\LotTransferVoucher;
 use App\Models\Inmopro\Project;
 use App\Services\Inmopro\CommissionService;
+use App\Services\Inmopro\LotHistoryRecorder;
 use App\Support\ClientPhoneGuard;
 use App\Support\FileStorage;
 use Illuminate\Database\Eloquent\Builder;
@@ -38,7 +41,8 @@ class LotTransferConfirmationController extends Controller
     ];
 
     public function __construct(
-        private CommissionService $commissionService
+        private CommissionService $commissionService,
+        private LotHistoryRecorder $historyRecorder,
     ) {}
 
     public function index(Request $request): Response
@@ -87,7 +91,7 @@ class LotTransferConfirmationController extends Controller
     {
         abort_unless($request->user()?->can('inmopro.lots.transfer-confirmation'), 403);
 
-        $lot->load(['project', 'status', 'client', 'advisor', 'latestTransferConfirmation']);
+        $lot->load(['project', 'status', 'client', 'advisor', 'latestTransferConfirmation.vouchers']);
 
         abort_unless($this->canRegisterTransfer($lot), 422, 'El lote no puede registrarse para transferencia.');
 
@@ -114,23 +118,43 @@ class LotTransferConfirmationController extends Controller
             ]);
         }
 
-        $storedPath = FileStorage::storeUploadedFile(
-            $request->file('evidence_image'),
-            'transfer-confirmations',
-        );
-
         $validated = $request->validated();
+        $storedPaths = [];
 
         try {
-            DB::transaction(function () use ($lot, $request, $storedPath, $transferredStatusId, $validated) {
+            $vouchers = [];
+
+            foreach ($validated['vouchers'] as $index => $voucher) {
+                $path = FileStorage::storeUploadedFile(
+                    $request->file("vouchers.{$index}.image"),
+                    'transfer-confirmations',
+                );
+                $storedPaths[] = $path;
+
+                $vouchers[] = [
+                    'bank' => $voucher['bank'],
+                    'bank_other' => $voucher['bank'] === LotTransferVoucher::BANK_OTHER
+                        ? trim((string) ($voucher['bank_other'] ?? ''))
+                        : null,
+                    'amount' => $voucher['amount'],
+                    'operation_number' => trim((string) $voucher['operation_number']),
+                    'image_path' => $path,
+                ];
+            }
+
+            DB::transaction(function () use ($lot, $request, $vouchers, $transferredStatusId, $validated) {
                 $confirmation = LotTransferConfirmation::create([
                     'lot_id' => $lot->id,
                     'status' => LotTransferConfirmation::STATUS_PENDING,
-                    'evidence_path' => $storedPath,
+                    'evidence_path' => null,
                     'transfer_date' => $validated['transfer_date'],
                     'transfer_amount' => $validated['transfer_amount'],
+                    'payer_name' => $validated['payer_name'],
+                    'payer_dni' => $validated['payer_dni'] ?? null,
                     'requested_by' => $request->user()->id,
                 ]);
+
+                $createdVouchers = $confirmation->vouchers()->createMany($vouchers);
 
                 foreach ($validated['expenses'] ?? [] as $expense) {
                     $lot->expenses()->create([
@@ -140,14 +164,34 @@ class LotTransferConfirmationController extends Controller
                     ]);
                 }
 
-                $lot->update([
+                $this->historyRecorder->withContext([
+                    'event' => LotHistory::EVENT_TRANSFERRED,
+                    'meta' => [
+                        'lot_transfer_confirmation_id' => $confirmation->id,
+                        'transfer_date' => $validated['transfer_date'],
+                        'transfer_amount' => number_format((float) $validated['transfer_amount'], 2, '.', ''),
+                        'payer_name' => $confirmation->payer_name,
+                        'payer_dni' => $confirmation->payer_dni,
+                        'payer_is_client' => $this->samePerson($lot, $confirmation->payer_name, $confirmation->payer_dni),
+                        'vouchers' => $createdVouchers->map(fn (LotTransferVoucher $voucher): array => [
+                            'id' => $voucher->id,
+                            'bank' => $voucher->bank_label,
+                            'amount' => number_format((float) $voucher->amount, 2, '.', ''),
+                            'operation_number' => $voucher->operation_number,
+                        ])->all(),
+                    ],
+                ], fn () => $lot->update([
                     'lot_status_id' => $transferredStatusId,
                     'notarial_transfer_date' => $validated['transfer_date'],
                     'sale_price' => $validated['transfer_amount'],
-                ]);
+                ]));
+
+                $this->commissionService->createCommissionsForTransferredLot($lot->fresh());
             });
         } catch (\Throwable $exception) {
-            FileStorage::deleteIfExists($storedPath);
+            foreach ($storedPaths as $path) {
+                FileStorage::deleteIfExists($path);
+            }
 
             throw $exception;
         }
@@ -213,6 +257,16 @@ class LotTransferConfirmationController extends Controller
         );
     }
 
+    public function voucherImage(LotTransferVoucher $lot_transfer_voucher): StreamedResponse
+    {
+        abort_unless(FileStorage::exists($lot_transfer_voucher->image_path), 404);
+
+        return FileStorage::filesystem()->response(
+            $lot_transfer_voucher->image_path,
+            basename($lot_transfer_voucher->image_path),
+        );
+    }
+
     public function reject(RejectLotTransferConfirmationRequest $request, LotTransferConfirmation $lot_transfer_confirmation): RedirectResponse
     {
         $lot_transfer_confirmation->load('lot');
@@ -247,8 +301,16 @@ class LotTransferConfirmationController extends Controller
             }
 
             if ($lotUpdates !== []) {
-                $lot->update($lotUpdates);
+                $this->historyRecorder->withContext([
+                    'reason' => $lot_transfer_confirmation->rejection_reason,
+                    'meta' => [
+                        'lot_transfer_confirmation_id' => $lot_transfer_confirmation->id,
+                        'payer_name' => $lot_transfer_confirmation->payer_name,
+                    ],
+                ], fn () => $lot->update($lotUpdates));
             }
+
+            $this->commissionService->deletePendingCommissionsForLot($lot);
         });
 
         return redirect()->route('inmopro.lot-transfer-confirmations.index');
@@ -282,6 +344,7 @@ class LotTransferConfirmationController extends Controller
                 'advisor',
                 'latestTransferConfirmation.requester',
                 'latestTransferConfirmation.reviewer',
+                'latestTransferConfirmation.vouchers',
             ])
             ->whereHas('status', fn ($query) => $query->whereIn('code', self::QUEUE_STATUS_CODES))
             ->when($request->filled('project_id'), fn ($query) => $query->where('project_id', $request->integer('project_id')))
@@ -348,6 +411,15 @@ class LotTransferConfirmationController extends Controller
             'advisor_id' => $request->input('advisor_id'),
             'pending_review' => $pendingReview ? '1' : null,
         ];
+    }
+
+    private function samePerson(Lot $lot, ?string $payerName, ?string $payerDni): bool
+    {
+        if ($payerDni !== null && $lot->client_dni !== null) {
+            return trim($payerDni) === trim($lot->client_dni);
+        }
+
+        return mb_strtolower(trim((string) $payerName)) === mb_strtolower(trim((string) $lot->client_name));
     }
 
     private function lotIsInQueue(Lot $lot): bool

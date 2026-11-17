@@ -5,20 +5,33 @@ namespace App\Services\Inmopro;
 use App\Models\Inmopro\Commission;
 use App\Models\Inmopro\CommissionStatus;
 use App\Models\Inmopro\Lot;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class CommissionService
 {
     private const DECIMAL_SCALE = 2;
 
+    public function __construct(
+        private InmoproAuditLogger $auditLogger,
+    ) {}
+
     /**
      * Calculate and create commissions when a lot is transferred.
      * Uses the advisor's level direct_rate and pyramid_rate.
+     * Idempotent: does nothing if the lot already has commissions.
+     * The commission date is the transfer date (fecha de escritura), so it is
+     * listed in /inmopro/commissions under the period the sale was closed.
      */
     public function createCommissionsForTransferredLot(Lot $lot): void
     {
         $lot->load(['advisor.level', 'advisor.superior']);
 
-        if (! $lot->advisor_id || ! $lot->advisor) {
+        if (! $lot->advisor_id || ! $lot->advisor || ! $lot->advisor->level) {
+            return;
+        }
+
+        if ($lot->commissions()->exists()) {
             return;
         }
 
@@ -32,6 +45,7 @@ class CommissionService
         $directRate = (string) $advisor->level->direct_rate;
         $pyramidRate = (string) $advisor->level->pyramid_rate;
         $price = (string) ($lot->sale_price ?? $lot->price);
+        $date = $this->commissionDateFor($lot);
 
         Commission::create([
             'lot_id' => $lot->id,
@@ -40,7 +54,7 @@ class CommissionService
             'percentage' => $directRate,
             'type' => 'DIRECTA',
             'commission_status_id' => $pendingStatus->id,
-            'date' => $lot->contract_date ?? now()->toDateString(),
+            'date' => $date,
         ]);
 
         if ($advisor->superior_id && $advisor->superior) {
@@ -51,9 +65,27 @@ class CommissionService
                 'percentage' => $pyramidRate,
                 'type' => 'PIRAMIDAL',
                 'commission_status_id' => $pendingStatus->id,
-                'date' => $lot->contract_date ?? now()->toDateString(),
+                'date' => $date,
             ]);
         }
+    }
+
+    /**
+     * Remove the still-unpaid commissions of a lot (e.g. when its transfer is
+     * rejected and the lot goes back to RESERVADO). Paid ones are kept.
+     */
+    public function deletePendingCommissionsForLot(Lot $lot): void
+    {
+        $lot->commissions()
+            ->whereHas('status', fn ($query) => $query->where('code', 'PENDIENTE'))
+            ->delete();
+    }
+
+    private function commissionDateFor(Lot $lot): string
+    {
+        return $lot->notarial_transfer_date?->toDateString()
+            ?? $lot->contract_date?->toDateString()
+            ?? now()->toDateString();
     }
 
     /**
@@ -82,13 +114,50 @@ class CommissionService
     {
         $paidStatus = CommissionStatus::where('code', 'PAGADO')->first();
 
-        if ($paidStatus) {
-            $commission->update([
+        if (! $paidStatus) {
+            return;
+        }
+
+        DB::transaction(function () use ($commission, $paidStatus): void {
+            /** @var Commission $locked */
+            $locked = Commission::query()
+                ->with(['status', 'advisor', 'lot.project'])
+                ->lockForUpdate()
+                ->findOrFail($commission->id);
+
+            // Paying twice would overwrite paid_at/paid_amount and break the audit trail.
+            if ((int) $locked->commission_status_id === (int) $paidStatus->id) {
+                throw ValidationException::withMessages([
+                    'commission' => 'La comisión ya fue pagada.',
+                ]);
+            }
+
+            $previousStatus = $locked->status?->code;
+
+            $locked->update([
                 'commission_status_id' => $paidStatus->id,
                 'paid_at' => now(),
-                'paid_amount' => $commission->amount,
+                'paid_amount' => $locked->amount,
             ]);
-        }
+
+            $this->auditLogger->recordEvent('commissions.paid', $locked, [
+                'commission_id' => $locked->id,
+                'type' => $locked->type,
+                'advisor_id' => $locked->advisor_id,
+                'advisor_name' => $locked->advisor?->name,
+                'lot_id' => $locked->lot_id,
+                'lot' => $locked->lot ? sprintf('%s-%s', $locked->lot->block, $locked->lot->number) : null,
+                'project' => $locked->lot?->project?->name,
+                'percentage' => (string) $locked->percentage,
+                'amount' => (string) $locked->amount,
+                'paid_amount' => (string) $locked->paid_amount,
+                'paid_at' => $locked->paid_at?->toDateTimeString(),
+                'status_before' => $previousStatus,
+                'status_after' => $paidStatus->code,
+            ]);
+        });
+
+        $commission->refresh();
     }
 
     /**

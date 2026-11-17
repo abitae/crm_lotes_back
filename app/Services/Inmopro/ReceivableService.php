@@ -20,6 +20,10 @@ class ReceivableService
 {
     private const AMOUNT_TOLERANCE = 0.005;
 
+    public function __construct(
+        private InmoproAuditLogger $auditLogger,
+    ) {}
+
     public function createInstallment(Lot $lot, array $validated): LotInstallment
     {
         return DB::transaction(function () use ($lot, $validated): LotInstallment {
@@ -72,6 +76,7 @@ class ReceivableService
 
                 $this->ensureLotAcceptsPayments($lockedLot);
 
+                $balancesBefore = $this->balanceSnapshot($lockedLot);
                 $outstanding = $this->outstandingBalance($lockedLot);
 
                 if ($amount > $outstanding + self::AMOUNT_TOLERANCE) {
@@ -148,6 +153,12 @@ class ReceivableService
                 $lockedLot->advance = round((float) ($lockedLot->advance ?? 0) + $amount, 2);
                 $this->syncLotBalances($lockedLot);
 
+                $this->auditLogger->recordEvent('lots.payments.created', $payment, [
+                    ...$this->paymentAuditData($payment, $lockedLot),
+                    'balances_before' => $balancesBefore,
+                    'balances_after' => $this->balanceSnapshot($lockedLot),
+                ]);
+
                 return $payment;
             });
         } catch (\Throwable $exception) {
@@ -174,6 +185,8 @@ class ReceivableService
             }
 
             $amount = (float) $lockedPayment->amount;
+            $balancesBefore = $this->balanceSnapshot($lockedLot);
+            $paymentData = $this->paymentAuditData($lockedPayment, $lockedLot);
             $allocations = $lockedPayment->allocations()->get();
 
             if ($allocations->isEmpty() && $lockedPayment->lot_installment_id !== null) {
@@ -216,6 +229,13 @@ class ReceivableService
 
             $voucherPath = $lockedPayment->voucher_path;
             $lockedPayment->delete();
+
+            $this->auditLogger->recordEvent('lots.payments.voided', $lockedPayment, [
+                ...$paymentData,
+                'reason' => $reason,
+                'balances_before' => $balancesBefore,
+                'balances_after' => $this->balanceSnapshot($lockedLot),
+            ]);
 
             return $voucherPath;
         });
@@ -364,6 +384,46 @@ class ReceivableService
     private function salePrice(Lot $lot): float
     {
         return (float) ($lot->sale_price ?? $lot->price ?? 0);
+    }
+
+    /**
+     * @return array{sale_price: string, advance: string, remaining_balance: string}
+     */
+    private function balanceSnapshot(Lot $lot): array
+    {
+        return [
+            'sale_price' => number_format($this->salePrice($lot), 2, '.', ''),
+            'advance' => number_format((float) ($lot->advance ?? 0), 2, '.', ''),
+            'remaining_balance' => number_format((float) ($lot->remaining_balance ?? 0), 2, '.', ''),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function paymentAuditData(LotPayment $payment, Lot $lot): array
+    {
+        return [
+            'payment_id' => $payment->id,
+            'lot_id' => $lot->id,
+            'lot' => sprintf('%s-%s', $lot->block, $lot->number),
+            'project_id' => $lot->project_id,
+            'client_name' => $lot->client_name,
+            'amount' => number_format((float) $payment->amount, 2, '.', ''),
+            'paid_at' => $payment->paid_at?->toDateString(),
+            'payment_method' => $payment->payment_method,
+            'reference' => $payment->reference,
+            'notes' => $payment->notes,
+            'lot_installment_id' => $payment->lot_installment_id,
+            'cash_account_id' => $payment->cash_account_id,
+            'allocations' => $payment->allocations()
+                ->get(['lot_installment_id', 'amount'])
+                ->map(fn (LotPaymentAllocation $allocation): array => [
+                    'lot_installment_id' => $allocation->lot_installment_id,
+                    'amount' => number_format((float) $allocation->amount, 2, '.', ''),
+                ])
+                ->all(),
+        ];
     }
 
     private function lockLot(int $lotId): Lot

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotPreReservation;
 use App\Models\Inmopro\LotStatus;
+use App\Services\Inmopro\LotHistoryRecorder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -50,13 +51,16 @@ class ExpireStalePreReservations extends Command
                 ) {
                     $freeStatusId = LotStatus::query()->where('code', 'LIBRE')->value('id');
 
-                    $lockedLot->update([
+                    app(LotHistoryRecorder::class)->withContext([
+                        'reason' => $preReservation->rejection_reason,
+                        'meta' => ['lot_pre_reservation_id' => $preReservation->id],
+                    ], fn () => $lockedLot->update([
                         'lot_status_id' => $freeStatusId,
                         'client_id' => null,
                         'client_name' => null,
                         'client_dni' => null,
                         'advisor_id' => null,
-                    ]);
+                    ]));
                 }
 
                 return true;

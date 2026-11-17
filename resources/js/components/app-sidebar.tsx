@@ -9,6 +9,7 @@ import {
     DollarSign,
     FileCheck,
     GitBranch,
+    ListTodo,
     HandCoins,
     KeyRound,
     Landmark,
@@ -214,6 +215,7 @@ const managementSections: NavSection[] = [
         label: 'Operación',
         icon: FileCheck,
         items: [
+            { title: 'Tareas', href: '/inmopro/tasks', icon: ListTodo },
             {
                 title: 'Tickets de atención',
                 href: '/inmopro/attention-tickets',

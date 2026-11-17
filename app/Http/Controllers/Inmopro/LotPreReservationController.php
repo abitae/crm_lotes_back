@@ -13,6 +13,7 @@ use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotPreReservation;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\Project;
+use App\Services\Inmopro\LotHistoryRecorder;
 use App\Support\ClientPhoneGuard;
 use App\Support\FileStorage;
 use Illuminate\Http\RedirectResponse;
@@ -199,7 +200,7 @@ class LotPreReservationController extends Controller
                 'rejection_reason' => null,
             ]);
 
-            $lot_pre_reservation->lot()->update([
+            $lot_pre_reservation->lot()->firstOrFail()->update([
                 'lot_status_id' => $reservedStatusId,
                 'client_id' => $lot_pre_reservation->client_id,
                 'advisor_id' => $lot_pre_reservation->advisor_id,
@@ -236,13 +237,16 @@ class LotPreReservationController extends Controller
                 'rejection_reason' => $request->input('rejection_reason'),
             ]);
 
-            $lot_pre_reservation->lot()->update([
+            app(LotHistoryRecorder::class)->withContext([
+                'reason' => $request->input('rejection_reason'),
+                'meta' => ['lot_pre_reservation_id' => $lot_pre_reservation->id],
+            ], fn () => $lot_pre_reservation->lot()->firstOrFail()->update([
                 'lot_status_id' => $freeStatusId,
                 'client_id' => null,
                 'client_name' => null,
                 'client_dni' => null,
                 'advisor_id' => null,
-            ]);
+            ]));
         });
 
         return redirect()->route('inmopro.lot-pre-reservations.index');

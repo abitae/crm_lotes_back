@@ -24,6 +24,8 @@ class LotTransferConfirmation extends Model
         'evidence_path',
         'transfer_date',
         'transfer_amount',
+        'payer_name',
+        'payer_dni',
         'requested_by',
         'reviewed_by',
         'reviewed_at',
@@ -71,5 +73,13 @@ class LotTransferConfirmation extends Model
     public function expenses(): HasMany
     {
         return $this->hasMany(LotExpense::class);
+    }
+
+    /**
+     * @return HasMany<LotTransferVoucher, $this>
+     */
+    public function vouchers(): HasMany
+    {
+        return $this->hasMany(LotTransferVoucher::class)->orderBy('id');
     }
 }

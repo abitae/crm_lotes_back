@@ -6,9 +6,13 @@ use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\Client;
 use App\Models\Inmopro\Commission;
 use App\Models\Inmopro\Lot;
+use App\Models\Inmopro\LotHistory;
 use App\Models\Inmopro\LotStatus;
 use App\Models\Inmopro\LotTransferConfirmation;
+use App\Models\Inmopro\LotTransferVoucher;
 use App\Models\User;
+use App\Services\Inmopro\CommissionService;
+use App\Support\FileStorage;
 use Database\Seeders\Inmopro\AdvisorLevelSeeder;
 use Database\Seeders\Inmopro\AdvisorSeeder;
 use Database\Seeders\Inmopro\ClientSeeder;
@@ -190,7 +194,7 @@ class InmoproLotTransferConfirmationsTest extends TestCase
 
         $this->actingAs($user)
             ->post(route('inmopro.lots.transfer-confirmation.store', $lot), [
-                'evidence_image' => UploadedFile::fake()->image('voucher.png'),
+                ...$this->payerAndVouchersPayload(),
                 'transfer_date' => '2026-09-30',
                 'transfer_amount' => 12500,
             ])
@@ -210,6 +214,96 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         $this->assertSame($this->statusIds['TRANSFERIDO'], (int) $lot->lot_status_id);
         $this->assertSame('2026-09-30', $lot->notarial_transfer_date?->toDateString());
         $this->assertSame('12500.00', (string) $lot->sale_price);
+
+        $lot->load('advisor.level');
+        $directRate = (string) $lot->advisor->level->direct_rate;
+        $direct = Commission::query()
+            ->where('lot_id', $lot->id)
+            ->where('type', 'DIRECTA')
+            ->firstOrFail();
+
+        $this->assertSame($lot->advisor_id, $direct->advisor_id);
+        $this->assertSame(number_format(12500 * (float) $directRate / 100, 2, '.', ''), (string) $direct->amount);
+        $this->assertSame('2026-09-30', $direct->date->toDateString());
+        $this->assertSame('PENDIENTE', $direct->status->code);
+    }
+
+    public function test_transferred_lot_commission_is_listed_in_commissions_view(): void
+    {
+        Storage::fake('public');
+
+        $user = $this->createTransferManager();
+        $lot = $this->makeReservedLot();
+
+        $this->actingAs($user)
+            ->post(route('inmopro.lots.transfer-confirmation.store', $lot), [
+                ...$this->payerAndVouchersPayload(),
+                'transfer_date' => '2026-09-30',
+                'transfer_amount' => 12500,
+            ])
+            ->assertRedirect(route('inmopro.lot-transfer-confirmations.index'));
+
+        $this->actingAs(User::factory()->create())
+            ->get(route('inmopro.commissions.index', [
+                'start_date' => '2026-09-01',
+                'end_date' => '2026-09-30',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('inmopro/commissions')
+                ->where('commissions.data', fn ($data) => collect($data)->contains(
+                    fn ($commission) => $commission['lot_id'] === $lot->id
+                        && $commission['advisor_id'] === $lot->advisor_id
+                        && $commission['type'] === 'DIRECTA'
+                ))
+            );
+    }
+
+    public function test_approving_transfer_does_not_duplicate_commissions_created_on_register(): void
+    {
+        Storage::fake('public');
+
+        $user = $this->createTransferManager();
+        $lot = $this->makeReservedLot();
+
+        $this->actingAs($user)
+            ->post(route('inmopro.lots.transfer-confirmation.store', $lot), [
+                ...$this->payerAndVouchersPayload(),
+                'transfer_date' => '2026-09-30',
+                'transfer_amount' => 12500,
+            ]);
+
+        $countAfterRegister = Commission::query()->where('lot_id', $lot->id)->count();
+        $this->assertGreaterThan(0, $countAfterRegister);
+
+        $transfer = LotTransferConfirmation::query()->where('lot_id', $lot->id)->firstOrFail();
+
+        $this->actingAs($user)
+            ->post(route('inmopro.lot-transfer-confirmations.approve', $transfer), [
+                'review_notes' => 'Conforme.',
+            ]);
+
+        $this->assertSame($countAfterRegister, Commission::query()->where('lot_id', $lot->id)->count());
+    }
+
+    public function test_sync_command_creates_missing_commissions_for_transferred_lots(): void
+    {
+        $lot = $this->makeReservedLot();
+        $lot->update([
+            'lot_status_id' => $this->statusIds['TRANSFERIDO'],
+            'notarial_transfer_date' => '2026-08-15',
+        ]);
+
+        $this->assertFalse(Commission::query()->where('lot_id', $lot->id)->exists());
+
+        $this->artisan('inmopro:sync-transferred-lot-commissions')->assertSuccessful();
+
+        $direct = Commission::query()->where('lot_id', $lot->id)->where('type', 'DIRECTA')->firstOrFail();
+        $this->assertSame('2026-08-15', $direct->date->toDateString());
+
+        $count = Commission::query()->where('lot_id', $lot->id)->count();
+        $this->artisan('inmopro:sync-transferred-lot-commissions')->assertSuccessful();
+        $this->assertSame($count, Commission::query()->where('lot_id', $lot->id)->count());
     }
 
     public function test_approving_pending_transfer_marks_review_and_creates_commissions(): void
@@ -290,6 +384,9 @@ class InmoproLotTransferConfirmationsTest extends TestCase
             'requested_by' => $user->id,
         ]);
 
+        app(CommissionService::class)->createCommissionsForTransferredLot($lot->fresh());
+        $this->assertTrue(Commission::query()->where('lot_id', $lot->id)->exists());
+
         $this->actingAs($user)
             ->post(route('inmopro.lot-transfer-confirmations.reject', $transfer), [
                 'rejection_reason' => 'Voucher ilegible',
@@ -307,6 +404,10 @@ class InmoproLotTransferConfirmationsTest extends TestCase
             'lot_status_id' => $this->statusIds['RESERVADO'],
             'notarial_transfer_date' => null,
         ]);
+        $this->assertFalse(
+            Commission::query()->where('lot_id', $lot->id)->exists(),
+            'Las comisiones pendientes se eliminan al rechazar la transferencia.'
+        );
     }
 
     public function test_index_orders_lots_by_oldest_contract_and_payment_limit_dates(): void
@@ -464,6 +565,177 @@ class InmoproLotTransferConfirmationsTest extends TestCase
                 ->where('lots.total', 1)
                 ->where('lots.data.0.id', $lot->id)
                 ->where('lots.data.0.status.code', 'CUOTAS'));
+    }
+
+    public function test_transfer_saves_payer_and_multiple_vouchers_and_history(): void
+    {
+        Storage::fake(FileStorage::disk());
+
+        $user = $this->createTransferManager();
+        $lot = $this->makeReservedLot();
+
+        $this->actingAs($user)
+            ->post(route('inmopro.lots.transfer-confirmation.store', $lot), [
+                'transfer_date' => '2026-10-05',
+                'transfer_amount' => 15000,
+                'payer_name' => 'María Quispe (hermana)',
+                'payer_dni' => '44556677',
+                'vouchers' => [
+                    [
+                        'image' => UploadedFile::fake()->image('v1.png'),
+                        'bank' => 'BCP',
+                        'amount' => 10000,
+                        'operation_number' => 'OP-111',
+                    ],
+                    [
+                        'image' => UploadedFile::fake()->image('v2.png'),
+                        'bank' => LotTransferVoucher::BANK_OTHER,
+                        'bank_other' => 'Caja Cusco',
+                        'amount' => 4000,
+                        'operation_number' => 'OP-222',
+                    ],
+                ],
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('inmopro.lot-transfer-confirmations.index'));
+
+        $confirmation = LotTransferConfirmation::query()->where('lot_id', $lot->id)->with('vouchers')->firstOrFail();
+        $this->assertSame('María Quispe (hermana)', $confirmation->payer_name);
+        $this->assertSame('44556677', $confirmation->payer_dni);
+        $this->assertNull($confirmation->evidence_path);
+        $this->assertCount(2, $confirmation->vouchers);
+
+        [$first, $second] = $confirmation->vouchers->all();
+        $this->assertSame('BCP', $first->bank_label);
+        $this->assertSame('10000.00', (string) $first->amount);
+        $this->assertSame('OP-111', $first->operation_number);
+        $this->assertSame('Caja Cusco', $second->bank_label);
+        $this->assertSame('4000.00', (string) $second->amount);
+        Storage::disk(FileStorage::disk())->assertExists($first->image_path);
+        Storage::disk(FileStorage::disk())->assertExists($second->image_path);
+
+        $this->actingAs($user)
+            ->get(route('inmopro.lot-transfer-vouchers.image', $first))
+            ->assertOk();
+
+        $history = LotHistory::query()
+            ->where('lot_id', $lot->id)
+            ->where('event', LotHistory::EVENT_TRANSFERRED)
+            ->sole();
+        $this->assertSame($user->id, $history->user_id);
+        $this->assertSame($this->statusIds['RESERVADO'], $history->from_status_id);
+        $this->assertSame($this->statusIds['TRANSFERIDO'], $history->to_status_id);
+        $this->assertSame('María Quispe (hermana)', $history->meta['payer_name']);
+        $this->assertFalse($history->meta['payer_is_client']);
+        $this->assertCount(2, $history->meta['vouchers']);
+    }
+
+    public function test_transfer_requires_payer_and_complete_vouchers(): void
+    {
+        Storage::fake(FileStorage::disk());
+
+        $user = $this->createTransferManager();
+        $lot = $this->makeReservedLot();
+
+        $this->actingAs($user)
+            ->post(route('inmopro.lots.transfer-confirmation.store', $lot), [
+                'transfer_date' => '2026-10-05',
+                'transfer_amount' => 15000,
+            ])
+            ->assertSessionHasErrors(['payer_name', 'vouchers']);
+
+        $this->actingAs($user)
+            ->post(route('inmopro.lots.transfer-confirmation.store', $lot), [
+                'transfer_date' => '2026-10-05',
+                'transfer_amount' => 15000,
+                'payer_name' => 'Cliente',
+                'vouchers' => [
+                    ['image' => UploadedFile::fake()->image('v1.png'), 'amount' => 100],
+                    ['image' => UploadedFile::fake()->image('v2.png'), 'bank' => 'OTRO', 'amount' => 100, 'operation_number' => 'X1'],
+                ],
+            ])
+            ->assertSessionHasErrors(['vouchers.0.bank', 'vouchers.0.operation_number', 'vouchers.1.bank_other']);
+
+        $this->assertDatabaseCount('lot_transfer_confirmations', 0);
+        $this->assertDatabaseCount('lot_transfer_vouchers', 0);
+        $this->assertSame($this->statusIds['RESERVADO'], (int) $lot->refresh()->lot_status_id);
+    }
+
+    public function test_voucher_operation_number_cannot_be_reused_unless_transfer_was_rejected(): void
+    {
+        Storage::fake(FileStorage::disk());
+
+        $user = $this->createTransferManager();
+        $lot = $this->makeReservedLot();
+        $otherLot = $this->makeReservedLot($lot->id);
+
+        $this->actingAs($user)
+            ->post(route('inmopro.lots.transfer-confirmation.store', $lot), $this->transferPayload())
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($user)
+            ->post(route('inmopro.lots.transfer-confirmation.store', $otherLot), $this->transferPayload())
+            ->assertSessionHasErrors('vouchers.0.operation_number');
+
+        $this->actingAs($user)
+            ->post(route('inmopro.lots.transfer-confirmation.store', $otherLot), [
+                ...$this->transferPayload(),
+                'vouchers' => [
+                    ['image' => UploadedFile::fake()->image('a.png'), 'bank' => 'BBVA', 'amount' => 10, 'operation_number' => 'DUP'],
+                    ['image' => UploadedFile::fake()->image('b.png'), 'bank' => 'BBVA', 'amount' => 10, 'operation_number' => 'DUP'],
+                ],
+            ])
+            ->assertSessionHasErrors('vouchers.1.operation_number');
+
+        $transfer = LotTransferConfirmation::query()->where('lot_id', $lot->id)->firstOrFail();
+        $this->actingAs($user)
+            ->post(route('inmopro.lot-transfer-confirmations.reject', $transfer), [
+                'rejection_reason' => 'Voucher de otro lote',
+            ]);
+
+        $this->actingAs($user)
+            ->post(route('inmopro.lots.transfer-confirmation.store', $otherLot), $this->transferPayload())
+            ->assertSessionHasNoErrors();
+
+        $rejectedHistory = LotHistory::query()
+            ->where('lot_id', $lot->id)
+            ->where('event', LotHistory::EVENT_TRANSFER_REJECTED)
+            ->sole();
+        $this->assertSame('Voucher de otro lote', $rejectedHistory->reason);
+        $this->assertSame($this->statusIds['RESERVADO'], $rejectedHistory->to_status_id);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function payerAndVouchersPayload(): array
+    {
+        return [
+            'payer_name' => 'Cliente de prueba',
+            'vouchers' => [
+                [
+                    'image' => UploadedFile::fake()->image('voucher.png'),
+                    'bank' => 'BCP',
+                    'amount' => 12500,
+                    'operation_number' => 'OP-'.uniqid(),
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function transferPayload(): array
+    {
+        return [
+            'transfer_date' => '2026-10-05',
+            'transfer_amount' => 9000,
+            'payer_name' => 'Cliente',
+            'vouchers' => [
+                ['image' => UploadedFile::fake()->image('v.png'), 'bank' => 'INTERBANK', 'amount' => 9000, 'operation_number' => '998877'],
+            ],
+        ];
     }
 
     private function createTransferManager(): User

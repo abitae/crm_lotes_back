@@ -16,6 +16,7 @@ class EnsureInmoproRoutePermission
     private const ROUTE_PERMISSION_ALIASES = [
         'inmopro.lot-transfer-confirmations.export-excel' => 'inmopro.lot-transfer-confirmations.index',
         'inmopro.lot-transfer-confirmations.evidence' => 'inmopro.lot-transfer-confirmations.index',
+        'inmopro.lot-transfer-vouchers.image' => 'inmopro.lot-transfer-confirmations.index',
         'inmopro.lot-pre-reservations.voucher' => 'inmopro.lot-pre-reservations.index',
         'inmopro.lots.transfer-queue-notes.update' => 'inmopro.lot-transfer-confirmations.index',
         'inmopro.project-360.show' => 'inmopro.project-360.index',

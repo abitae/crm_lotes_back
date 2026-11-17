@@ -5,6 +5,7 @@ namespace Tests\Feature\Inmopro;
 use App\Models\Inmopro\Advisor;
 use App\Models\Inmopro\CashAccount;
 use App\Models\Inmopro\Client;
+use App\Models\Inmopro\InmoproAuditLog;
 use App\Models\Inmopro\Lot;
 use App\Models\Inmopro\LotPayment;
 use App\Models\Inmopro\LotStatus;
@@ -481,6 +482,24 @@ class InmoproAccountsReceivableTest extends TestCase
             'amount' => 2000,
             'notes' => 'Abono duplicado',
         ]);
+
+        $created = InmoproAuditLog::query()->where('action', 'lots.payments.created')->sole();
+        $this->assertNotNull($created->user_id);
+        $this->assertSame(LotPayment::class, $created->subject_type);
+        $this->assertSame($payment->id, $created->subject_id);
+        $this->assertSame('2000.00', $created->meta['amount']);
+        $this->assertSame('1000.00', $created->meta['balances_before']['advance']);
+        $this->assertSame('3000.00', $created->meta['balances_after']['advance']);
+
+        $voided = InmoproAuditLog::query()->where('action', 'lots.payments.voided')->sole();
+        $this->assertSame('Abono duplicado', $voided->meta['reason']);
+        $this->assertSame('3000.00', $voided->meta['balances_before']['advance']);
+        $this->assertSame('1000.00', $voided->meta['balances_after']['advance']);
+
+        // The successful request is logged once (detailed event), without a generic duplicate.
+        $this->assertSame(1, InmoproAuditLog::query()
+            ->where('route_name', 'inmopro.lots.payments.store')
+            ->count());
     }
 
     public function test_whole_portfolio_ignores_contract_date_and_hides_free_statuses(): void
