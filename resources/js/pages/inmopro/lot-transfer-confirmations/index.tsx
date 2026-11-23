@@ -177,13 +177,25 @@ export default function LotTransferConfirmationsIndex({
     advisors,
     lotStatuses,
 }: {
-    lots: { data: LotRow[]; links: PaginationLink[]; total: number };
+    lots: {
+        data: LotRow[];
+        links: PaginationLink[];
+        total: number;
+        from: number | null;
+        to: number | null;
+        current_page: number;
+        last_page: number;
+        per_page: number;
+    };
     filters: {
         project_id?: string;
         lot_status_id?: string;
         search?: string;
         advisor_id?: string;
         pending_review?: string;
+        date_field?: string;
+        date_from?: string;
+        date_to?: string;
     };
     projects: Project[];
     advisors: AdvisorOption[];
@@ -202,6 +214,9 @@ export default function LotTransferConfirmationsIndex({
         search: filters.search ?? '',
         advisor_id: filters.advisor_id ?? '',
         pending_review: filters.pending_review === '1',
+        date_field: filters.date_field ?? 'contract_date',
+        date_from: filters.date_from ?? '',
+        date_to: filters.date_to ?? '',
     });
     const [advisorFilterSearch, setAdvisorFilterSearch] = useState('');
     const [advisorFilterOpen, setAdvisorFilterOpen] = useState(false);
@@ -278,6 +293,15 @@ export default function LotTransferConfirmationsIndex({
         if (filters.pending_review === '1') {
             params.set('pending_review', '1');
         }
+        if (filters.date_from || filters.date_to) {
+            params.set('date_field', filters.date_field ?? 'contract_date');
+        }
+        if (filters.date_from) {
+            params.set('date_from', filters.date_from);
+        }
+        if (filters.date_to) {
+            params.set('date_to', filters.date_to);
+        }
 
         return params.toString();
     }, [filters]);
@@ -302,6 +326,12 @@ export default function LotTransferConfirmationsIndex({
                 pending_review: filterForm.data.pending_review
                     ? '1'
                     : undefined,
+                date_field:
+                    filterForm.data.date_from || filterForm.data.date_to
+                        ? filterForm.data.date_field
+                        : undefined,
+                date_from: filterForm.data.date_from || undefined,
+                date_to: filterForm.data.date_to || undefined,
             },
             { preserveState: true },
         );
@@ -676,6 +706,53 @@ export default function LotTransferConfirmationsIndex({
                             />
                             Solo pendientes de revision
                         </label>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:flex-1">
+                            <select
+                                value={filterForm.data.date_field}
+                                onChange={(event) =>
+                                    filterForm.setData(
+                                        'date_field',
+                                        event.target.value,
+                                    )
+                                }
+                                aria-label="Tipo de fecha"
+                                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none"
+                            >
+                                <option value="contract_date">
+                                    Fecha de reserva
+                                </option>
+                                <option value="payment_limit_date">
+                                    Fecha límite
+                                </option>
+                                <option value="notarial_transfer_date">
+                                    Fecha de transferencia
+                                </option>
+                            </select>
+                            <Input
+                                type="date"
+                                value={filterForm.data.date_from}
+                                onChange={(event) =>
+                                    filterForm.setData(
+                                        'date_from',
+                                        event.target.value,
+                                    )
+                                }
+                                aria-label="Fecha desde"
+                                className="h-9 bg-slate-50 text-sm"
+                            />
+                            <Input
+                                type="date"
+                                value={filterForm.data.date_to}
+                                onChange={(event) =>
+                                    filterForm.setData(
+                                        'date_to',
+                                        event.target.value,
+                                    )
+                                }
+                                aria-label="Fecha hasta"
+                                className="h-9 bg-slate-50 text-sm"
+                            />
+                        </div>
                         <Button type="submit" className="h-9 w-full sm:w-auto">
                             Filtrar
                         </Button>
@@ -921,8 +998,13 @@ export default function LotTransferConfirmationsIndex({
                             </tbody>
                         </table>
                     </div>
-                    <div className="border-t border-slate-100 px-3 py-2">
-                        <Pagination links={lots.links} />
+                    <div className="flex flex-col gap-2 border-t border-slate-100 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-xs font-medium text-slate-500">
+                            {lots.total === 0
+                                ? 'Sin resultados'
+                                : `Mostrando ${lots.from ?? 0}–${lots.to ?? 0} de ${lots.total} · Página ${lots.current_page} de ${lots.last_page}`}
+                        </p>
+                        <Pagination links={lots.links} always />
                     </div>
                 </div>
             </div>

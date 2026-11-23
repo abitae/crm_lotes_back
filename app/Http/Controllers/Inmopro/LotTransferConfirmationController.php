@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Inmopro;
 use App\Exports\Inmopro\LotTransferConfirmationsExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Inmopro\ApproveLotTransferConfirmationRequest;
+use App\Http\Requests\Inmopro\IndexLotTransferConfirmationsRequest;
 use App\Http\Requests\Inmopro\RejectLotTransferConfirmationRequest;
 use App\Http\Requests\Inmopro\StoreLotTransferConfirmationRequest;
 use App\Http\Requests\Inmopro\UpdateLotTransferQueueNotesRequest;
@@ -45,7 +46,7 @@ class LotTransferConfirmationController extends Controller
         private LotHistoryRecorder $historyRecorder,
     ) {}
 
-    public function index(Request $request): Response
+    public function index(IndexLotTransferConfirmationsRequest $request): Response
     {
         abort_unless($request->user()?->can('inmopro.lot-transfer-confirmations.index'), 403);
 
@@ -75,7 +76,7 @@ class LotTransferConfirmationController extends Controller
         ]);
     }
 
-    public function exportExcel(Request $request): BinaryFileResponse
+    public function exportExcel(IndexLotTransferConfirmationsRequest $request): BinaryFileResponse
     {
         abort_unless($request->user()?->can('inmopro.lot-transfer-confirmations.index'), 403);
 
@@ -371,6 +372,13 @@ class LotTransferConfirmationController extends Controller
                 });
             })
             ->when($request->filled('advisor_id'), fn ($query) => $query->where('advisor_id', $request->integer('advisor_id')))
+            ->when($request->filled('date_from') || $request->filled('date_to'), function ($query) use ($request) {
+                $column = $this->queueDateColumn($request);
+
+                $query
+                    ->when($request->filled('date_from'), fn ($dateQuery) => $dateQuery->whereDate($column, '>=', $request->date('date_from')))
+                    ->when($request->filled('date_to'), fn ($dateQuery) => $dateQuery->whereDate($column, '<=', $request->date('date_to')));
+            })
             ->when($pendingReview, function ($query) {
                 $query->whereHas('latestTransferConfirmation', function ($transferQuery) {
                     $transferQuery->where('status', LotTransferConfirmation::STATUS_PENDING);
@@ -410,7 +418,19 @@ class LotTransferConfirmationController extends Controller
             'search' => $request->input('search'),
             'advisor_id' => $request->input('advisor_id'),
             'pending_review' => $pendingReview ? '1' : null,
+            'date_field' => $this->queueDateColumn($request),
+            'date_from' => $request->filled('date_from') ? $request->date('date_from')?->toDateString() : null,
+            'date_to' => $request->filled('date_to') ? $request->date('date_to')?->toDateString() : null,
         ];
+    }
+
+    private function queueDateColumn(Request $request): string
+    {
+        $field = $request->string('date_field')->toString();
+
+        return in_array($field, ['contract_date', 'payment_limit_date', 'notarial_transfer_date'], true)
+            ? $field
+            : 'contract_date';
     }
 
     private function samePerson(Lot $lot, ?string $payerName, ?string $payerDni): bool

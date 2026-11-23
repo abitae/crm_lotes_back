@@ -72,6 +72,11 @@ class InmoproLotTransferConfirmationsTest extends TestCase
                 ->where('filters.search', null)
                 ->where('filters.advisor_id', null)
                 ->where('filters.pending_review', null)
+                ->where('filters.date_field', 'contract_date')
+                ->where('filters.date_from', null)
+                ->where('filters.date_to', null)
+                ->where('lots.per_page', 15)
+                ->where('lots.current_page', 1)
             );
     }
 
@@ -183,6 +188,77 @@ class InmoproLotTransferConfirmationsTest extends TestCase
                 ->where('lots.total', 1)
                 ->where('lots.data.0.id', $lot->id)
             );
+    }
+
+    public function test_index_can_filter_by_date_range_and_paginates(): void
+    {
+        $user = $this->createTransferManager();
+        $inside = $this->makeReservedLot();
+        $inside->update([
+            'block' => 'DATEIN',
+            'contract_date' => '2026-03-10',
+            'payment_limit_date' => '2026-06-01',
+        ]);
+        $outside = $this->makeReservedLot(exceptIds: $inside->id);
+        $outside->update([
+            'block' => 'DATEOUT',
+            'contract_date' => '2026-01-02',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('inmopro.lot-transfer-confirmations.index', [
+                'date_field' => 'contract_date',
+                'date_from' => '2026-03-01',
+                'date_to' => '2026-03-31',
+                'search' => 'DATEIN',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.date_field', 'contract_date')
+                ->where('filters.date_from', '2026-03-01')
+                ->where('filters.date_to', '2026-03-31')
+                ->where('lots.total', 1)
+                ->where('lots.data.0.id', $inside->id)
+            );
+
+        $this->actingAs($user)
+            ->get(route('inmopro.lot-transfer-confirmations.index', [
+                'date_field' => 'contract_date',
+                'date_from' => '2026-03-01',
+                'date_to' => '2026-03-31',
+                'search' => 'DATEOUT',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('lots.total', 0)
+            );
+
+        Lot::query()->limit(16)->get()->each(function (Lot $lot): void {
+            $lot->update(['lot_status_id' => $this->statusIds['RESERVADO']]);
+        });
+
+        $this->actingAs($user)
+            ->get(route('inmopro.lot-transfer-confirmations.index', [
+                'page' => 2,
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('lots.per_page', 15)
+                ->where('lots.current_page', 2)
+                ->where('lots.last_page', fn (mixed $lastPage): bool => (int) $lastPage >= 2)
+            );
+    }
+
+    public function test_index_rejects_an_inverted_date_range(): void
+    {
+        $user = $this->createTransferManager();
+
+        $this->actingAs($user)
+            ->get(route('inmopro.lot-transfer-confirmations.index', [
+                'date_from' => '2026-04-10',
+                'date_to' => '2026-04-01',
+            ]))
+            ->assertSessionHasErrors('date_to');
     }
 
     public function test_authorized_user_can_register_transfer_for_reserved_lot(): void

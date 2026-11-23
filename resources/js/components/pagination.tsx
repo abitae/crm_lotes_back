@@ -15,6 +15,7 @@ export type PaginationLink = {
 type PaginationProps = {
     links: PaginationLink[];
     className?: string;
+    always?: boolean;
 };
 
 function normalizeLabel(raw: string): string {
@@ -56,10 +57,10 @@ function paginationLinkContent(label: string): ReactNode {
  * Muestra los enlaces de paginación de Laravel (array links del paginator).
  * Oculta el contenedor si solo hay una página (prev, 1, next sin otras opciones).
  */
-export default function Pagination({ links, className = '' }: PaginationProps) {
+export default function Pagination({ links, className = '', always = false }: PaginationProps) {
     const canGoElsewhere = links.some((link) => link.url !== null && !link.active);
 
-    if (!canGoElsewhere) {
+    if (!canGoElsewhere && !always) {
         return null;
     }
 
