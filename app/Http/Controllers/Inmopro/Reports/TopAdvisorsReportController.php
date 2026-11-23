@@ -10,8 +10,10 @@ use App\Models\Inmopro\LotStatus;
 use App\Services\Inmopro\Reports\ReportDateRangeResolver;
 use App\Services\Inmopro\Reports\ReportFilterOptions;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
 use Inertia\Inertia;
@@ -30,7 +32,75 @@ class TopAdvisorsReportController extends Controller
 
     public function index(Request $request): InertiaResponse
     {
-        return Inertia::render('inmopro/reports/top-advisors', $this->buildPayload($request));
+        $payload = $this->buildPayload($request);
+        $rows = collect($payload['rows'])->values();
+        $perPage = 15;
+        $page = max(1, $request->integer('page', 1));
+        $paginator = new LengthAwarePaginator(
+            $rows->forPage($page, $perPage)->values(),
+            $rows->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ],
+        );
+
+        $payload['rows'] = array_values($paginator->items());
+        $payload['pagination'] = [
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'from' => $paginator->firstItem(),
+            'to' => $paginator->lastItem(),
+            'total' => $paginator->total(),
+            'links' => $paginator->linkCollection()->toArray(),
+        ];
+
+        return Inertia::render('inmopro/reports/top-advisors', $payload);
+    }
+
+    public function transfers(Request $request, Advisor $advisor): JsonResponse
+    {
+        $filters = $this->filters($request);
+
+        $transfers = $this->transferredLotsQuery($filters)
+            ->leftJoin('clients', 'clients.id', '=', 'lots.client_id')
+            ->where('lots.advisor_id', $advisor->id)
+            ->select([
+                'lots.id',
+                'lots.block',
+                'lots.number',
+                'lots.price',
+                'lots.notarial_transfer_date',
+                DB::raw('COALESCE(clients.name, lots.client_name) as client_name'),
+                'projects.name as project_name',
+                DB::raw('ROUND(lots.price * COALESCE(project_types.percentage_meta, 100) / 100, 2) as transfer_amount'),
+            ])
+            ->orderBy('lots.notarial_transfer_date')
+            ->orderBy('lots.block')
+            ->orderBy('lots.number')
+            ->get()
+            ->map(fn (Lot $lot): array => [
+                'id' => $lot->id,
+                'project_name' => $lot->getAttribute('project_name'),
+                'block' => $lot->block,
+                'number' => $lot->number,
+                'client_name' => $lot->getAttribute('client_name'),
+                'notarial_transfer_date' => $lot->notarial_transfer_date?->toDateString(),
+                'price' => round((float) $lot->price, 2),
+                'transfer_amount' => round((float) $lot->getAttribute('transfer_amount'), 2),
+            ])
+            ->values();
+
+        return response()->json([
+            'advisor' => [
+                'id' => $advisor->id,
+                'name' => $advisor->name,
+            ],
+            'transfers' => $transfers,
+        ]);
     }
 
     public function pdf(Request $request): Response
@@ -78,6 +148,22 @@ class TopAdvisorsReportController extends Controller
     }
 
     /**
+     * @return array{project_id: int|null, team_id: int|null, start_date: string, end_date: string, include_inactive: bool}
+     */
+    private function filters(Request $request): array
+    {
+        $dateRange = $this->dateRangeResolver->resolve($request);
+
+        return [
+            'project_id' => $request->filled('project_id') ? $request->integer('project_id') : null,
+            'team_id' => $request->filled('team_id') ? $request->integer('team_id') : null,
+            'start_date' => $dateRange['start_date'],
+            'end_date' => $dateRange['end_date'],
+            'include_inactive' => $request->boolean('include_inactive'),
+        ];
+    }
+
+    /**
      * @param  array{project_id: int|null, team_id: int|null, start_date: string, end_date: string, include_inactive?: bool}  $filters
      * @return Builder<Lot>
      */
@@ -104,14 +190,7 @@ class TopAdvisorsReportController extends Controller
      */
     private function buildPayload(Request $request): array
     {
-        $dateRange = $this->dateRangeResolver->resolve($request);
-        $filters = [
-            'project_id' => $request->filled('project_id') ? $request->integer('project_id') : null,
-            'team_id' => $request->filled('team_id') ? $request->integer('team_id') : null,
-            'start_date' => $dateRange['start_date'],
-            'end_date' => $dateRange['end_date'],
-            'include_inactive' => $request->boolean('include_inactive'),
-        ];
+        $filters = $this->filters($request);
 
         $options = $this->filterOptions->all($request);
 
@@ -148,6 +227,11 @@ class TopAdvisorsReportController extends Controller
             ->filter(fn (array $row) => $row['transfer_count'] > 0)
             ->sortByDesc('sold_amount')
             ->values()
+            ->map(function (array $row, int $index): array {
+                $row['rank'] = $index + 1;
+
+                return $row;
+            })
             ->all();
 
         return [

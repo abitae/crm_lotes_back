@@ -212,6 +212,7 @@ Route::middleware(['auth', 'verified'])->prefix('inmopro')->name('inmopro.')->gr
         Route::get('reports/top-advisors', [TopAdvisorsReportController::class, 'index'])->name('reports.top-advisors.index');
         Route::get('reports/top-advisors/pdf', [TopAdvisorsReportController::class, 'pdf'])->name('reports.top-advisors.pdf');
         Route::get('reports/top-advisors/csv', [TopAdvisorsReportController::class, 'csv'])->name('reports.top-advisors.csv');
+        Route::get('reports/top-advisors/{advisor}/transfers', [TopAdvisorsReportController::class, 'transfers'])->name('reports.top-advisors.transfers');
         Route::get('reports/reservations', [ReservationsDetailReportController::class, 'index'])->name('reports.reservations.index');
         Route::get('reports/reservations/pdf', [ReservationsDetailReportController::class, 'pdf'])->name('reports.reservations.pdf');
         Route::get('reports/reservations/csv', [ReservationsDetailReportController::class, 'csv'])->name('reports.reservations.csv');

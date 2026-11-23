@@ -246,4 +246,131 @@ class TopAdvisorsReportTest extends TestCase
             ->assertHeader('content-type', 'application/pdf')
             ->assertHeader('content-disposition', 'inline; filename="top-cazadores-2026-03-15.pdf"');
     }
+
+    public function test_top_advisors_index_paginates_fifteen_rows(): void
+    {
+        $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
+        $status = LotStatus::create(['name' => 'Transferido', 'code' => 'TRANSFERIDO', 'color' => '#64748b', 'sort_order' => 2]);
+        $team = Team::create(['name' => 'T1', 'code' => 'T1', 'description' => 'T', 'color' => '#000', 'sort_order' => 1, 'is_active' => true]);
+        $level = AdvisorLevel::create(['name' => 'L1', 'code' => 'L1', 'direct_rate' => 5, 'pyramid_rate' => 2, 'color' => '#000', 'sort_order' => 1]);
+        $city = City::create(['name' => 'Lima', 'code' => 'LIM', 'department' => 'Lima', 'sort_order' => 1, 'is_active' => true]);
+        $project = Project::create(['name' => 'P Pag', 'location' => 'X', 'total_lots' => 20, 'blocks' => ['A']]);
+
+        for ($index = 1; $index <= 16; $index++) {
+            $advisor = Advisor::create([
+                'dni' => str_pad((string) (70000000 + $index), 8, '0', STR_PAD_LEFT),
+                'name' => 'Asesor '.$index,
+                'phone' => '999',
+                'email' => "page{$index}@t.com",
+                'city_id' => $city->id,
+                'team_id' => $team->id,
+                'advisor_level_id' => $level->id,
+                'personal_quota' => 0,
+            ]);
+            Lot::create([
+                'project_id' => $project->id,
+                'advisor_id' => $advisor->id,
+                'block' => 'A',
+                'number' => (string) $index,
+                'area' => 100,
+                'price' => $index * 1000,
+                'lot_status_id' => $status->id,
+                'contract_date' => '2026-03-01',
+                'notarial_transfer_date' => '2026-03-10',
+            ]);
+        }
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('inmopro.reports.top-advisors.index', [
+                'start_date' => '2026-03-01',
+                'end_date' => '2026-03-31',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('pagination.per_page', 15)
+                ->where('pagination.current_page', 1)
+                ->where('pagination.last_page', 2)
+                ->where('pagination.total', 16)
+                ->where('pagination.from', 1)
+                ->where('pagination.to', 15)
+                ->has('rows', 15)
+                ->where('rows.0.rank', 1)
+                ->where('rows.0.advisor_name', 'Asesor 16'));
+
+        $this->actingAs($user)
+            ->get(route('inmopro.reports.top-advisors.index', [
+                'start_date' => '2026-03-01',
+                'end_date' => '2026-03-31',
+                'page' => 2,
+            ]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('pagination.current_page', 2)
+                ->has('rows', 1)
+                ->where('rows.0.rank', 16)
+                ->where('rows.0.advisor_name', 'Asesor 1'));
+    }
+
+    public function test_top_advisors_transfers_lists_lots_in_the_selected_period(): void
+    {
+        $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
+        $status = LotStatus::create(['name' => 'Transferido', 'code' => 'TRANSFERIDO', 'color' => '#64748b', 'sort_order' => 2]);
+        $type = ProjectType::create([
+            'name' => 'Mitad', 'code' => 'MITAD', 'description' => null, 'color' => '#000',
+            'sort_order' => 1, 'percentage_meta' => 50, 'is_active' => true,
+        ]);
+        $team = Team::create(['name' => 'T1', 'code' => 'T1', 'description' => 'T', 'color' => '#000', 'sort_order' => 1, 'is_active' => true]);
+        $level = AdvisorLevel::create(['name' => 'L1', 'code' => 'L1', 'direct_rate' => 5, 'pyramid_rate' => 2, 'color' => '#000', 'sort_order' => 1]);
+        $city = City::create(['name' => 'Lima', 'code' => 'LIM', 'department' => 'Lima', 'sort_order' => 1, 'is_active' => true]);
+        $advisor = Advisor::create([
+            'dni' => '87654326', 'name' => 'Detalle Asesor', 'phone' => '999', 'email' => 'detalle@t.com',
+            'city_id' => $city->id, 'team_id' => $team->id, 'advisor_level_id' => $level->id, 'personal_quota' => 0,
+        ]);
+        $project = Project::create([
+            'name' => 'P Detalle', 'project_type_id' => $type->id, 'location' => 'X', 'total_lots' => 10, 'blocks' => ['A'],
+        ]);
+        Lot::create([
+            'project_id' => $project->id,
+            'advisor_id' => $advisor->id,
+            'block' => 'A',
+            'number' => '8',
+            'area' => 100,
+            'price' => 40000,
+            'client_name' => 'Cliente Detalle',
+            'lot_status_id' => $status->id,
+            'contract_date' => '2026-03-01',
+            'notarial_transfer_date' => '2026-03-12',
+        ]);
+        Lot::create([
+            'project_id' => $project->id,
+            'advisor_id' => $advisor->id,
+            'block' => 'A',
+            'number' => '9',
+            'area' => 100,
+            'price' => 90000,
+            'lot_status_id' => $status->id,
+            'contract_date' => '2026-04-01',
+            'notarial_transfer_date' => '2026-04-02',
+        ]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson(route('inmopro.reports.top-advisors.transfers', [
+                'advisor' => $advisor,
+                'start_date' => '2026-03-01',
+                'end_date' => '2026-03-31',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('advisor.name', 'Detalle Asesor')
+            ->assertJsonCount(1, 'transfers')
+            ->assertJsonPath('transfers.0.project_name', 'P Detalle')
+            ->assertJsonPath('transfers.0.block', 'A')
+            ->assertJsonPath('transfers.0.number', '8')
+            ->assertJsonPath('transfers.0.client_name', 'Cliente Detalle')
+            ->assertJsonPath('transfers.0.price', 40000)
+            ->assertJsonPath('transfers.0.transfer_amount', 20000);
+    }
 }

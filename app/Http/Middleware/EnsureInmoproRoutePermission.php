@@ -14,6 +14,7 @@ class EnsureInmoproRoutePermission
      * @var array<string, string>
      */
     private const ROUTE_PERMISSION_ALIASES = [
+        'inmopro.reports.top-advisors.transfers' => 'inmopro.reports.top-advisors.index',
         'inmopro.lot-transfer-confirmations.export-excel' => 'inmopro.lot-transfer-confirmations.index',
         'inmopro.lot-transfer-confirmations.evidence' => 'inmopro.lot-transfer-confirmations.index',
         'inmopro.lot-transfer-vouchers.image' => 'inmopro.lot-transfer-confirmations.index',
