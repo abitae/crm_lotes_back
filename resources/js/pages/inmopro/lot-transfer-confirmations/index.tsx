@@ -293,15 +293,9 @@ export default function LotTransferConfirmationsIndex({
         if (filters.pending_review === '1') {
             params.set('pending_review', '1');
         }
-        if (filters.date_from || filters.date_to) {
-            params.set('date_field', filters.date_field ?? 'contract_date');
-        }
-        if (filters.date_from) {
-            params.set('date_from', filters.date_from);
-        }
-        if (filters.date_to) {
-            params.set('date_to', filters.date_to);
-        }
+        params.set('date_field', filters.date_field ?? 'contract_date');
+        params.set('date_from', filters.date_from ?? '');
+        params.set('date_to', filters.date_to ?? '');
 
         return params.toString();
     }, [filters]);
@@ -326,12 +320,9 @@ export default function LotTransferConfirmationsIndex({
                 pending_review: filterForm.data.pending_review
                     ? '1'
                     : undefined,
-                date_field:
-                    filterForm.data.date_from || filterForm.data.date_to
-                        ? filterForm.data.date_field
-                        : undefined,
-                date_from: filterForm.data.date_from || undefined,
-                date_to: filterForm.data.date_to || undefined,
+                date_field: filterForm.data.date_field,
+                date_from: filterForm.data.date_from,
+                date_to: filterForm.data.date_to,
             },
             { preserveState: true },
         );

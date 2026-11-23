@@ -73,8 +73,8 @@ class InmoproLotTransferConfirmationsTest extends TestCase
                 ->where('filters.advisor_id', null)
                 ->where('filters.pending_review', null)
                 ->where('filters.date_field', 'contract_date')
-                ->where('filters.date_from', null)
-                ->where('filters.date_to', null)
+                ->where('filters.date_from', now()->startOfMonth()->toDateString())
+                ->where('filters.date_to', now()->toDateString())
                 ->where('lots.per_page', 15)
                 ->where('lots.current_page', 1)
             );
@@ -234,7 +234,10 @@ class InmoproLotTransferConfirmationsTest extends TestCase
             );
 
         Lot::query()->limit(16)->get()->each(function (Lot $lot): void {
-            $lot->update(['lot_status_id' => $this->statusIds['RESERVADO']]);
+            $lot->update([
+                'lot_status_id' => $this->statusIds['RESERVADO'],
+                'contract_date' => now()->toDateString(),
+            ]);
         });
 
         $this->actingAs($user)
@@ -517,6 +520,8 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         $this->actingAs($user)
             ->get(route('inmopro.lot-transfer-confirmations.index', [
                 'search' => 'SORT',
+                'date_from' => '2026-01-01',
+                'date_to' => '2026-03-31',
             ]))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
@@ -549,6 +554,8 @@ class InmoproLotTransferConfirmationsTest extends TestCase
         $this->actingAs($user)
             ->get(route('inmopro.lot-transfer-confirmations.index', [
                 'search' => 'STATUSORD',
+                'date_from' => '2026-01-01',
+                'date_to' => '2026-06-30',
             ]))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page

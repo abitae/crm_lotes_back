@@ -335,6 +335,7 @@ class LotTransferConfirmationController extends Controller
     {
         $search = trim((string) $request->string('search'));
         $pendingReview = $request->boolean('pending_review');
+        $dates = $this->queueDateRange($request);
 
         return Lot::query()
             ->select('lots.*')
@@ -372,12 +373,12 @@ class LotTransferConfirmationController extends Controller
                 });
             })
             ->when($request->filled('advisor_id'), fn ($query) => $query->where('advisor_id', $request->integer('advisor_id')))
-            ->when($request->filled('date_from') || $request->filled('date_to'), function ($query) use ($request) {
+            ->when($dates['date_from'] !== null || $dates['date_to'] !== null, function ($query) use ($request, $dates) {
                 $column = $this->queueDateColumn($request);
 
                 $query
-                    ->when($request->filled('date_from'), fn ($dateQuery) => $dateQuery->whereDate($column, '>=', $request->date('date_from')))
-                    ->when($request->filled('date_to'), fn ($dateQuery) => $dateQuery->whereDate($column, '<=', $request->date('date_to')));
+                    ->when($dates['date_from'] !== null, fn ($dateQuery) => $dateQuery->whereDate($column, '>=', $dates['date_from']))
+                    ->when($dates['date_to'] !== null, fn ($dateQuery) => $dateQuery->whereDate($column, '<=', $dates['date_to']));
             })
             ->when($pendingReview, function ($query) {
                 $query->whereHas('latestTransferConfirmation', function ($transferQuery) {
@@ -419,6 +420,26 @@ class LotTransferConfirmationController extends Controller
             'advisor_id' => $request->input('advisor_id'),
             'pending_review' => $pendingReview ? '1' : null,
             'date_field' => $this->queueDateColumn($request),
+            ...$this->queueDateRange($request),
+        ];
+    }
+
+    /**
+     * Sin fechas en la consulta, el rango es el mes en curso hasta hoy.
+     * Una fecha vacía enviada a propósito deja ese extremo sin filtrar.
+     *
+     * @return array{date_from: ?string, date_to: ?string}
+     */
+    private function queueDateRange(Request $request): array
+    {
+        if (! $request->has('date_from') && ! $request->has('date_to')) {
+            return [
+                'date_from' => now()->startOfMonth()->toDateString(),
+                'date_to' => now()->toDateString(),
+            ];
+        }
+
+        return [
             'date_from' => $request->filled('date_from') ? $request->date('date_from')?->toDateString() : null,
             'date_to' => $request->filled('date_to') ? $request->date('date_to')?->toDateString() : null,
         ];
